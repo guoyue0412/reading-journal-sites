@@ -12,9 +12,12 @@ authors: [UniTacVLA Team]
 venue: arXiv
 year: 2026
 paper_url: https://arxiv.org/
-reading_status: reviewed
+reading_methods: [deep, synthesis]
+reading_status: completed
 topics: [multimodal-policy, tactile-sensing, action-generation]
 ---
+
+## 细读记录
 
 UniTacVLA 最值得追问的并不是“多加了一种模态”，而是触觉信息在什么时间尺度上改变动作生成。策略可以写成 $\pi(a_t\mid o_{\le t})$，但这里的观测已经不只是图像和指令，还包含接触发生之后才出现的局部反馈。
 
@@ -34,3 +37,7 @@ $$
 ```text
 observation -> multimodal policy -> action sequence -> tactile correction
 ```
+
+## 阅读总结
+
+这篇工作真正有价值的地方，是把触觉从附加模态转化为接触后的动作校正依据。后续阅读同类工作时，应重点比较触觉进入策略的时间尺度、融合位置和缺失模态下的退化方式。

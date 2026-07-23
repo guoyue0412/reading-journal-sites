@@ -1,5 +1,7 @@
 export type ContentType = "jobs" | "internship" | "papers" | "reflections";
-export type ReadingStatus = "queued" | "reading" | "reviewed" | "reproduced";
+export type ReadingMethod = "skim" | "deep" | "synthesis";
+export type ReadingStatus = "queued" | "in_progress" | "synthesizing" | "completed" | "archived";
+export type ApplicationStage = "applied" | "written_test" | "interview" | "offer" | "closed";
 
 export interface ContentEntry {
   title: string;
@@ -17,7 +19,14 @@ export interface ContentEntry {
   year?: number;
   paperUrl?: string;
   readingStatus?: ReadingStatus;
+  readingMethods?: ReadingMethod[];
   topics?: string[];
+  company?: string;
+  role?: string;
+  location?: string;
+  applicationStage?: ApplicationStage;
+  appliedAt?: string;
+  nextAction?: string;
 }
 
 export interface PaperEntry extends ContentEntry {
@@ -27,5 +36,13 @@ export interface PaperEntry extends ContentEntry {
   year: number;
   paperUrl: string;
   readingStatus: ReadingStatus;
+  readingMethods: ReadingMethod[];
   topics: string[];
+}
+
+export interface RecruitingEntry extends ContentEntry {
+  type: "jobs";
+  company: string;
+  role: string;
+  applicationStage: ApplicationStage;
 }

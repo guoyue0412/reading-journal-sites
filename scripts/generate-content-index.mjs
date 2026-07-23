@@ -4,7 +4,14 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modules = ["jobs", "internship", "papers", "reflections"];
-const readingStatuses = ["queued", "reading", "reviewed", "reproduced"];
+const readingMethods = ["skim", "deep", "synthesis"];
+const readingStatuses = ["queued", "in_progress", "synthesizing", "completed", "archived"];
+const applicationStages = ["applied", "written_test", "interview", "offer", "closed"];
+const methodSections = new Map([
+  ["skim", "粗读记录"],
+  ["deep", "细读记录"],
+  ["synthesis", "阅读总结"],
+]);
 
 function cliPath(flag, fallback) {
   const index = process.argv.indexOf(flag);
@@ -59,6 +66,10 @@ function requireStringArray(entry, field, filePath) {
   }
 }
 
+function validateOptionalString(entry, field, filePath) {
+  if (entry[field] !== undefined) requireString(entry, field, filePath);
+}
+
 function isIsoDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
@@ -107,7 +118,37 @@ function validateEntry(entry, moduleName, filePath) {
     if (!readingStatuses.includes(entry.reading_status)) {
       invalid(filePath, "reading_status", `must be one of ${readingStatuses.join(", ")}`);
     }
+    requireStringArray(entry, "reading_methods", filePath);
+    for (const method of entry.reading_methods) {
+      if (!readingMethods.includes(method)) {
+        invalid(filePath, "reading_methods", `must contain only ${readingMethods.join(", ")}`);
+      }
+    }
+    if (new Set(entry.reading_methods).size !== entry.reading_methods.length) {
+      invalid(filePath, "reading_methods", "must not contain duplicate values");
+    }
+    if (entry.reading_status !== "queued" && entry.reading_methods.length === 0) {
+      invalid(filePath, "reading_methods", "must contain at least one method after reading starts");
+    }
+    for (const [method, section] of methodSections) {
+      const declared = entry.reading_methods.includes(method);
+      const present = new RegExp(`^##\\s+${section}\\s*$`, "m").test(entry.body);
+      if (declared && !present) invalid(filePath, "body", `must include ## ${section}`);
+      if (present && !declared) invalid(filePath, "reading_methods", `must include ${method} for ## ${section}`);
+    }
     requireStringArray(entry, "topics", filePath);
+  }
+
+  if (entry.type === "jobs") {
+    requireString(entry, "company", filePath);
+    requireString(entry, "role", filePath);
+    requireString(entry, "application_stage", filePath);
+    if (!applicationStages.includes(entry.application_stage)) {
+      invalid(filePath, "application_stage", `must be one of ${applicationStages.join(", ")}`);
+    }
+    validateOptionalString(entry, "location", filePath);
+    validateOptionalString(entry, "next_action", filePath);
+    if (entry.applied_at !== undefined) validateDate(entry, "applied_at", filePath);
   }
 }
 
@@ -116,6 +157,10 @@ function runtimeEntry(entry) {
     read_at: readAt,
     paper_url: paperUrl,
     reading_status: readingStatus,
+    reading_methods: readingMethodsValue,
+    application_stage: applicationStage,
+    applied_at: appliedAt,
+    next_action: nextAction,
     ...common
   } = entry;
   return {
@@ -123,6 +168,10 @@ function runtimeEntry(entry) {
     ...(readAt === undefined ? {} : { readAt }),
     ...(paperUrl === undefined ? {} : { paperUrl }),
     ...(readingStatus === undefined ? {} : { readingStatus }),
+    ...(readingMethodsValue === undefined ? {} : { readingMethods: readingMethodsValue }),
+    ...(applicationStage === undefined ? {} : { applicationStage }),
+    ...(appliedAt === undefined ? {} : { appliedAt }),
+    ...(nextAction === undefined ? {} : { nextAction }),
   };
 }
 

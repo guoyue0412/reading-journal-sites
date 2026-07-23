@@ -14,10 +14,13 @@ import {
 } from "../lib/content/query.ts";
 
 const execFileAsync = promisify(execFile);
-function markdown(fields, body = "Body") {
+function markdown(fields, body) {
+  const resolvedBody = body ?? (fields.type === "papers"
+    ? "## 细读记录\n\nDetailed reading notes."
+    : "Body");
   return `---\n${Object.entries(fields)
     .map(([key, value]) => `${key}: ${value}`)
-    .join("\n")}\n---\n\n${body}\n`;
+    .join("\n")}\n---\n\n${resolvedBody}\n`;
 }
 
 const validCommon = {
@@ -29,6 +32,9 @@ const validCommon = {
   tags: "[test]",
   related: "[]",
   status: "published",
+  company: "Example Robotics",
+  role: "具身智能算法工程师",
+  application_stage: "interview",
 };
 
 const validPaper = {
@@ -41,7 +47,8 @@ const validPaper = {
   venue: "arXiv",
   year: "2026",
   paper_url: "https://arxiv.org/",
-  reading_status: "reviewed",
+  reading_methods: "[deep]",
+  reading_status: "in_progress",
   topics: "[robotics]",
 };
 
@@ -124,10 +131,105 @@ test("normalizes documented snake_case paper frontmatter for runtime consumers",
 
   assert.equal(paper.readAt, "2026-05-10");
   assert.equal(paper.paperUrl, "https://arxiv.org/");
-  assert.equal(paper.readingStatus, "reviewed");
+  assert.deepEqual(paper.readingMethods, ["deep"]);
+  assert.equal(paper.readingStatus, "in_progress");
   assert.equal("read_at" in paper, false);
   assert.equal("paper_url" in paper, false);
   assert.equal("reading_status" in paper, false);
+  assert.equal("reading_methods" in paper, false);
+});
+
+test("models paper reading methods independently from its single execution status", async () => {
+  const { entries } = await runIsolatedGenerator({
+    "papers/paper.md": markdown(
+      {
+        ...validPaper,
+        reading_methods: "[skim, synthesis]",
+        reading_status: "completed",
+      },
+      "## 粗读记录\n\nFast notes.\n\n## 阅读总结\n\nReusable conclusion.",
+    ),
+  });
+
+  assert.deepEqual(entries[0].readingMethods, ["skim", "synthesis"]);
+  assert.equal(entries[0].readingStatus, "completed");
+});
+
+test("allows no reading method only while a paper is queued", async () => {
+  const { entries } = await runIsolatedGenerator({
+    "papers/queued.md": markdown({
+      ...validPaper,
+      reading_methods: "[]",
+      reading_status: "queued",
+    }, "Reading has not started."),
+  });
+  assert.deepEqual(entries[0].readingMethods, []);
+
+  const failure = await generatorFailure({
+    "papers/active.md": markdown({
+      ...validPaper,
+      reading_methods: "[]",
+      reading_status: "in_progress",
+    }, "Reading started."),
+  });
+  assert.match(failure, /active\.md.*reading_methods.*at least one/i);
+});
+
+test("rejects duplicate methods and mismatches between methods and paper sections", async () => {
+  const duplicate = await generatorFailure({
+    "papers/duplicate.md": markdown({
+      ...validPaper,
+      reading_methods: "[deep, deep]",
+    }),
+  });
+  assert.match(duplicate, /duplicate\.md.*reading_methods.*duplicate/i);
+
+  const missingSection = await generatorFailure({
+    "papers/missing-section.md": markdown({
+      ...validPaper,
+      reading_methods: "[deep, synthesis]",
+    }),
+  });
+  assert.match(missingSection, /missing-section\.md.*阅读总结/i);
+
+  const undeclaredSection = await generatorFailure({
+    "papers/undeclared-section.md": markdown(
+      validPaper,
+      "## 细读记录\n\nDeep.\n\n## 粗读记录\n\nSkim.",
+    ),
+  });
+  assert.match(undeclaredSection, /undeclared-section\.md.*粗读记录/i);
+});
+
+test("normalizes required recruiting archive metadata", async () => {
+  const { entries } = await runIsolatedGenerator({
+    "jobs/job.md": markdown({
+      ...validCommon,
+      location: "北京",
+      applied_at: "2026-07-19",
+      next_action: "准备二面项目复盘",
+    }),
+  });
+
+  assert.equal(entries[0].company, "Example Robotics");
+  assert.equal(entries[0].role, "具身智能算法工程师");
+  assert.equal(entries[0].applicationStage, "interview");
+  assert.equal(entries[0].appliedAt, "2026-07-19");
+  assert.equal(entries[0].nextAction, "准备二面项目复盘");
+});
+
+test("rejects incomplete recruiting archives and invalid stages", async () => {
+  for (const [field, override] of [
+    ["company", { company: "" }],
+    ["role", { role: "" }],
+    ["application_stage", { application_stage: "screening" }],
+    ["applied_at", { applied_at: "2026-02-30" }],
+  ]) {
+    const failure = await generatorFailure({
+      "jobs/invalid.md": markdown({ ...validCommon, ...override }),
+    });
+    assert.match(failure, new RegExp(`invalid\\.md.*${field}`, "i"));
+  }
 });
 
 test("validates drafts but excludes them and drops published relations to drafts with a file warning", async () => {
@@ -204,6 +306,7 @@ test("fails malformed common and paper schema fields with file-specific diagnost
     ["year", { year: "2026.5" }],
     ["paper_url", { paper_url: "ftp://example.com/paper" }],
     ["reading_status", { reading_status: "finished" }],
+    ["reading_methods", { reading_methods: "[unknown]" }],
     ["topics", { topics: "[robotics, true]" }],
   ];
 
