@@ -201,6 +201,16 @@ test("rejects duplicate methods and mismatches between methods and paper section
   assert.match(undeclaredSection, /undeclared-section\.md.*粗读记录/i);
 });
 
+test("does not treat a paper heading inside fenced code as a real reading section", async () => {
+  const failure = await generatorFailure({
+    "papers/fenced.md": markdown(
+      { ...validPaper, reading_methods: "[deep, synthesis]" },
+      "## 细读记录\n\nDeep notes.\n\n```markdown\n## 阅读总结\n```",
+    ),
+  });
+  assert.match(failure, /fenced\.md.*阅读总结/i);
+});
+
 test("normalizes required recruiting archive metadata", async () => {
   const { entries } = await runIsolatedGenerator({
     "jobs/job.md": markdown({
@@ -385,4 +395,16 @@ test("summarizes every paper status and recruiting stage without omitting zero c
     offer: 0,
     closed: 0,
   });
+});
+
+test("sorts recruiting and paper entries newest first before limiting", async () => {
+  const query = await import("../lib/content/query.ts");
+  assert.equal(typeof query.sortEntriesByRecency, "function");
+  const entries = [
+    { slug: "older", date: "2026-07-01" },
+    { slug: "newer", date: "2026-07-23" },
+    { slug: "middle", date: "2026-07-12" },
+  ];
+  assert.deepEqual(query.sortEntriesByRecency(entries).map((entry) => entry.slug), ["newer", "middle", "older"]);
+  assert.deepEqual(query.getRecentEntriesByType("jobs", 1).map((entry) => entry.slug), ["autumn-recruiting-journey"]);
 });

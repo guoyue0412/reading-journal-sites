@@ -8,20 +8,22 @@ function copyEntries(entries: ContentEntry[]): ContentEntry[] {
   return structuredClone(entries);
 }
 
-function entryTimestamp(entry: ContentEntry): number {
-  return Date.parse(entry.readAt ?? entry.date);
+export function sortEntriesByRecency<T extends { date: string; readAt?: string }>(entries: T[]): T[] {
+  return [...entries].sort((left, right) => Date.parse(right.readAt ?? right.date) - Date.parse(left.readAt ?? left.date));
 }
 
 export function getRecentEntries(limit: number): ContentEntry[] {
-  const entries = [...CONTENT_ENTRIES].sort(
-    (left, right) => entryTimestamp(right) - entryTimestamp(left),
-  );
+  const entries = sortEntriesByRecency(CONTENT_ENTRIES);
 
   return copyEntries(entries.slice(0, Math.max(0, limit)));
 }
 
 export function getEntriesByType(type: ContentType): ContentEntry[] {
-  return copyEntries(CONTENT_ENTRIES.filter((entry) => entry.type === type));
+  return copyEntries(sortEntriesByRecency(CONTENT_ENTRIES.filter((entry) => entry.type === type)));
+}
+
+export function getRecentEntriesByType(type: ContentType, limit: number): ContentEntry[] {
+  return getEntriesByType(type).slice(0, Math.max(0, limit));
 }
 
 export function getPaperStatusCounts(): Record<ReadingStatus, number> {

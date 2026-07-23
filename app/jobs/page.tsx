@@ -1,6 +1,6 @@
 import { RecruitingIndex } from "../../components/recruiting-index";
 import { SiteShell } from "../../components/site-shell";
-import { getEntriesByType } from "../../lib/content/query";
+import { getRecentEntriesByType } from "../../lib/content/query";
 
 export default function JobsPage() {
   return (
@@ -11,7 +11,7 @@ export default function JobsPage() {
           <h1>秋招进展</h1>
           <p>以岗位为独立档案，记录投递、笔试、面试与最终结果，也留下每一步真正需要补强的能力。</p>
         </header>
-        <RecruitingIndex entries={getEntriesByType("jobs")} />
+        <RecruitingIndex entries={getRecentEntriesByType("jobs", Number.MAX_SAFE_INTEGER)} />
       </div>
     </SiteShell>
   );

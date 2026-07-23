@@ -130,9 +130,10 @@ function validateEntry(entry, moduleName, filePath) {
     if (entry.reading_status !== "queued" && entry.reading_methods.length === 0) {
       invalid(filePath, "reading_methods", "must contain at least one method after reading starts");
     }
+    const bodyWithoutFences = entry.body.replace(/^(?:```|~~~)[^\n]*\r?\n[\s\S]*?^(?:```|~~~)\s*$/gm, "");
     for (const [method, section] of methodSections) {
       const declared = entry.reading_methods.includes(method);
-      const present = new RegExp(`^##\\s+${section}\\s*$`, "m").test(entry.body);
+      const present = new RegExp(`^##\\s+${section}\\s*$`, "m").test(bodyWithoutFences);
       if (declared && !present) invalid(filePath, "body", `must include ## ${section}`);
       if (present && !declared) invalid(filePath, "reading_methods", `must include ${method} for ## ${section}`);
     }

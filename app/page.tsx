@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { PaperMethodBadges, readingStatusLabels } from "../components/paper-method-badges";
 import { ProgressOverview } from "../components/progress-overview";
 import { SiteShell } from "../components/site-shell";
-import { getEntriesByType, getPaperStatusCounts, getRecentEntries, getRecruitingStageCounts, getRelatedEntries } from "../lib/content/query";
+import { getEntriesByType, getPaperStatusCounts, getRecentEntries, getRecentEntriesByType, getRecruitingStageCounts, getRelatedEntries } from "../lib/content/query";
 
 const modules = [
   ["01", "/jobs", "秋招记录", "选择、碰撞与重新认识自己"],
@@ -17,8 +18,18 @@ const typeLabels = {
   reflections: "个人感悟",
 };
 
+const applicationStageLabels = {
+  applied: "投递",
+  written_test: "笔试",
+  interview: "面试",
+  offer: "Offer",
+  closed: "结束",
+} as const;
+
 export default function Home() {
   const recentEntries = getRecentEntries(4);
+  const recentPaper = getRecentEntriesByType("papers", 1)[0];
+  const recentRecruiting = getRecentEntriesByType("jobs", 1)[0];
   const reflection = getEntriesByType("reflections")[0];
   const related = reflection ? getRelatedEntries(reflection.slug).slice(0, 3) : [];
 
@@ -61,6 +72,29 @@ export default function Home() {
       </section>
 
       <ProgressOverview paperCounts={getPaperStatusCounts()} recruitingCounts={getRecruitingStageCounts()} />
+
+      <section className="home-focus-grid" aria-label="最近研究与秋招动态">
+        <article aria-labelledby="recent-paper-title">
+          <p className="eyebrow">RECENT PAPER</p>
+          <h2 id="recent-paper-title">最近论文笔记</h2>
+          {recentPaper ? <>
+            <p className="home-focus-meta">{recentPaper.authors?.join("、")} · {recentPaper.venue} · {readingStatusLabels[recentPaper.readingStatus ?? "queued"]}</p>
+            <h3><Link href={`/post/${recentPaper.slug}`}>{recentPaper.title}</Link></h3>
+            <PaperMethodBadges methods={recentPaper.readingMethods ?? []} status={recentPaper.readingStatus ?? "queued"} />
+            <p>{recentPaper.summary}</p>
+          </> : <p className="empty-state">暂时没有论文笔记。</p>}
+        </article>
+        <article aria-labelledby="recent-recruiting-title">
+          <p className="eyebrow">RECENT RECRUITING</p>
+          <h2 id="recent-recruiting-title">最近秋招动态</h2>
+          {recentRecruiting ? <>
+            <p className="home-focus-meta">{recentRecruiting.company} · {applicationStageLabels[recentRecruiting.applicationStage ?? "applied"]}</p>
+            <h3><Link href={`/post/${recentRecruiting.slug}`}>{recentRecruiting.role}</Link></h3>
+            <p>{recentRecruiting.summary}</p>
+            {recentRecruiting.nextAction ? <p className="home-focus-next"><span>下一步</span>{recentRecruiting.nextAction}</p> : null}
+          </> : <p className="empty-state">暂时没有秋招动态。</p>}
+        </article>
+      </section>
 
       <section className="editorial-section split-section" aria-labelledby="reflection-title">
         <div>

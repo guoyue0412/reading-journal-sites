@@ -26,6 +26,7 @@ export function PaperMethodBadges({
   const entries = Object.entries(methodLabels) as [ReadingMethod, string][];
   return (
     <div className="paper-methods" aria-label={`阅读状态：${statusLabels[status]}`}>
+      {!methods.length ? <span className="paper-method-empty">尚未选择阅读方式</span> : null}
       {entries.map(([method, label]) => {
         const active = methods.includes(method);
         if (!active && !showInactive) return null;

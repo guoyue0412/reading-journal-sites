@@ -12,7 +12,9 @@ function unique(values: (string | number | undefined)[]) {
   return [...new Set(values.filter((value) => value !== undefined))].map(String);
 }
 
-export function PaperIndex({ entries }: { entries: ContentEntry[] }) {
+type PaperConnection = Pick<ContentEntry, "slug" | "title" | "type">;
+
+export function PaperIndex({ entries, connections = {} }: { entries: ContentEntry[]; connections?: Record<string, PaperConnection[]> }) {
   const [topic, setTopic] = useState("");
   const [year, setYear] = useState("");
   const [venue, setVenue] = useState("");
@@ -65,7 +67,12 @@ export function PaperIndex({ entries }: { entries: ContentEntry[] }) {
             <thead><tr><th scope="col">论文</th>{methods.map(([, label]) => <th scope="col" key={label}>{label}</th>)}<th scope="col">执行状态</th></tr></thead>
             <tbody>{filteredEntries.map((entry) => (
               <tr key={entry.slug}>
-                <th scope="row"><Link href={`/post/${entry.slug}`}>{entry.title}</Link><span>{entry.year} · {entry.venue}</span></th>
+                <th scope="row">
+                  <Link href={`/post/${entry.slug}`}>{entry.title}</Link>
+                  <span>{entry.authors?.join("、")} · {entry.year} · {entry.venue} · 阅读于 {entry.readAt ?? entry.date}</span>
+                  <ul className="paper-index-topics" aria-label="论文主题">{(entry.topics ?? []).map((topic) => <li key={topic}>{topic}</li>)}</ul>
+                  {connections[entry.slug]?.length ? <div className="paper-index-connections" aria-label="关联文章">{connections[entry.slug].map((related) => <Link href={`/post/${related.slug}`} key={related.slug}>{related.title}</Link>)}</div> : null}
+                </th>
                 {methods.map(([method, label]) => { const active = entry.readingMethods?.includes(method) ?? false; return <td key={method}><span aria-hidden="true">{active ? "●" : "—"}</span><span className="sr-only">{label}{active ? "已采用" : "未采用"}</span></td>; })}
                 <td>{readingStatusLabels[entry.readingStatus ?? "queued"]}</td>
               </tr>
@@ -75,7 +82,10 @@ export function PaperIndex({ entries }: { entries: ContentEntry[] }) {
             <article key={entry.slug}>
               <p>{entry.year} · {entry.venue ?? "未注明来源"} · {readingStatusLabels[entry.readingStatus ?? "queued"]}</p>
               <h2><Link href={`/post/${entry.slug}`}>{entry.title}</Link></h2>
+              <p className="paper-mobile-byline">{entry.authors?.join("、")} · 阅读于 {entry.readAt ?? entry.date}</p>
               <PaperMethodBadges methods={entry.readingMethods ?? []} status={entry.readingStatus ?? "queued"} />
+              <ul className="paper-index-topics" aria-label="论文主题">{(entry.topics ?? []).map((topic) => <li key={topic}>{topic}</li>)}</ul>
+              {connections[entry.slug]?.length ? <div className="paper-index-connections" aria-label="关联文章">{connections[entry.slug].map((related) => <Link href={`/post/${related.slug}`} key={related.slug}>{related.title}</Link>)}</div> : null}
               <p>{entry.summary}</p>
             </article>
           ))}</div>

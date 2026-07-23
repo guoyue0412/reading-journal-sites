@@ -53,6 +53,9 @@ test("portable editor provides schema-aligned paper and recruiting templates", a
   for (const heading of ["## 投递", "## 笔试", "## 面试", "## 最终复盘"]) {
     assert.match(source, new RegExp(heading));
   }
+  for (const value of ["skim", "deep", "synthesis", "in_progress", "synthesizing", "completed", "archived", "written_test", "interview", "offer", "closed"]) {
+    assert.match(source, new RegExp(value));
+  }
 });
 
 test("Markdown import remains pointer-usable and has a visible keyboard focus indicator", async () => {
@@ -151,6 +154,7 @@ test("progress components expose text-labelled methods and both overview groups"
   assert.match(overview, /秋招进展概览/);
   assert.match(overview, /href="\/papers"/);
   assert.match(overview, /href="\/jobs"/);
+  assert.match(badges, /尚未选择阅读方式/);
 });
 
 test("paper index filters by reading method and status with a responsive resettable matrix", async () => {

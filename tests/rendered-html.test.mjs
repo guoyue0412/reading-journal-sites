@@ -87,6 +87,10 @@ test("homepage combines paper and recruiting progress without becoming a dashboa
   assert.match(html, /面试中/);
   assert.match(html, /href="\/papers"/);
   assert.match(html, /href="\/jobs"/);
+  assert.match(html, /最近论文笔记/);
+  assert.match(html, /最近秋招动态/);
+  assert.match(html, /UniTacVLA Team/);
+  assert.match(html, /个人秋招总览/);
 });
 
 test("server-renders all four module indexes", async () => {
@@ -117,6 +121,10 @@ test("server-renders the paper reading matrix with independent methods and execu
   assert.match(html, /总结/);
   assert.match(html, /已完成/);
   assert.match(html, /UniTacVLA/);
+  assert.match(html, /UniTacVLA Team/);
+  assert.match(html, /2026-05-10/);
+  assert.match(html, /tactile-sensing/);
+  assert.match(html, /2026-07-22/);
 });
 
 test("server-renders the recruiting funnel and岗位 archive metadata", async () => {
