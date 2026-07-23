@@ -154,3 +154,21 @@ test("paper index filters by reading method and status with a responsive resetta
   assert.match(css, /\.paper-mobile-list/);
   assert.match(css, /min-height:\s*44px/);
 });
+
+test("recruiting index exposes a five-stage funnel,岗位 cards and reset action", async () => {
+  const sourceUrl = new URL("../components/recruiting-index.tsx", import.meta.url);
+  await assert.doesNotReject(access(sourceUrl));
+  const [source, css] = await Promise.all([
+    readFile(sourceUrl, "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  for (const label of ["投递", "笔试", "面试", "Offer", "结束", "下一步", "清除筛选"]) {
+    assert.match(source, new RegExp(label));
+  }
+  assert.match(source, /company/);
+  assert.match(source, /role/);
+  assert.match(source, /applicationStage/);
+  assert.match(css, /\.recruiting-funnel/);
+  assert.match(css, /\.recruiting-card/);
+});

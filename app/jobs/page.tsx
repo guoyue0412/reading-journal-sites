@@ -1,15 +1,18 @@
-import { ContentIndex } from "../../components/content-index";
+import { RecruitingIndex } from "../../components/recruiting-index";
 import { SiteShell } from "../../components/site-shell";
 import { getEntriesByType } from "../../lib/content/query";
 
 export default function JobsPage() {
   return (
     <SiteShell>
-      <ContentIndex
-        title="秋招记录"
-        description="记录选择、面试与复盘，也记录在碰撞中逐渐清晰的方向。"
-        entries={getEntriesByType("jobs")}
-      />
+      <div className="index-page">
+        <header className="index-heading">
+          <p className="eyebrow">RECRUITING ARCHIVE</p>
+          <h1>秋招进展</h1>
+          <p>以岗位为独立档案，记录投递、笔试、面试与最终结果，也留下每一步真正需要补强的能力。</p>
+        </header>
+        <RecruitingIndex entries={getEntriesByType("jobs")} />
+      </div>
     </SiteShell>
   );
 }

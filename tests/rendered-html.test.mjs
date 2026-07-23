@@ -106,6 +106,17 @@ test("server-renders the paper reading matrix with independent methods and execu
   assert.match(html, /UniTacVLA/);
 });
 
+test("server-renders the recruiting funnel and岗位 archive metadata", async () => {
+  const response = await render("/jobs");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  for (const label of ["投递", "笔试", "面试", "Offer", "结束"]) assert.match(html, new RegExp(label));
+  assert.match(html, /个人秋招总览/);
+  assert.match(html, /具身智能算法工程师/);
+  assert.match(html, /下一步/);
+});
+
 test("server-renders a paper article with LaTeX metadata and a related reflection", async () => {
   const response = await render("/post/unitacvla-reading");
 
