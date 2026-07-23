@@ -77,3 +77,32 @@ test("removes the disposable starter preview and dependency", async () => {
   assert.match(layout, /郭跃｜阅读、成长与思考/);
   await assert.rejects(access(new URL("app/_sites-preview", projectRoot)));
 });
+
+test("uses the editorial serif stack for body copy", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(css, /body\s*{[^}]*font-family:\s*var\(--serif\)/s);
+});
+
+test("gives the daily reflection title link a 44px touch target", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(
+    css,
+    /\.reflection-feature h3 a\s*{[^}]*min-height:\s*44px/s,
+  );
+});
+
+test("uses the personal blog package identity in both manifests", async () => {
+  const [packageJson, packageLock] = await Promise.all([
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../package-lock.json", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal(JSON.parse(packageJson).name, "guoyue-personal-blog");
+  assert.equal(JSON.parse(packageLock).name, "guoyue-personal-blog");
+  assert.equal(
+    JSON.parse(packageLock).packages[""].name,
+    "guoyue-personal-blog",
+  );
+});
