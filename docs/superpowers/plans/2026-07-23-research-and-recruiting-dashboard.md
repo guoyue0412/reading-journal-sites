@@ -50,7 +50,7 @@ assert.match(await generatorFailure({ "jobs/bad.md": missingCompany }), /company
 
 - [ ] **Step 2: Run the schema tests and verify RED**
 
-Run: `node --test tests/content-index.test.mjs`  
+Run: `node --test tests/content-index.test.mjs`
 Expected: FAIL because new fields and validation do not exist.
 
 - [ ] **Step 3: Implement minimal schema and normalization**
@@ -78,7 +78,7 @@ and its body receives `## 细读记录` and `## 阅读总结`. The recruiting fi
 
 - [ ] **Step 5: Run schema tests and verify GREEN**
 
-Run: `node --test tests/content-index.test.mjs`  
+Run: `node --test tests/content-index.test.mjs`
 Expected: all content-index tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -114,7 +114,7 @@ assert.match(html, /秋招进展概览/);
 
 - [ ] **Step 2: Run tests and verify RED**
 
-Run: `node --test tests/content-index.test.mjs tests/rendered-html.test.mjs`  
+Run: `node --test tests/content-index.test.mjs tests/rendered-html.test.mjs`
 Expected: FAIL because queries and components are missing.
 
 - [ ] **Step 3: Implement count queries and badges**
@@ -127,7 +127,7 @@ Render two linked groups with exact Chinese labels and numeric counts. Use seman
 
 - [ ] **Step 5: Run tests and verify GREEN**
 
-Run: `node --test tests/content-index.test.mjs tests/rendered-html.test.mjs`  
+Run: `node --test tests/content-index.test.mjs tests/rendered-html.test.mjs`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -156,7 +156,7 @@ Assert source contains `readingMethod`, all five new status values, a reset butt
 
 - [ ] **Step 2: Run tests and verify RED**
 
-Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`  
+Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`
 Expected: FAIL against the old four-status list.
 
 - [ ] **Step 3: Implement filtering and matrix markup**
@@ -175,7 +175,7 @@ Use existing paper, ink, muted, rule, and vermilion tokens. Show the table at de
 
 - [ ] **Step 5: Run tests and verify GREEN**
 
-Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`  
+Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -204,7 +204,7 @@ Assert source and server HTML include `投递`, `笔试`, `面试`, `Offer`, `�
 
 - [ ] **Step 2: Run tests and verify RED**
 
-Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`  
+Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`
 Expected: FAIL because the generic content index has no funnel.
 
 - [ ] **Step 3: Implement funnel and stage filtering**
@@ -217,7 +217,7 @@ Desktop uses a five-column thin-rule funnel; mobile stacks stages and cards vert
 
 - [ ] **Step 5: Run tests and verify GREEN**
 
-Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`  
+Run: `node --test tests/editor-source.test.mjs tests/rendered-html.test.mjs`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -245,7 +245,7 @@ Assert homepage contains both overview headings and current counts. Assert the p
 
 - [ ] **Step 2: Run rendering tests and verify RED**
 
-Run: `node --test tests/rendered-html.test.mjs`  
+Run: `node --test tests/rendered-html.test.mjs`
 Expected: FAIL because the new metadata is not rendered.
 
 - [ ] **Step 3: Integrate overview and detail metadata**
@@ -258,7 +258,7 @@ Keep the first viewport editorial, use thin rules and numeric typography, and av
 
 - [ ] **Step 5: Run rendering tests and verify GREEN**
 
-Run: `node --test tests/rendered-html.test.mjs`  
+Run: `node --test tests/rendered-html.test.mjs`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -286,7 +286,7 @@ Assert the paper template contains `reading_methods`, the five allowed status va
 
 - [ ] **Step 2: Run editor tests and verify RED**
 
-Run: `node --test tests/editor-source.test.mjs`  
+Run: `node --test tests/editor-source.test.mjs`
 Expected: FAIL because templates still use the old schema.
 
 - [ ] **Step 3: Update portable editor templates**
@@ -302,7 +302,7 @@ and includes commented guidance plus the three optional headings. Default jobs d
 
 - [ ] **Step 4: Run editor tests and verify GREEN**
 
-Run: `node --test tests/editor-source.test.mjs`  
+Run: `node --test tests/editor-source.test.mjs`
 Expected: PASS.
 
 - [ ] **Step 5: Update actual Obsidian templates after requesting exact vault write access**
@@ -329,12 +329,12 @@ git commit -m "feat: align writing templates with progress models"
 
 - [ ] **Step 1: Run the real Obsidian sync and content build**
 
-Run: `npm run blog:sync && npm run content:build`  
+Run: `npm run blog:sync && npm run content:build`
 Expected: zero or more notes sync successfully; generated index contains all valid published entries.
 
 - [ ] **Step 2: Run complete verification**
 
-Run: `npm test && npm run lint`  
+Run: `npm test && npm run lint`
 Expected: all tests PASS, production build succeeds, lint exits 0.
 
 - [ ] **Step 3: Inspect status and commit any verification fixes**
