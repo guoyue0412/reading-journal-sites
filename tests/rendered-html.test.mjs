@@ -64,6 +64,32 @@ test("server-renders all four module indexes", async () => {
   }
 });
 
+test("server-renders a paper article with LaTeX metadata and a related reflection", async () => {
+  const response = await render("/post/unitacvla-reading");
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /katex/);
+  assert.match(html, /UniTacVLA Team/);
+  assert.match(html, /arXiv/);
+  assert.match(html, /2026/);
+  assert.match(html, /href="\/post\/2026-07-22"/);
+  assert.match(html, /关于长期主义，我最近改变的三个看法/);
+});
+
+test("server-renders unified local search for all four content modules", async () => {
+  const response = await render("/search");
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<label[^>]*for="site-search"[^>]*>[^<]*搜索/);
+  assert.match(html, /<input[^>]*id="site-search"[^>]*type="search"/);
+  assert.match(html, /秋招记录/);
+  assert.match(html, /实习日记/);
+  assert.match(html, /论文阅读/);
+  assert.match(html, /个人感悟/);
+});
+
 test("removes the disposable starter preview and dependency", async () => {
   const [page, layout, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
