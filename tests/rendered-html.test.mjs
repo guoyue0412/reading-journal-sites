@@ -104,6 +104,37 @@ test("server-renders a paper article with LaTeX metadata and a related reflectio
   assert.match(html, /2026/);
   assert.match(html, /href="\/post\/2026-07-22"/);
   assert.match(html, /关于长期主义，我最近改变的三个看法/);
+  assert.match(html, /<table>/);
+  assert.match(html, /<pre><code/);
+});
+
+test("returns the editorial 404 response for an unknown post slug", async () => {
+  const response = await render("/post/does-not-exist");
+
+  assert.equal(response.status, 404);
+  const html = await response.text();
+  assert.match(html, /页面没有找到/);
+  assert.match(html, /返回首页/);
+});
+
+test("keeps a validated draft out of worker routes, module indexes, and search", async () => {
+  const [post, jobs, search] = await Promise.all([
+    render("/post/final-review-private-draft"),
+    render("/jobs"),
+    render("/search"),
+  ]);
+
+  assert.equal(post.status, 404);
+  assert.doesNotMatch(await jobs.text(), /FINAL REVIEW PRIVATE DRAFT/);
+  assert.doesNotMatch(await search.text(), /FINAL REVIEW PRIVATE DRAFT/);
+});
+
+test("renders same-month reflections newest first", async () => {
+  const response = await render("/reflections");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.ok(html.indexOf("2026-07-22") < html.indexOf("2026-07-21"));
 });
 
 test("server-renders unified local search for all four content modules", async () => {

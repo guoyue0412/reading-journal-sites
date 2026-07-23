@@ -539,6 +539,24 @@ a {
   font: 15px/1.8 var(--serif);
 }
 
+.empty-state a,
+.empty-state button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35em;
+  padding: 0 10px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: 12px/1 var(--sans);
+}
+
+.empty-state p {
+  margin: 0 0 12px;
+}
+
 .paper-filters {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -635,6 +653,7 @@ a {
 
 .article-page {
   width: min(100%, 980px);
+  min-width: 0;
   margin: 0 auto;
   padding: 54px 0 80px;
 }
@@ -695,8 +714,10 @@ a {
 }
 
 .markdown-body {
+  min-width: 0;
   padding: 54px 0;
   font: 18px/2 var(--serif);
+  overflow-wrap: anywhere;
 }
 
 .markdown-body > * {
@@ -708,6 +729,41 @@ a {
 .markdown-body p {
   margin-top: 0;
   margin-bottom: 1.6em;
+}
+
+.markdown-body table {
+  width: max-content;
+  display: block;
+  max-width: 100%;
+  margin-top: 2em;
+  margin-bottom: 2em;
+  border-collapse: collapse;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-body th,
+.markdown-body td {
+  min-width: 9rem;
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-body pre {
+  max-width: 100%;
+  margin-top: 2em;
+  margin-bottom: 2em;
+  padding: 18px;
+  overflow-x: auto;
+  background: rgb(32 32 30 / 7%);
+  font: 14px/1.7 var(--mono);
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-body pre code {
+  white-space: pre;
 }
 
 .markdown-body .katex-display {
@@ -907,8 +963,45 @@ a {
   width: 1px;
   height: 1px;
   position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.portable-editor__import:focus-within > span {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 4px;
+}
+
+.not-found {
+  min-height: 68vh;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  padding: 64px 0;
+}
+
+.not-found h1 {
+  margin: 18px 0;
+  font: 400 clamp(48px, 8vw, 88px)/1.1 var(--serif);
+}
+
+.not-found > p:not(.eyebrow) {
+  max-width: 560px;
+  margin: 0 0 26px;
+  color: var(--muted);
+  font: 16px/1.8 var(--serif);
+}
+
+.not-found a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  border-bottom: 1px solid var(--vermilion);
 }
 
 .portable-editor__error {

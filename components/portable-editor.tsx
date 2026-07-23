@@ -63,9 +63,12 @@ const templates: Record<ContentType, () => string> = {
       tags: "[论文阅读]",
       related: "[]",
       status: "draft",
+      read_at: localDate(),
       authors: "[]",
+      venue: "arXiv",
       year: String(new Date().getFullYear()),
-      readingStatus: "queued",
+      paper_url: "https://example.com/paper",
+      reading_status: "queued",
       topics: "[]",
     }) + "## 核心问题\n\n从这里开始记录，也可以写公式 $a_t = f(o_t)$。\n",
   reflections: () => {

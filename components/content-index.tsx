@@ -49,7 +49,7 @@ export function ContentIndex({
             </article>
           ))
         ) : (
-          <p className="empty-state">这里还没有文章，第一篇正在路上。</p>
+          <p className="empty-state">这里还没有文章。前往<Link href="/editor">编辑器创建第一篇 Markdown</Link>，导出后放入对应内容目录。</p>
         )}
       </section>
     </div>

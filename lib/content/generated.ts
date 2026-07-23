@@ -41,7 +41,6 @@ export const CONTENT_ENTRIES: ContentEntry[] = [
     "slug": "unitacvla-reading",
     "type": "papers",
     "date": "2026-05-09",
-    "readAt": "2026-05-10",
     "summary": "从动作条件化视角理解视觉、语言与触觉如何共同影响策略输出。",
     "tags": [
       "VLA",
@@ -57,14 +56,15 @@ export const CONTENT_ENTRIES: ContentEntry[] = [
     ],
     "venue": "arXiv",
     "year": 2026,
-    "paperUrl": "https://arxiv.org/",
-    "readingStatus": "reviewed",
     "topics": [
       "multimodal-policy",
       "tactile-sensing",
       "action-generation"
     ],
-    "body": "UniTacVLA 最值得追问的并不是“多加了一种模态”，而是触觉信息在什么时间尺度上改变动作生成。策略可以写成 $\\pi(a_t\\mid o_{\\le t})$，但这里的观测已经不只是图像和指令，还包含接触发生之后才出现的局部反馈。\n\n如果把视觉理解为接触前的全局先验，触觉更像接触后的高频校正信号。两者需要在动作序列中承担不同职责：\n\n$$\na_t = f_\\theta(v_{\\le t}, l, \\tau_{\\le t})\n$$\n\n这也意味着评估不能只看任务是否最终完成，还要观察接触后的恢复动作、力控制稳定性，以及触觉缺失时策略的退化方式。"
+    "body": "UniTacVLA 最值得追问的并不是“多加了一种模态”，而是触觉信息在什么时间尺度上改变动作生成。策略可以写成 $\\pi(a_t\\mid o_{\\le t})$，但这里的观测已经不只是图像和指令，还包含接触发生之后才出现的局部反馈。\n\n如果把视觉理解为接触前的全局先验，触觉更像接触后的高频校正信号。两者需要在动作序列中承担不同职责：\n\n$$\na_t = f_\\theta(v_{\\le t}, l, \\tau_{\\le t})\n$$\n\n这也意味着评估不能只看任务是否最终完成，还要观察接触后的恢复动作、力控制稳定性，以及触觉缺失时策略的退化方式。\n\n| 信号 | 策略职责 | 典型时间尺度 |\n| --- | --- | --- |\n| 视觉 | 接触前的全局先验 | 低频 |\n| 触觉 | 接触后的局部校正 | 高频 |\n\n```text\nobservation -> multimodal policy -> action sequence -> tactile correction\n```",
+    "readAt": "2026-05-10",
+    "paperUrl": "https://arxiv.org/",
+    "readingStatus": "reviewed"
   },
   {
     "title": "关于长期主义，我最近改变的三个看法",
@@ -83,5 +83,19 @@ export const CONTENT_ENTRIES: ContentEntry[] = [
     ],
     "status": "published",
     "body": "过去我把长期主义理解为“选定以后一直坚持”，现在更愿意把它理解成三件事：保留长期问题，允许短期路径变化；积累能够复用的判断，而不只是结果；定期用新证据校准自己。\n\n读 `unitacvla-reading` 时，我再次意识到这种校准并不抽象。一个系统要在接触之后根据触觉修正动作，人也需要在真正经历之后更新原来的判断。\n\n所以坚持不再意味着拒绝变化，而是持续回到那个值得追问的问题，并诚实地承认下一步可能和昨天设想的不一样。"
+  },
+  {
+    "title": "把问题留在桌面上",
+    "slug": "2026-07-21",
+    "type": "reflections",
+    "date": "2026-07-21",
+    "summary": "有些问题不需要当天回答，但值得留在每天都能看见的地方。",
+    "tags": [
+      "日常思考",
+      "复盘"
+    ],
+    "related": [],
+    "status": "published",
+    "body": "过去我总想在一天结束前给每件事一个结论。后来才明白，真正重要的问题往往需要在生活里放得更久。\n\n把问题留在桌面上，不代表拖延回答，而是允许新的证据慢慢出现。今天能做的，是把它写清楚，然后带着它继续生活。"
   }
 ];

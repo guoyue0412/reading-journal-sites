@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
@@ -11,6 +14,80 @@ import {
 } from "../lib/content/query.ts";
 
 const execFileAsync = promisify(execFile);
+function markdown(fields, body = "Body") {
+  return `---\n${Object.entries(fields)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n")}\n---\n\n${body}\n`;
+}
+
+const validCommon = {
+  title: "Fixture",
+  slug: "fixture",
+  type: "jobs",
+  date: "2026-07-20",
+  summary: "Fixture summary",
+  tags: "[test]",
+  related: "[]",
+  status: "published",
+};
+
+const validPaper = {
+  ...validCommon,
+  title: "Paper fixture",
+  slug: "paper-fixture",
+  type: "papers",
+  read_at: "2026-05-10",
+  authors: "[Research Team]",
+  venue: "arXiv",
+  year: "2026",
+  paper_url: "https://arxiv.org/",
+  reading_status: "reviewed",
+  topics: "[robotics]",
+};
+
+async function runIsolatedGenerator(files) {
+  const temporaryRoot = await mkdtemp(path.join(tmpdir(), "guoyue-content-"));
+  const contentRoot = path.join(temporaryRoot, "content");
+  const outputPath = path.join(temporaryRoot, "generated.ts");
+
+  for (const moduleName of ["jobs", "internship", "papers", "reflections"]) {
+    await mkdir(path.join(contentRoot, moduleName), { recursive: true });
+  }
+  for (const [relativePath, source] of Object.entries(files)) {
+    const filePath = path.join(contentRoot, relativePath);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, source, "utf8");
+  }
+
+  try {
+    const result = await execFileAsync(
+      process.execPath,
+      [
+        "scripts/generate-content-index.mjs",
+        "--content-root",
+        contentRoot,
+        "--output",
+        outputPath,
+      ],
+      { cwd: new URL("../", import.meta.url) },
+    );
+    const generated = await readFile(outputPath, "utf8");
+    const serialized = generated.match(/CONTENT_ENTRIES: ContentEntry\[\] = ([\s\S]*);\n$/)?.[1];
+    assert.ok(serialized, "generated entries must be serializable in isolated tests");
+    return { entries: JSON.parse(serialized), stderr: result.stderr };
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+}
+
+async function generatorFailure(files) {
+  try {
+    await runIsolatedGenerator(files);
+  } catch (error) {
+    return `${error.stderr ?? ""}${error.message ?? ""}`;
+  }
+  throw new Error("Expected generator to fail");
+}
 
 async function loadGeneratedEntries() {
   await execFileAsync(process.execPath, ["scripts/generate-content-index.mjs"]);
@@ -21,22 +98,123 @@ async function loadGeneratedEntries() {
   return (await import(generatedUrl.href)).CONTENT_ENTRIES;
 }
 
-test("generates four isolated modules with cross references", async () => {
+test("generates four isolated modules with cross references and newest-first reflections", async () => {
   const entries = await loadGeneratedEntries();
 
-  assert.equal(entries.length, 4);
+  assert.equal(entries.length, 5);
   assert.ok(entries.every((entry) => entry.status === "published"));
   assert.deepEqual(
     new Set(entries.map((entry) => entry.type)),
     new Set(["jobs", "internship", "papers", "reflections"]),
   );
-  assert.equal(
-    entries.find((entry) => entry.type === "reflections").slug,
-    "2026-07-22",
+  assert.deepEqual(
+    entries.filter((entry) => entry.type === "reflections").map((entry) => entry.slug),
+    ["2026-07-22", "2026-07-21"],
   );
   assert.ok(
     entries.some((entry) => entry.related.includes("unitacvla-reading")),
   );
+});
+
+test("normalizes documented snake_case paper frontmatter for runtime consumers", async () => {
+  const { entries } = await runIsolatedGenerator({
+    "papers/paper.md": markdown(validPaper),
+  });
+  const paper = entries[0];
+
+  assert.equal(paper.readAt, "2026-05-10");
+  assert.equal(paper.paperUrl, "https://arxiv.org/");
+  assert.equal(paper.readingStatus, "reviewed");
+  assert.equal("read_at" in paper, false);
+  assert.equal("paper_url" in paper, false);
+  assert.equal("reading_status" in paper, false);
+});
+
+test("validates drafts but excludes them and drops published relations to drafts with a file warning", async () => {
+  const published = markdown({
+    ...validCommon,
+    related: "[private-draft]",
+  });
+  const draft = markdown({
+    ...validCommon,
+    slug: "private-draft",
+    status: "draft",
+  });
+
+  const { entries, stderr } = await runIsolatedGenerator({
+    "jobs/published.md": published,
+    "jobs/private-draft.md": draft,
+  });
+
+  assert.deepEqual(entries.map((entry) => entry.slug), ["fixture"]);
+  assert.deepEqual(entries[0].related, []);
+  assert.match(stderr, /published\.md.*related.*private-draft.*draft/i);
+});
+
+test("rejects a malformed draft before exclusion", async () => {
+  const failure = await generatorFailure({
+    "jobs/malformed-draft.md": markdown({
+      ...validCommon,
+      tags: "[draft, 2]",
+      status: "draft",
+    }),
+  });
+
+  assert.match(failure, /malformed-draft\.md.*tags/i);
+});
+
+test("fails duplicate slugs with the conflicting source path and slug field", async () => {
+  const failure = await generatorFailure({
+    "jobs/first.md": markdown(validCommon),
+    "internship/second.md": markdown({
+      ...validCommon,
+      type: "internship",
+    }),
+  });
+
+  assert.match(failure, /second\.md.*slug.*duplicate/i);
+});
+
+test("fails impossible reflection dates with the source path and date field", async () => {
+  const failure = await generatorFailure({
+    "reflections/2026-02-30.md": markdown({
+      ...validCommon,
+      slug: "2026-02-30",
+      type: "reflections",
+      date: "2026-02-30",
+    }),
+  });
+
+  assert.match(failure, /2026-02-30\.md.*date/i);
+});
+
+test("fails malformed common and paper schema fields with file-specific diagnostics", async () => {
+  const cases = [
+    ["title", { title: "42" }],
+    ["slug", { slug: "42" }],
+    ["summary", { summary: "42" }],
+    ["date", { date: "2026/07/20" }],
+    ["read_at", { read_at: "2026-02-30" }],
+    ["type", { type: "notes" }],
+    ["status", { status: "private" }],
+    ["tags", { tags: "[robotics, 2]" }],
+    ["related", { related: "[false]" }],
+    ["authors", { authors: "[Research Team, 2]" }],
+    ["venue", { venue: "2026" }],
+    ["year", { year: "2026.5" }],
+    ["paper_url", { paper_url: "ftp://example.com/paper" }],
+    ["reading_status", { reading_status: "finished" }],
+    ["topics", { topics: "[robotics, true]" }],
+  ];
+
+  for (const [field, override] of cases) {
+    const fixture = field === "title" ? validCommon : validPaper;
+    const moduleName = field === "title" ? "jobs" : "papers";
+    const failure = await generatorFailure({
+      [`${moduleName}/malformed.md`]: markdown({ ...fixture, ...override }),
+    });
+    assert.match(failure, new RegExp(`malformed\\.md.*${field}`, "i"), field);
+  }
 });
 
 test("queries entries by recency, type, and searchable metadata", () => {

@@ -12,7 +12,12 @@ export default function ReflectionsPage() {
       },
       {},
     ),
-  ).sort(([left], [right]) => right.localeCompare(left));
+  )
+    .map(([month, entries]) => [
+      month,
+      entries.sort((left, right) => right.date.localeCompare(left.date)),
+    ] as const)
+    .sort(([left], [right]) => right.localeCompare(left));
 
   return (
     <SiteShell>
@@ -23,7 +28,7 @@ export default function ReflectionsPage() {
           <p>以自然日为索引，收留那些尚未完成，却值得诚实记下的思考。</p>
         </header>
         <div className="reflection-archive">
-          {grouped.map(([month, entries]) => {
+          {grouped.length ? grouped.map(([month, entries]) => {
             const [year, monthNumber] = month.split("-");
             return (
               <section className="reflection-month" key={month} aria-labelledby={`month-${month}`}>
@@ -44,7 +49,9 @@ export default function ReflectionsPage() {
                 </div>
               </section>
             );
-          })}
+          }) : (
+            <p className="empty-state">还没有个人感悟。前往<Link href="/editor">编辑器创建第一篇 Markdown</Link>，日期会成为它的自然日索引。</p>
+          )}
         </div>
       </div>
     </SiteShell>

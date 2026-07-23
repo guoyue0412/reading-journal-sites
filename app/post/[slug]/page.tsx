@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { MarkdownArticle } from "../../../components/markdown-article";
 import { SiteShell } from "../../../components/site-shell";
 import { CONTENT_ENTRIES } from "../../../lib/content/generated";
@@ -12,11 +13,7 @@ export default async function PostPage({
   const entry = CONTENT_ENTRIES.find((candidate) => candidate.slug === slug);
 
   if (!entry) {
-    return (
-      <SiteShell>
-        <div className="empty-state">没有找到这篇文章。</div>
-      </SiteShell>
-    );
+    notFound();
   }
 
   return (

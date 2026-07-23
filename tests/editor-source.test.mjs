@@ -33,6 +33,50 @@ test("portable editor exposes all module templates and mobile editing tabs", asy
   assert.match(source, /ReactMarkdown/);
   assert.match(source, /remarkMath/);
   assert.match(source, /rehypeKatex/);
+  assert.match(source, /read_at:/);
+  assert.match(source, /paper_url:/);
+  assert.match(source, /reading_status:/);
+  assert.doesNotMatch(source, /\b(?:readAt|paperUrl|readingStatus):/);
+});
+
+test("Markdown import remains pointer-usable and has a visible keyboard focus indicator", async () => {
+  const [source, css] = await Promise.all([
+    readFile(editorUrl, "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /<label className="portable-editor__import">/);
+  assert.match(css, /\.portable-editor__import:focus-within\s*>\s*span\s*{[^}]*outline:/s);
+  assert.match(css, /\.portable-editor__import input\s*{[^}]*(?:clip-path|clip):/s);
+  assert.doesNotMatch(css, /\.portable-editor__import input\s*{[^}]*pointer-events:\s*none/s);
+});
+
+test("search and module empty states provide reset and first-Markdown actions", async () => {
+  const [search, generic, papers, reflections] = await Promise.all([
+    readFile(new URL("../components/search-index.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/content-index.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/paper-index.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/reflections/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(search, /setQuery\(""\)/);
+  assert.match(search, /setActiveType\(""\)/);
+  assert.match(search, />清除搜索与筛选</);
+  assert.match(generic, /第一篇 Markdown/);
+  assert.match(generic, /href="\/editor"/);
+  assert.match(papers, /还没有论文阅读/);
+  assert.match(papers, /第一篇 Markdown/);
+  assert.match(papers, /没有符合当前条件的论文/);
+  assert.match(reflections, /第一篇 Markdown/);
+  assert.match(reflections, /href="\/editor"/);
+});
+
+test("rich Markdown tables and code blocks own narrow-screen horizontal scrolling", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.markdown-body\s*{[^}]*min-width:\s*0/s);
+  assert.match(css, /\.markdown-body table\s*{[^}]*display:\s*block[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s);
+  assert.match(css, /\.markdown-body pre\s*{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s);
 });
 
 test("editor route uses the shared shell and responsive panes", async () => {

@@ -23,7 +23,9 @@ export interface ContentEntry {
 export interface PaperEntry extends ContentEntry {
   type: "papers";
   authors: string[];
+  venue: string;
   year: number;
+  paperUrl: string;
   readingStatus: ReadingStatus;
   topics: string[];
 }

@@ -67,7 +67,9 @@ export function PaperIndex({ entries }: { entries: ContentEntry[] }) {
         </label>
       </div>
       <section className="paper-list" aria-live="polite" aria-label="论文阅读列表">
-        {filteredEntries.length ? filteredEntries.map((entry, index) => (
+        {!entries.length ? (
+          <p className="empty-state">还没有论文阅读。前往<Link href="/editor">编辑器创建第一篇 Markdown</Link>，再放入论文内容目录。</p>
+        ) : filteredEntries.length ? filteredEntries.map((entry, index) => (
           <article className="paper-entry" key={entry.slug}>
             <span className="entry-number">{String(index + 1).padStart(2, "0")}</span>
             <div>
@@ -81,7 +83,7 @@ export function PaperIndex({ entries }: { entries: ContentEntry[] }) {
               </ul>
             </div>
           </article>
-        )) : <p className="empty-state">没有符合当前条件的论文。</p>}
+        )) : <p className="empty-state">没有符合当前条件的论文，请调整上方筛选条件。</p>}
       </section>
     </>
   );

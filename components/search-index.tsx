@@ -22,6 +22,11 @@ export function SearchIndex({ entries }: { entries: ContentEntry[] }) {
       : matches;
   }, [activeType, entries, query]);
 
+  function resetFilters() {
+    setQuery("");
+    setActiveType("");
+  }
+
   return (
     <section className="search-index" aria-label="全站内容搜索">
       <label htmlFor="site-search">搜索文章、标签与论文主题</label>
@@ -68,7 +73,10 @@ export function SearchIndex({ entries }: { entries: ContentEntry[] }) {
             </article>
           ))
         ) : (
-          <p className="empty-state">没有找到匹配的内容，试试更短的关键词。</p>
+          <div className="empty-state">
+            <p>没有找到匹配的内容，试试更短的关键词。</p>
+            <button type="button" onClick={resetFilters}>清除搜索与筛选</button>
+          </div>
         )}
       </div>
     </section>
