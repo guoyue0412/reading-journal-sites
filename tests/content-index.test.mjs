@@ -3,6 +3,12 @@ import { execFile } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
+import {
+  getEntriesByType,
+  getRecentEntries,
+  getRelatedEntries,
+  searchEntries,
+} from "../lib/content/query.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -30,5 +36,51 @@ test("generates four isolated modules with cross references", async () => {
   );
   assert.ok(
     entries.some((entry) => entry.related.includes("unitacvla-reading")),
+  );
+});
+
+test("queries entries by recency, type, and searchable metadata", () => {
+  assert.equal(getRecentEntries(1)[0].slug, "2026-07-22");
+  assert.deepEqual(
+    getEntriesByType("papers").map((entry) => entry.slug),
+    ["unitacvla-reading"],
+  );
+  assert.ok(
+    searchEntries("触觉").some(
+      (entry) => entry.slug === "unitacvla-reading",
+    ),
+  );
+  assert.ok(
+    searchEntries("TACTILE-SENSING").some(
+      (entry) => entry.slug === "unitacvla-reading",
+    ),
+  );
+  assert.ok(
+    searchEntries("ARXIV").some(
+      (entry) => entry.slug === "unitacvla-reading",
+    ),
+  );
+});
+
+test("prioritizes explicit relationships and returns isolated copies", () => {
+  const related = getRelatedEntries("2026-07-22");
+
+  assert.ok(
+    related.some((entry) => entry.slug === "unitacvla-reading"),
+  );
+  assert.deepEqual(
+    related.slice(0, 2).map((entry) => entry.slug),
+    ["unitacvla-reading", "autumn-recruiting-journey"],
+  );
+
+  const recent = getRecentEntries(4);
+  recent.reverse();
+  recent[0].tags.push("mutated-outside-query");
+
+  assert.equal(getRecentEntries(1)[0].slug, "2026-07-22");
+  assert.ok(
+    getRecentEntries(4).every(
+      (entry) => !entry.tags.includes("mutated-outside-query"),
+    ),
   );
 });
