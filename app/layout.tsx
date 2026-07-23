@@ -1,15 +1,39 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "郭跃｜阅读、成长与思考",
-  description: "郭跃的个人写作空间，记录秋招、实习、论文阅读与日常思考。",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
-};
+const title = "郭跃｜阅读、成长与思考";
+const description = "郭跃的个人写作空间，记录秋招、实习、论文阅读与日常思考。";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const metadataBase = host ? new URL(`${protocol}://${host}`) : undefined;
+  const socialImage = new URL("/og.png", metadataBase ?? "http://localhost").href;
+
+  return {
+    metadataBase,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [socialImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [socialImage],
+    },
+    icons: {
+      icon: "/favicon.svg",
+      shortcut: "/favicon.svg",
+    },
+  };
+}
 
 export default function RootLayout({
   children,

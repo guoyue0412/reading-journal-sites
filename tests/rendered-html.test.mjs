@@ -4,7 +4,8 @@ import test from "node:test";
 
 const projectRoot = new URL("../", import.meta.url);
 
-async function render(pathname = "/") {
+async function render(pathname = "/", origin = "http://localhost") {
+  const requestOrigin = new URL(origin);
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set(
     "test",
@@ -13,8 +14,12 @@ async function render(pathname = "/") {
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request(new URL(pathname, "http://localhost"), {
-      headers: { accept: "text/html" },
+    new Request(new URL(pathname, requestOrigin), {
+      headers: {
+        accept: "text/html",
+        host: requestOrigin.host,
+        "x-forwarded-proto": requestOrigin.protocol.slice(0, -1),
+      },
     }),
     {
       ASSETS: {
@@ -27,6 +32,30 @@ async function render(pathname = "/") {
     },
   );
 }
+
+test("derives absolute Open Graph and X image URLs from the incoming host", async () => {
+  const layout = await readFile(
+    new URL("../app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(layout, /openGraph\s*:/);
+  assert.match(layout, /twitter\s*:/);
+  assert.match(layout, /new URL\(["']\/og\.png["']/);
+  assert.match(layout, /images\s*:\s*\[socialImage\]/);
+
+  const response = await render("/", "https://journal.guoyue.test");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(
+    html,
+    /<meta[^>]+property="og:image"[^>]+content="https:\/\/journal\.guoyue\.test\/og\.png"/,
+  );
+  assert.match(
+    html,
+    /<meta[^>]+name="twitter:image"[^>]+content="https:\/\/journal\.guoyue\.test\/og\.png"/,
+  );
+});
 
 test("server-renders the editorial homepage without starter markers", async () => {
   const response = await render();
@@ -131,4 +160,12 @@ test("uses the personal blog package identity in both manifests", async () => {
     JSON.parse(packageLock).packages[""].name,
     "guoyue-personal-blog",
   );
+});
+
+test("includes editor source coverage in the standard test command", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
+
+  assert.match(packageJson.scripts.test, /tests\/editor-source\.test\.mjs/);
 });
