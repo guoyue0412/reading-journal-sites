@@ -41,7 +41,13 @@ const templates: Record<ContentType, () => string> = {
       tags: "[秋招]",
       related: "[]",
       status: "draft",
-    }) + "从这里开始记录。\n",
+      company: "公司名称",
+      role: "岗位名称",
+      location: "城市",
+      application_stage: "applied",
+      applied_at: localDate(),
+      next_action: "下一步要完成的事情",
+    }) + "## 投递\n\n投递时间、渠道、JD 匹配和简历版本。\n\n## 笔试\n\n如未进入笔试，可删除本节。\n\n## 面试\n\n记录轮次、问题、回答复盘与反馈。\n\n## 最终复盘\n\n记录结果、得失和可复用经验。\n",
   internship: () =>
     frontmatter({
       title: "实习日记标题",
@@ -68,9 +74,10 @@ const templates: Record<ContentType, () => string> = {
       venue: "arXiv",
       year: String(new Date().getFullYear()),
       paper_url: "https://example.com/paper",
+      reading_methods: "[]",
       reading_status: "queued",
       topics: "[]",
-    }) + "## 核心问题\n\n从这里开始记录，也可以写公式 $a_t = f(o_t)$。\n",
+    }) + "尚未开始阅读。开始后，请选择实际采用的阅读方式并取消对应章节的注释。\n\n<!-- ## 粗读记录 -->\n<!-- 研究问题、核心贡献、方法直觉与是否值得继续。 -->\n\n<!-- ## 细读记录 -->\n<!-- 模型结构、关键公式、数据、实验、图表与疑问。 -->\n\n<!-- ## 阅读总结 -->\n<!-- 一句话结论、优缺点、关联工作与可复用观点。 -->\n",
   reflections: () => {
     const date = localDate();
     return (

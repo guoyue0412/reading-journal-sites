@@ -39,6 +39,22 @@ test("portable editor exposes all module templates and mobile editing tabs", asy
   assert.doesNotMatch(source, /\b(?:readAt|paperUrl|readingStatus):/);
 });
 
+test("portable editor provides schema-aligned paper and recruiting templates", async () => {
+  const source = await readFile(editorUrl, "utf8");
+
+  assert.match(source, /reading_methods:\s*"\[\]"/);
+  assert.match(source, /reading_status:\s*"queued"/);
+  for (const heading of ["## 粗读记录", "## 细读记录", "## 阅读总结"]) {
+    assert.match(source, new RegExp(heading));
+  }
+  for (const field of ["company", "role", "location", "application_stage", "applied_at", "next_action"]) {
+    assert.match(source, new RegExp(`${field}:`));
+  }
+  for (const heading of ["## 投递", "## 笔试", "## 面试", "## 最终复盘"]) {
+    assert.match(source, new RegExp(heading));
+  }
+});
+
 test("Markdown import remains pointer-usable and has a visible keyboard focus indicator", async () => {
   const [source, css] = await Promise.all([
     readFile(editorUrl, "utf8"),
