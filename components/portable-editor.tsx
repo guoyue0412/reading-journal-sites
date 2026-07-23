@@ -90,7 +90,12 @@ function bodyWithoutFrontmatter(markdown: string) {
 }
 
 function exportSlug(markdown: string) {
-  const value = markdown.match(/^slug:\s*["']?([^\n"']+)["']?\s*$/m)?.[1];
+  const leadingFrontmatter = markdown.match(
+    /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/,
+  )?.[1];
+  const value = leadingFrontmatter?.match(
+    /^slug:\s*["']?([^\n"']+)["']?\s*$/m,
+  )?.[1];
   const safeValue = value?.trim().replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]+/g, "-");
   return safeValue || "draft";
 }
@@ -204,7 +209,9 @@ export function PortableEditor() {
       </div>
 
       <div className="portable-editor__workspace">
-        <div className="portable-editor__pane" hidden={activePane !== "edit"}>
+        <div
+          className={`portable-editor__pane${activePane === "edit" ? " is-active" : ""}`}
+        >
           <label htmlFor="portable-markdown">Markdown</label>
           <textarea
             id="portable-markdown"
@@ -213,7 +220,9 @@ export function PortableEditor() {
             spellCheck="false"
           />
         </div>
-        <div className="portable-editor__pane" hidden={activePane !== "preview"}>
+        <div
+          className={`portable-editor__pane${activePane === "preview" ? " is-active" : ""}`}
+        >
           <p className="portable-editor__pane-label">预览</p>
           <div className="markdown-body portable-editor__preview">
             <ReactMarkdown

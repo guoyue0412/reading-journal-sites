@@ -36,8 +36,9 @@ test("portable editor exposes all module templates and mobile editing tabs", asy
 });
 
 test("editor route uses the shared shell and responsive panes", async () => {
-  const [page, css] = await Promise.all([
+  const [page, source, css] = await Promise.all([
     readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8"),
+    readFile(editorUrl, "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -46,4 +47,29 @@ test("editor route uses the shared shell and responsive panes", async () => {
   assert.match(css, /@media\s*\(max-width:\s*719px\)/);
   assert.match(css, /@media\s*\(min-width:\s*720px\)/);
   assert.match(css, /\.portable-editor__error/);
+  assert.doesNotMatch(source, /\bhidden=/);
+  assert.doesNotMatch(css, /\[hidden\]/);
+  assert.match(source, /is-active/);
+});
+
+test("export slug is read only from leading frontmatter", async () => {
+  const source = await readFile(editorUrl, "utf8");
+  const helper = source.match(
+    /function exportSlug\(markdown: string\) \{([\s\S]*?)\n\}/,
+  );
+  assert.ok(helper, "exportSlug helper must remain independently testable");
+  const exportSlug = Function("markdown", helper[1]);
+
+  assert.equal(
+    exportSlug("---\ntitle: Note\nslug: frontmatter-slug\n---\nslug: body-slug"),
+    "frontmatter-slug",
+  );
+  assert.equal(
+    exportSlug("---\ntitle: No slug\n---\nslug: body-slug"),
+    "draft",
+  );
+  assert.equal(
+    exportSlug("# Example\n\n```yaml\nslug: fenced-example\n```"),
+    "draft",
+  );
 });

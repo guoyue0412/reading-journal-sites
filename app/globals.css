@@ -993,6 +993,14 @@ a {
   .portable-editor__toolbar button {
     margin-left: 0;
   }
+
+  .portable-editor__pane {
+    display: none;
+  }
+
+  .portable-editor__pane.is-active {
+    display: block;
+  }
 }
 
 @media (min-width: 720px) {
@@ -1006,9 +1014,6 @@ a {
     gap: 18px;
   }
 
-  .portable-editor__pane[hidden] {
-    display: block;
-  }
 }
 
 @media (max-width: 1100px) {
