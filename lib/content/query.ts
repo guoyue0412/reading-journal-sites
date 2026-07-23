@@ -1,5 +1,8 @@
 import { CONTENT_ENTRIES } from "./generated.ts";
-import type { ContentEntry, ContentType } from "./types.ts";
+import type { ApplicationStage, ContentEntry, ContentType, ReadingStatus } from "./types.ts";
+
+const readingStatuses: ReadingStatus[] = ["queued", "in_progress", "synthesizing", "completed", "archived"];
+const applicationStages: ApplicationStage[] = ["applied", "written_test", "interview", "offer", "closed"];
 
 function copyEntries(entries: ContentEntry[]): ContentEntry[] {
   return structuredClone(entries);
@@ -19,6 +22,22 @@ export function getRecentEntries(limit: number): ContentEntry[] {
 
 export function getEntriesByType(type: ContentType): ContentEntry[] {
   return copyEntries(CONTENT_ENTRIES.filter((entry) => entry.type === type));
+}
+
+export function getPaperStatusCounts(): Record<ReadingStatus, number> {
+  const counts = Object.fromEntries(readingStatuses.map((status) => [status, 0])) as Record<ReadingStatus, number>;
+  for (const entry of CONTENT_ENTRIES) {
+    if (entry.type === "papers" && entry.readingStatus) counts[entry.readingStatus] += 1;
+  }
+  return counts;
+}
+
+export function getRecruitingStageCounts(): Record<ApplicationStage, number> {
+  const counts = Object.fromEntries(applicationStages.map((stage) => [stage, 0])) as Record<ApplicationStage, number>;
+  for (const entry of CONTENT_ENTRIES) {
+    if (entry.type === "jobs" && entry.applicationStage) counts[entry.applicationStage] += 1;
+  }
+  return counts;
 }
 
 export function searchEntries(query: string): ContentEntry[] {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const editorUrl = new URL("../components/portable-editor.tsx", import.meta.url);
@@ -116,4 +116,23 @@ test("export slug is read only from leading frontmatter", async () => {
     exportSlug("# Example\n\n```yaml\nslug: fenced-example\n```"),
     "draft",
   );
+});
+
+test("progress components expose text-labelled methods and both overview groups", async () => {
+  const badgesUrl = new URL("../components/paper-method-badges.tsx", import.meta.url);
+  const overviewUrl = new URL("../components/progress-overview.tsx", import.meta.url);
+  await assert.doesNotReject(access(badgesUrl));
+  await assert.doesNotReject(access(overviewUrl));
+  const [badges, overview] = await Promise.all([
+    readFile(badgesUrl, "utf8"),
+    readFile(overviewUrl, "utf8"),
+  ]);
+
+  for (const label of ["粗读", "细读", "总结", "已采用", "未采用"]) {
+    assert.match(badges, new RegExp(label));
+  }
+  assert.match(overview, /论文阅读概览/);
+  assert.match(overview, /秋招进展概览/);
+  assert.match(overview, /href="\/papers"/);
+  assert.match(overview, /href="\/jobs"/);
 });

@@ -365,3 +365,24 @@ test("prioritizes explicit relationships and returns isolated copies", () => {
     ),
   );
 });
+
+test("summarizes every paper status and recruiting stage without omitting zero counts", async () => {
+  const query = await import("../lib/content/query.ts");
+
+  assert.equal(typeof query.getPaperStatusCounts, "function");
+  assert.equal(typeof query.getRecruitingStageCounts, "function");
+  assert.deepEqual(query.getPaperStatusCounts(), {
+    queued: 0,
+    in_progress: 0,
+    synthesizing: 0,
+    completed: 1,
+    archived: 0,
+  });
+  assert.deepEqual(query.getRecruitingStageCounts(), {
+    applied: 0,
+    written_test: 0,
+    interview: 1,
+    offer: 0,
+    closed: 0,
+  });
+});
