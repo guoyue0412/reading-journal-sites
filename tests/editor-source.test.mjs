@@ -136,3 +136,21 @@ test("progress components expose text-labelled methods and both overview groups"
   assert.match(overview, /href="\/papers"/);
   assert.match(overview, /href="\/jobs"/);
 });
+
+test("paper index filters by reading method and status with a responsive resettable matrix", async () => {
+  const source = await readFile(new URL("../components/paper-index.tsx", import.meta.url), "utf8");
+  const badges = await readFile(new URL("../components/paper-method-badges.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(source, /readingMethod/);
+  assert.match(source, /readingMethods\?\.includes/);
+  for (const status of ["queued", "in_progress", "synthesizing", "completed", "archived"]) {
+    assert.match(badges, new RegExp(status));
+  }
+  assert.match(source, /<table/);
+  assert.match(source, /paper-mobile-list/);
+  assert.match(source, />清除筛选</);
+  assert.match(css, /\.paper-matrix/);
+  assert.match(css, /\.paper-mobile-list/);
+  assert.match(css, /min-height:\s*44px/);
+});

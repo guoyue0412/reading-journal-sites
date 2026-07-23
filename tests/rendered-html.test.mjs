@@ -93,6 +93,19 @@ test("server-renders all four module indexes", async () => {
   }
 });
 
+test("server-renders the paper reading matrix with independent methods and execution status", async () => {
+  const response = await render("/papers");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /阅读方式矩阵/);
+  assert.match(html, /粗读/);
+  assert.match(html, /细读/);
+  assert.match(html, /总结/);
+  assert.match(html, /已完成/);
+  assert.match(html, /UniTacVLA/);
+});
+
 test("server-renders a paper article with LaTeX metadata and a related reflection", async () => {
   const response = await render("/post/unitacvla-reading");
 

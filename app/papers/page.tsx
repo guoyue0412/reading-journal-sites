@@ -9,7 +9,7 @@ export default function PapersPage() {
         <header className="index-heading">
           <p className="eyebrow">RESEARCH READING</p>
           <h1>论文阅读</h1>
-          <p>从具身智能、VLA 与触觉研究中，整理问题、方法和仍待验证的判断。</p>
+          <p>每篇论文按实际采用的粗读、细读与总结方式归档；阅读方式可组合，执行状态保持唯一。</p>
         </header>
         <PaperIndex entries={getEntriesByType("papers")} />
       </div>
