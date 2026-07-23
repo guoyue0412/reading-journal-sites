@@ -76,6 +76,19 @@ test("server-renders the editorial homepage without starter markers", async () =
   );
 });
 
+test("homepage combines paper and recruiting progress without becoming a dashboard shell", async () => {
+  const response = await render("/");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /论文阅读概览/);
+  assert.match(html, /秋招进展概览/);
+  assert.match(html, /已完成/);
+  assert.match(html, /面试中/);
+  assert.match(html, /href="\/papers"/);
+  assert.match(html, /href="\/jobs"/);
+});
+
 test("server-renders all four module indexes", async () => {
   const routes = [
     ["/jobs", "秋招记录", "秋招不是一场考试"],
@@ -130,6 +143,21 @@ test("server-renders a paper article with LaTeX metadata and a related reflectio
   assert.match(html, /关于长期主义，我最近改变的三个看法/);
   assert.match(html, /<table>/);
   assert.match(html, /<pre><code/);
+  assert.match(html, /粗读/);
+  assert.match(html, /细读/);
+  assert.match(html, /总结/);
+  assert.match(html, /已完成/);
+});
+
+test("server-renders recruiting metadata on a岗位 article", async () => {
+  const response = await render("/post/autumn-recruiting-journey");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /个人秋招总览/);
+  assert.match(html, /具身智能算法工程师/);
+  assert.match(html, /面试/);
+  assert.match(html, /持续复盘面试并补强系统落地表达/);
 });
 
 test("returns the editorial 404 response for an unknown post slug", async () => {

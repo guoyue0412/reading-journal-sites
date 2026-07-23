@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { ProgressOverview } from "../components/progress-overview";
 import { SiteShell } from "../components/site-shell";
-import { getEntriesByType, getRecentEntries, getRelatedEntries } from "../lib/content/query";
+import { getEntriesByType, getPaperStatusCounts, getRecentEntries, getRecruitingStageCounts, getRelatedEntries } from "../lib/content/query";
 
 const modules = [
   ["01", "/jobs", "秋招记录", "选择、碰撞与重新认识自己"],
@@ -18,7 +19,6 @@ const typeLabels = {
 
 export default function Home() {
   const recentEntries = getRecentEntries(4);
-  const papers = getEntriesByType("papers");
   const reflection = getEntriesByType("reflections")[0];
   const related = reflection ? getRelatedEntries(reflection.slug).slice(0, 3) : [];
 
@@ -60,17 +60,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="editorial-section split-section" aria-labelledby="paper-progress-title">
-        <div>
-          <p className="eyebrow">READING DESK</p>
-          <h2 id="paper-progress-title">论文阅读进度</h2>
-        </div>
-        <div className="paper-progress">
-          <strong>{papers.length}</strong>
-          <p>篇论文进入阅读档案</p>
-          <Link href="/papers">查看阅读索引 <span aria-hidden="true">→</span></Link>
-        </div>
-      </section>
+      <ProgressOverview paperCounts={getPaperStatusCounts()} recruitingCounts={getRecruitingStageCounts()} />
 
       <section className="editorial-section split-section" aria-labelledby="reflection-title">
         <div>
