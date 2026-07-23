@@ -7,6 +7,7 @@ const navigation = [
   ["/internship", "实习日记"],
   ["/papers", "论文阅读"],
   ["/reflections", "个人感悟"],
+  ["/editor", "编辑器"],
   ["/search", "搜索"],
 ] as const;
 
