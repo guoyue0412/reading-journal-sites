@@ -3,6 +3,9 @@ import { PaperMethodBadges, readingStatusLabels } from "../components/paper-meth
 import { ProgressOverview } from "../components/progress-overview";
 import { SiteShell } from "../components/site-shell";
 import { getEntriesByType, getPaperStatusCounts, getRecentEntries, getRecentEntriesByType, getRecruitingStageCounts, getRelatedEntries } from "../lib/content/query";
+import { listPublicEntries } from "../lib/blog/read-model";
+
+export const dynamic = "force-dynamic";
 
 const modules = [
   ["01", "/jobs", "秋招记录", "选择、碰撞与重新认识自己"],
@@ -26,12 +29,13 @@ const applicationStageLabels = {
   closed: "结束",
 } as const;
 
-export default function Home() {
-  const recentEntries = getRecentEntries(4);
-  const recentPaper = getRecentEntriesByType("papers", 1)[0];
-  const recentRecruiting = getRecentEntriesByType("jobs", 1)[0];
-  const reflection = getEntriesByType("reflections")[0];
-  const related = reflection ? getRelatedEntries(reflection.slug).slice(0, 3) : [];
+export default async function Home() {
+  const entries = await listPublicEntries();
+  const recentEntries = getRecentEntries(4, entries);
+  const recentPaper = getRecentEntriesByType("papers", 1, entries)[0];
+  const recentRecruiting = getRecentEntriesByType("jobs", 1, entries)[0];
+  const reflection = getEntriesByType("reflections", entries)[0];
+  const related = reflection ? getRelatedEntries(reflection.slug, entries).slice(0, 3) : [];
 
   return (
     <SiteShell>
@@ -71,7 +75,7 @@ export default function Home() {
         </div>
       </section>
 
-      <ProgressOverview paperCounts={getPaperStatusCounts()} recruitingCounts={getRecruitingStageCounts()} />
+      <ProgressOverview paperCounts={getPaperStatusCounts(entries)} recruitingCounts={getRecruitingStageCounts(entries)} />
 
       <section className="home-focus-grid" aria-label="最近研究与秋招动态">
         <article aria-labelledby="recent-paper-title">

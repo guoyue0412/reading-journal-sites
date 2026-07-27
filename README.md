@@ -1,4 +1,19 @@
-# vinext-starter
+# 郭跃的个人博客
+
+记录秋招、实习、论文阅读与每日感悟，并提供站长专用的网页结构化写作工作台。
+
+## 如何发布一篇新博客
+
+1. 打开网站的 `/editor`，使用站长 ChatGPT 账号登录。
+2. 在左侧选择“秋招进展、实习日记、论文阅读、每日感悟”之一。
+3. 填写标题、Slug、日期、摘要和对应的结构化字段。
+4. 在“内容模块”中填写模板，也可以添加“创新点、相关论文”等自定义模块；需要复用时勾选“保存为常用模块”。
+5. 等待顶部显示“已保存”，切换到“预览”检查 Markdown、公式和排版。
+6. 点击“发布”。只有这一步会更新公开博客；自动保存只更新私有草稿。
+
+编辑器支持导出 Markdown，也可以导入 Obsidian 写好的 `.md` 文件并创建新草稿。网页托管环境不会直接写入本机或 iCloud 中的 Obsidian 文件夹，因此推荐用导入/导出完成双向流转。托管环境中的 `BLOG_OWNER_EMAIL` 由 Sites 运行时配置，本地开发时可参考 `.env.example`。
+
+## 开发说明
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and

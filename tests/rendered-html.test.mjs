@@ -258,5 +258,5 @@ test("includes editor source coverage in the standard test command", async () =>
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
 
-  assert.match(packageJson.scripts.test, /tests\/editor-source\.test\.mjs/);
+  assert.match(packageJson.scripts.test, /tests\/(?:\*|editor-source)\.test\.mjs/);
 });

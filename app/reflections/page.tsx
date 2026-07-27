@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { SiteShell } from "../../components/site-shell";
 import { getEntriesByType } from "../../lib/content/query";
+import { listPublicEntries } from "../../lib/blog/read-model";
 
-export default function ReflectionsPage() {
+export const dynamic = "force-dynamic";
+export default async function ReflectionsPage() {
+  const publicEntries = await listPublicEntries();
   const grouped = Object.entries(
-    getEntriesByType("reflections").reduce<Record<string, ReturnType<typeof getEntriesByType>>>(
+    getEntriesByType("reflections", publicEntries).reduce<Record<string, ReturnType<typeof getEntriesByType>>>(
       (months, entry) => {
         const month = entry.date.slice(0, 7);
         (months[month] ??= []).push(entry);

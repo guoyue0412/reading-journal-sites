@@ -2,72 +2,40 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-const editorUrl = new URL("../components/portable-editor.tsx", import.meta.url);
+const editorUrl = new URL("../components/editor/structured-editor.tsx", import.meta.url);
 
-test("portable editor supports templates, local drafts, Markdown import, and export", async () => {
+test("structured editor supports server drafts, recovery, Markdown import, and export", async () => {
   const source = await readFile(editorUrl, "utf8");
-
-  assert.match(source, /ContentType/);
-  assert.match(source, /guoyue-blog-draft-v1/);
   assert.match(source, /localStorage\.getItem/);
   assert.match(source, /localStorage\.setItem/);
+  assert.match(source, /\/api\/editor\/import/);
   assert.match(source, /accept=["']\.md,text\/markdown["']/);
   assert.match(source, /\.text\(\)/);
-  assert.match(source, /new Blob/);
-  assert.match(source, /URL\.createObjectURL/);
-  assert.match(source, /URL\.revokeObjectURL/);
-  assert.match(source, /slug.*\.md/s);
+  assert.match(source, /\/export/);
 });
 
-test("portable editor exposes all module templates and mobile editing tabs", async () => {
+test("structured editor autosaves drafts but publishes only on explicit action", async () => {
   const source = await readFile(editorUrl, "utf8");
-
-  for (const moduleName of ["jobs", "internship", "papers", "reflections"]) {
-    assert.match(source, new RegExp(`${moduleName}:`), moduleName);
-  }
-  assert.match(source, /date:\s*date/);
-  assert.match(source, /slug:\s*date/);
+  assert.match(source, /setTimeout/);
+  assert.match(source, /expectedVersion/);
+  assert.match(source, /VERSION_CONFLICT/);
+  assert.match(source, /\/publish/);
+  assert.match(source, />发布</);
   assert.match(source, />编辑</);
   assert.match(source, />预览</);
-  assert.match(source, /<textarea/);
-  assert.match(source, /ReactMarkdown/);
-  assert.match(source, /remarkMath/);
-  assert.match(source, /rehypeKatex/);
-  assert.match(source, /read_at:/);
-  assert.match(source, /paper_url:/);
-  assert.match(source, /reading_status:/);
-  assert.doesNotMatch(source, /\b(?:readAt|paperUrl|readingStatus):/);
 });
 
-test("portable editor provides schema-aligned paper and recruiting templates", async () => {
-  const source = await readFile(editorUrl, "utf8");
-
-  assert.match(source, /reading_methods:\s*"\[\]"/);
-  assert.match(source, /reading_status:\s*"queued"/);
-  for (const heading of ["## 粗读记录", "## 细读记录", "## 阅读总结"]) {
-    assert.match(source, new RegExp(heading));
-  }
-  for (const field of ["company", "role", "location", "application_stage", "applied_at", "next_action"]) {
-    assert.match(source, new RegExp(`${field}:`));
-  }
-  for (const heading of ["## 投递", "## 笔试", "## 面试", "## 最终复盘"]) {
-    assert.match(source, new RegExp(heading));
-  }
-  for (const value of ["skim", "deep", "synthesis", "in_progress", "synthesizing", "completed", "archived", "written_test", "interview", "offer", "closed"]) {
-    assert.match(source, new RegExp(value));
-  }
+test("custom sections can be added and saved as reusable templates", async () => {
+  const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
+  for (const kind of ["long_text", "short_text", "checklist", "markdown", "relation"]) assert.match(drawer, new RegExp(kind));
+  assert.match(drawer, /保存为常用模块/);
 });
 
-test("Markdown import remains pointer-usable and has a visible keyboard focus indicator", async () => {
-  const [source, css] = await Promise.all([
-    readFile(editorUrl, "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-  ]);
-
-  assert.match(source, /<label className="portable-editor__import">/);
-  assert.match(css, /\.portable-editor__import:focus-within\s*>\s*span\s*{[^}]*outline:/s);
-  assert.match(css, /\.portable-editor__import input\s*{[^}]*(?:clip-path|clip):/s);
-  assert.doesNotMatch(css, /\.portable-editor__import input\s*{[^}]*pointer-events:\s*none/s);
+test("editor page is owner-protected and renders the structured studio", async () => {
+  const page = await readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /requireBlogOwner/);
+  assert.match(page, /StructuredEditor/);
+  assert.match(page, /force-dynamic/);
 });
 
 test("search and module empty states provide reset and first-Markdown actions", async () => {
@@ -98,43 +66,17 @@ test("rich Markdown tables and code blocks own narrow-screen horizontal scrollin
   assert.match(css, /\.markdown-body pre\s*{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s);
 });
 
-test("editor route uses the shared shell and responsive panes", async () => {
-  const [page, source, css] = await Promise.all([
+test("editor route uses the shared shell and structured panes", async () => {
+  const [page, source] = await Promise.all([
     readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8"),
     readFile(editorUrl, "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /SiteShell/);
-  assert.match(page, /PortableEditor/);
-  assert.match(css, /@media\s*\(max-width:\s*719px\)/);
-  assert.match(css, /@media\s*\(min-width:\s*720px\)/);
-  assert.match(css, /\.portable-editor__error/);
+  assert.match(page, /StructuredEditor/);
+  assert.match(source, /studio-layout/);
+  assert.match(source, /ArticlePreview/);
   assert.doesNotMatch(source, /\bhidden=/);
-  assert.doesNotMatch(css, /\[hidden\]/);
-  assert.match(source, /is-active/);
-});
-
-test("export slug is read only from leading frontmatter", async () => {
-  const source = await readFile(editorUrl, "utf8");
-  const helper = source.match(
-    /function exportSlug\(markdown: string\) \{([\s\S]*?)\n\}/,
-  );
-  assert.ok(helper, "exportSlug helper must remain independently testable");
-  const exportSlug = Function("markdown", helper[1]);
-
-  assert.equal(
-    exportSlug("---\ntitle: Note\nslug: frontmatter-slug\n---\nslug: body-slug"),
-    "frontmatter-slug",
-  );
-  assert.equal(
-    exportSlug("---\ntitle: No slug\n---\nslug: body-slug"),
-    "draft",
-  );
-  assert.equal(
-    exportSlug("# Example\n\n```yaml\nslug: fenced-example\n```"),
-    "draft",
-  );
 });
 
 test("progress components expose text-labelled methods and both overview groups", async () => {

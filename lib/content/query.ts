@@ -12,41 +12,41 @@ export function sortEntriesByRecency<T extends { date: string; readAt?: string }
   return [...entries].sort((left, right) => Date.parse(right.readAt ?? right.date) - Date.parse(left.readAt ?? left.date));
 }
 
-export function getRecentEntries(limit: number): ContentEntry[] {
-  const entries = sortEntriesByRecency(CONTENT_ENTRIES);
+export function getRecentEntries(limit: number, source: ContentEntry[] = CONTENT_ENTRIES): ContentEntry[] {
+  const entries = sortEntriesByRecency(source);
 
   return copyEntries(entries.slice(0, Math.max(0, limit)));
 }
 
-export function getEntriesByType(type: ContentType): ContentEntry[] {
-  return copyEntries(sortEntriesByRecency(CONTENT_ENTRIES.filter((entry) => entry.type === type)));
+export function getEntriesByType(type: ContentType, entries: ContentEntry[] = CONTENT_ENTRIES): ContentEntry[] {
+  return copyEntries(sortEntriesByRecency(entries.filter((entry) => entry.type === type)));
 }
 
-export function getRecentEntriesByType(type: ContentType, limit: number): ContentEntry[] {
-  return getEntriesByType(type).slice(0, Math.max(0, limit));
+export function getRecentEntriesByType(type: ContentType, limit: number, entries: ContentEntry[] = CONTENT_ENTRIES): ContentEntry[] {
+  return getEntriesByType(type, entries).slice(0, Math.max(0, limit));
 }
 
-export function getPaperStatusCounts(): Record<ReadingStatus, number> {
+export function getPaperStatusCounts(entries: ContentEntry[] = CONTENT_ENTRIES): Record<ReadingStatus, number> {
   const counts = Object.fromEntries(readingStatuses.map((status) => [status, 0])) as Record<ReadingStatus, number>;
-  for (const entry of CONTENT_ENTRIES) {
+  for (const entry of entries) {
     if (entry.type === "papers" && entry.readingStatus) counts[entry.readingStatus] += 1;
   }
   return counts;
 }
 
-export function getRecruitingStageCounts(): Record<ApplicationStage, number> {
+export function getRecruitingStageCounts(entries: ContentEntry[] = CONTENT_ENTRIES): Record<ApplicationStage, number> {
   const counts = Object.fromEntries(applicationStages.map((stage) => [stage, 0])) as Record<ApplicationStage, number>;
-  for (const entry of CONTENT_ENTRIES) {
+  for (const entry of entries) {
     if (entry.type === "jobs" && entry.applicationStage) counts[entry.applicationStage] += 1;
   }
   return counts;
 }
 
-export function searchEntries(query: string): ContentEntry[] {
+export function searchEntries(query: string, entries: ContentEntry[] = CONTENT_ENTRIES): ContentEntry[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return [];
 
-  const matches = CONTENT_ENTRIES.filter((entry) => {
+  const matches = entries.filter((entry) => {
     const searchableFields = [
       entry.title,
       entry.summary,
@@ -70,11 +70,11 @@ function sharesMetadata(left: ContentEntry, right: ContentEntry): boolean {
   );
 }
 
-export function getRelatedEntries(slug: string): ContentEntry[] {
-  const source = CONTENT_ENTRIES.find((entry) => entry.slug === slug);
+export function getRelatedEntries(slug: string, entries: ContentEntry[] = CONTENT_ENTRIES): ContentEntry[] {
+  const source = entries.find((entry) => entry.slug === slug);
   if (!source) return [];
 
-  const candidates = CONTENT_ENTRIES.filter((entry) => entry.slug !== slug);
+  const candidates = entries.filter((entry) => entry.slug !== slug);
   const explicit = source.related
     .map((relatedSlug) =>
       candidates.find((entry) => entry.slug === relatedSlug),

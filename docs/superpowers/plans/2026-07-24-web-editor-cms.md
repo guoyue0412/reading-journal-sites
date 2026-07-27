@@ -1,0 +1,1221 @@
+# Web Editor CMS Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build an owner-only web writing studio where 郭跃 can create structured posts and reusable components, autosave drafts, preview, publish, and round-trip Markdown without exposing drafts publicly.
+
+**Architecture:** Store posts, ordered sections, reusable section templates, relations, and immutable publish snapshots in Cloudflare D1. Keep validation, Markdown conversion, persistence, authorization, editor UI, and public read models in separate modules; public routes read only published snapshots, with the current generated Markdown index as a migration fallback.
+
+**Tech Stack:** Next.js 16.2.6, React 19.2.6, vinext 0.0.50, Cloudflare Workers/D1, Drizzle ORM 0.45.2, React Markdown, remark-gfm, remark-math, rehype-katex, Node.js test runner.
+
+## Global Constraints
+
+- Public readers can access only published snapshots; drafts and templates are owner-only.
+- `/editor` and every mutation route require ChatGPT identity plus exact `BLOG_OWNER_EMAIL` matching.
+- Autosave never publishes; publishing is an explicit action and creates an immutable revision.
+- Existing Markdown content remains intact and is available until the D1 bootstrap completes.
+- Markdown import is preview-first and never auto-publishes.
+- Markdown export preserves the existing snake_case frontmatter schema and ordered `##` sections.
+- Paper reading methods are multi-select; reading status is single-select; selected methods must match their standard sections.
+- Recruiting stage remains one of `applied`, `written_test`, `interview`, `offer`, `closed`.
+- Daily reflection slug must equal its ISO date.
+- Custom sections support `long_text`, `short_text`, `checklist`, `markdown`, and `relation`.
+- Desktop uses three columns, tablet uses navigation plus form, and mobile uses fill/preview tabs.
+- Do not add R2, multi-author roles, comments, external OAuth, or direct writes to the local iCloud Obsidian directory.
+
+---
+
+## Planned File Map
+
+**Domain and conversion**
+
+- Create `lib/blog/types.ts`: canonical post, section, template, revision, and API types.
+- Create `lib/blog/validation.ts`: schema-independent validation and publish rules.
+- Create `lib/blog/default-templates.ts`: four article-type defaults and standard section definitions.
+- Create `lib/blog/markdown.ts`: Markdown/frontmatter import and export.
+
+**Persistence and services**
+
+- Modify `db/schema.ts`: D1 tables and indexes.
+- Create `lib/blog/store.ts`: persistence interface used by services and tests.
+- Create `lib/blog/d1-store.ts`: Drizzle/D1 implementation and atomic draft/publish operations.
+- Create `lib/blog/service.ts`: owner-independent business operations and optimistic concurrency.
+- Create `lib/blog/read-model.ts`: public published-entry queries and static fallback.
+- Create `lib/blog/bootstrap.ts`: idempotent import of the generated legacy corpus.
+- Modify `scripts/generate-content-index.mjs`: emit published and legacy-all-content indexes.
+- Create `lib/content/legacy-generated.ts`: generated build artifact containing drafts and published posts.
+
+**Authorization and routes**
+
+- Modify `app/chatgpt-auth.ts`: owner assertion shared by pages and APIs.
+- Create `app/api/editor/posts/route.ts`: list/create posts.
+- Create `app/api/editor/posts/[id]/route.ts`: load/save/delete one draft.
+- Create `app/api/editor/posts/[id]/publish/route.ts`: publish a validated revision.
+- Create `app/api/editor/posts/[id]/export/route.ts`: download Markdown.
+- Create `app/api/editor/import/route.ts`: parse Markdown into an unpersisted preview.
+- Create `app/api/editor/templates/route.ts`: list/create reusable modules.
+- Create `app/api/editor/templates/[id]/route.ts`: update/disable/delete reusable modules.
+
+**Editor UI**
+
+- Replace `app/editor/page.tsx`: protected editor shell and bootstrap.
+- Replace `components/portable-editor.tsx` with `components/editor/structured-editor.tsx`.
+- Create `components/editor/editor-sidebar.tsx`.
+- Create `components/editor/post-fields.tsx`.
+- Create `components/editor/section-editor.tsx`.
+- Create `components/editor/add-section-drawer.tsx`.
+- Create `components/editor/article-preview.tsx`.
+- Create `components/editor/editor-types.ts`.
+- Modify `app/globals.css`: responsive writing-studio styles and accessible states.
+
+**Public site and verification**
+
+- Modify `lib/content/query.ts`: accept the asynchronous public read model.
+- Modify `app/page.tsx`, all four module pages, `app/search/page.tsx`, and `app/post/[slug]/page.tsx`: use D1 published entries.
+- Modify `components/markdown-article.tsx`: render snapshot sections through generated Markdown body.
+- Modify `.openai/hosting.json`: set logical D1 binding to `DB`.
+- Add migration under `drizzle/` generated by `npm run db:generate`.
+- Add domain, Markdown, service, authorization, bootstrap, route-source, editor-source, and public-read tests.
+
+---
+
+### Task 1: Canonical Blog Domain and Default Templates
+
+**Files:**
+- Create: `lib/blog/types.ts`
+- Create: `lib/blog/default-templates.ts`
+- Create: `lib/blog/validation.ts`
+- Test: `tests/blog-domain.test.mjs`
+
+**Interfaces:**
+- Produces: `BlogPostDraft`, `BlogSection`, `SectionTemplate`, `PublishedSnapshot`, `validateDraft`, `validateForPublish`, `createEmptyDraft`, `defaultTemplatesFor`.
+- Consumes: existing content names from `lib/content/types.ts`; no persistence dependency.
+
+- [ ] **Step 1: Write failing domain tests**
+
+```js
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createEmptyDraft, defaultTemplatesFor } from "../lib/blog/default-templates.ts";
+import { validateDraft, validateForPublish } from "../lib/blog/validation.ts";
+
+test("paper drafts load standard modules and allow reusable custom modules", () => {
+  const draft = createEmptyDraft("papers", "post-1", "2026-07-24", [
+    { id: "tpl-innovation", postType: "papers", title: "创新点", kind: "long_text", position: 40, standardKey: null, enabled: true },
+  ]);
+  assert.deepEqual(draft.sections.map((section) => section.title), ["研究问题", "粗读记录", "细读记录", "阅读总结", "创新点"]);
+  assert.equal(draft.status, "draft");
+  assert.equal(draft.draftVersion, 0);
+});
+
+test("active paper methods must match standard sections", () => {
+  const draft = createEmptyDraft("papers", "post-1", "2026-07-24", []);
+  draft.title = "Paper";
+  draft.summary = "Summary";
+  draft.metadata = { authors: [], venue: "arXiv", year: 2026, paperUrl: "https://arxiv.org/abs/1", readAt: "2026-07-24", readingMethods: ["deep"], readingStatus: "in_progress", topics: [] };
+  draft.sections = draft.sections.filter((section) => section.standardKey !== "deep");
+  assert.match(validateForPublish(draft).join("\n"), /细读记录/);
+});
+
+test("reflection slug must equal its date", () => {
+  const draft = createEmptyDraft("reflections", "post-2", "2026-07-24", []);
+  draft.slug = "wrong";
+  assert.match(validateDraft(draft).join("\n"), /slug/);
+});
+
+test("default templates cover all four post types", () => {
+  assert.deepEqual(Object.keys(defaultTemplatesFor), ["jobs", "internship", "papers", "reflections"]);
+});
+```
+
+- [ ] **Step 2: Run tests and verify the missing modules fail**
+
+Run: `node --test tests/blog-domain.test.mjs`
+Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `lib/blog/default-templates.ts`.
+
+- [ ] **Step 3: Define the canonical types**
+
+```ts
+export type PostType = "jobs" | "internship" | "papers" | "reflections";
+export type PostStatus = "draft" | "published";
+export type SectionKind = "long_text" | "short_text" | "checklist" | "markdown" | "relation";
+export type ReadingMethod = "skim" | "deep" | "synthesis";
+export type ReadingStatus = "queued" | "in_progress" | "synthesizing" | "completed" | "archived";
+export type ApplicationStage = "applied" | "written_test" | "interview" | "offer" | "closed";
+
+export type PaperMetadata = { authors: string[]; venue: string; year: number; paperUrl: string; readAt: string; readingMethods: ReadingMethod[]; readingStatus: ReadingStatus; topics: string[] };
+export type JobMetadata = { company: string; role: string; location: string; applicationStage: ApplicationStage; appliedAt: string; nextAction: string };
+export type GenericMetadata = Record<string, never>;
+export type PostMetadata = PaperMetadata | JobMetadata | GenericMetadata;
+
+export interface BlogSection { id: string; title: string; kind: SectionKind; content: string; items: string[]; relationSlugs: string[]; position: number; templateId: string | null; standardKey: string | null; }
+export interface SectionTemplate { id: string; postType: PostType; title: string; kind: SectionKind; position: number; standardKey: string | null; enabled: boolean; }
+export interface BlogPostDraft { id: string; slug: string; type: PostType; title: string; date: string; summary: string; tags: string[]; related: string[]; status: PostStatus; metadata: PostMetadata; sections: BlogSection[]; draftVersion: number; publishedRevisionId: string | null; createdAt: string; updatedAt: string; }
+export interface PublishedSnapshot extends Omit<BlogPostDraft, "status"> { status: "published"; revisionId: string; publishedAt: string; }
+```
+
+- [ ] **Step 4: Implement defaults and validation**
+
+```ts
+export const defaultTemplatesFor: Record<PostType, Array<Omit<SectionTemplate, "id" | "postType">>> = {
+  jobs: [
+    { title: "投递", kind: "long_text", position: 10, standardKey: "applied", enabled: true },
+    { title: "笔试", kind: "long_text", position: 20, standardKey: "written_test", enabled: true },
+    { title: "面试", kind: "long_text", position: 30, standardKey: "interview", enabled: true },
+    { title: "最终复盘", kind: "long_text", position: 40, standardKey: "review", enabled: true },
+  ],
+  internship: [
+    { title: "今日任务", kind: "checklist", position: 10, standardKey: "tasks", enabled: true },
+    { title: "解决的问题", kind: "long_text", position: 20, standardKey: "problems", enabled: true },
+    { title: "学习收获", kind: "long_text", position: 30, standardKey: "learning", enabled: true },
+    { title: "明日计划", kind: "checklist", position: 40, standardKey: "next", enabled: true },
+  ],
+  papers: [
+    { title: "研究问题", kind: "long_text", position: 5, standardKey: "question", enabled: true },
+    { title: "粗读记录", kind: "markdown", position: 10, standardKey: "skim", enabled: true },
+    { title: "细读记录", kind: "markdown", position: 20, standardKey: "deep", enabled: true },
+    { title: "阅读总结", kind: "markdown", position: 30, standardKey: "synthesis", enabled: true },
+  ],
+  reflections: [
+    { title: "今日事件", kind: "long_text", position: 10, standardKey: "event", enabled: true },
+    { title: "感受", kind: "long_text", position: 20, standardKey: "feeling", enabled: true },
+    { title: "反思", kind: "long_text", position: 30, standardKey: "reflection", enabled: true },
+    { title: "一句话总结", kind: "short_text", position: 40, standardKey: "summary", enabled: true },
+  ],
+};
+```
+
+Implement `validateDraft` to validate ISO dates, non-empty IDs/titles, unique ordered section IDs, unique slug shape, known enum values, and reflection date/slug equality. Implement `validateForPublish` by adding required title/summary, paper URL and method/section consistency, and job company/role/stage checks. Return a deterministic `string[]`; do not throw from pure validators.
+
+```ts
+const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+const slugPattern = /^[a-z0-9\u4e00-\u9fff]+(?:-[a-z0-9\u4e00-\u9fff]+)*$/;
+
+export function validateDraft(post: BlogPostDraft): string[] {
+  const errors: string[] = [];
+  if (!post.id.trim()) errors.push("文章 ID 不能为空");
+  if (!isoDate.test(post.date) || Number.isNaN(Date.parse(`${post.date}T00:00:00Z`))) errors.push("日期必须是有效的 YYYY-MM-DD");
+  if (!slugPattern.test(post.slug)) errors.push("slug 只能包含中文、小写字母、数字和单个连字符");
+  if (post.type === "reflections" && post.slug !== post.date) errors.push("每日感悟的 slug 必须等于日期");
+  const ids = post.sections.map((section) => section.id);
+  if (new Set(ids).size !== ids.length) errors.push("组件 ID 不能重复");
+  if (post.sections.some((section) => !section.title.trim())) errors.push("组件名称不能为空");
+  if (post.sections.some((section) => !["long_text", "short_text", "checklist", "markdown", "relation"].includes(section.kind))) errors.push("组件类型无效");
+  return errors;
+}
+
+export function validateForPublish(post: BlogPostDraft): string[] {
+  const errors = validateDraft(post);
+  if (!post.title.trim()) errors.push("标题不能为空");
+  if (!post.summary.trim()) errors.push("摘要不能为空");
+  if (post.type === "papers") {
+    const metadata = post.metadata as PaperMetadata;
+    if (!/^https?:\/\//.test(metadata.paperUrl)) errors.push("论文链接必须是 HTTP 或 HTTPS 地址");
+    if (metadata.readingStatus !== "queued" && metadata.readingMethods.length === 0) errors.push("阅读开始后至少选择一种阅读方式");
+    const sectionKeys = new Set(post.sections.map((section) => section.standardKey));
+    const labels = { skim: "粗读记录", deep: "细读记录", synthesis: "阅读总结" } as const;
+    for (const method of metadata.readingMethods) if (!sectionKeys.has(method)) errors.push(`缺少${labels[method]}组件`);
+  }
+  if (post.type === "jobs") {
+    const metadata = post.metadata as JobMetadata;
+    if (!metadata.company.trim()) errors.push("公司不能为空");
+    if (!metadata.role.trim()) errors.push("岗位不能为空");
+    if (!["applied", "written_test", "interview", "offer", "closed"].includes(metadata.applicationStage)) errors.push("秋招阶段无效");
+  }
+  return errors;
+}
+```
+
+`createEmptyDraft` uses the current post type's standard definitions followed by enabled reusable templates, sorts by `position`, assigns fresh section IDs, and initializes paper/job metadata with the exact enum defaults `queued` and `applied`.
+
+```ts
+export function createEmptyDraft(type: PostType, id: string, date: string, reusable: SectionTemplate[]): BlogPostDraft {
+  const definitions = [...defaultTemplatesFor[type].map((item) => ({ ...item, id: `${id}-${item.standardKey}`, postType: type })), ...reusable.filter((item) => item.enabled)];
+  return {
+    id, slug: type === "reflections" ? date : `${type}-${date}`, type, title: "", date, summary: "", tags: [], related: [], status: "draft",
+    metadata: type === "papers"
+      ? { authors: [], venue: "arXiv", year: Number(date.slice(0, 4)), paperUrl: "", readAt: date, readingMethods: [], readingStatus: "queued", topics: [] }
+      : type === "jobs"
+        ? { company: "", role: "", location: "", applicationStage: "applied", appliedAt: date, nextAction: "" }
+        : {},
+    sections: definitions.sort((a, b) => a.position - b.position).map((item, index) => ({ id: `${id}-section-${index + 1}`, title: item.title, kind: item.kind, content: "", items: [], relationSlugs: [], position: (index + 1) * 10, templateId: item.standardKey ? null : item.id, standardKey: item.standardKey })),
+    draftVersion: 0, publishedRevisionId: null, createdAt: `${date}T00:00:00.000Z`, updatedAt: `${date}T00:00:00.000Z`,
+  };
+}
+```
+
+- [ ] **Step 5: Run the domain tests**
+
+Run: `node --test tests/blog-domain.test.mjs`
+Expected: 4 tests PASS.
+
+- [ ] **Step 6: Commit the domain layer**
+
+```bash
+git add lib/blog/types.ts lib/blog/default-templates.ts lib/blog/validation.ts tests/blog-domain.test.mjs
+git commit -m "feat: define structured blog domain"
+```
+
+---
+
+### Task 2: Markdown Import and Export Round Trip
+
+**Files:**
+- Create: `lib/blog/markdown.ts`
+- Test: `tests/markdown-roundtrip.test.mjs`
+
+**Interfaces:**
+- Consumes: `BlogPostDraft`, `BlogSection`, `PostType`, and validation functions from Task 1.
+- Produces: `exportPostMarkdown(post): string` and `importPostMarkdown(source, options): ImportResult`.
+
+- [ ] **Step 1: Write failing Markdown tests**
+
+```js
+import assert from "node:assert/strict";
+import test from "node:test";
+import { exportPostMarkdown, importPostMarkdown } from "../lib/blog/markdown.ts";
+
+const source = `---
+title: UniTacVLA
+slug: unitacvla
+type: papers
+date: 2026-07-24
+summary: 触觉与视觉统一建模
+tags: [VLA, 触觉]
+related: []
+status: draft
+read_at: 2026-07-24
+authors: [Research Team]
+venue: arXiv
+year: 2026
+paper_url: https://arxiv.org/abs/1
+reading_methods: [skim]
+reading_status: in_progress
+topics: [具身智能]
+---
+
+## 粗读记录
+
+公式 $a_t = f(o_t)$。
+
+## 创新点
+
+- 统一表征
+`;
+
+test("imports known headings and custom headings as ordered sections", () => {
+  const result = importPostMarkdown(source, { id: "post-1", now: "2026-07-24T12:00:00.000Z" });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.draft.sections.map((section) => [section.title, section.standardKey]), [["粗读记录", "skim"], ["创新点", null]]);
+});
+
+test("exports canonical snake_case frontmatter and preserves latex", () => {
+  const imported = importPostMarkdown(source, { id: "post-1", now: "2026-07-24T12:00:00.000Z" });
+  const exported = exportPostMarkdown(imported.draft);
+  assert.match(exported, /reading_methods: \[skim\]/);
+  assert.match(exported, /## 创新点/);
+  assert.match(exported, /\$a_t = f\(o_t\)\$/);
+});
+
+test("malformed imports report fields and never claim publication", () => {
+  const result = importPostMarkdown("---\ntitle: Broken\n---\nBody", { id: "post-2", now: "2026-07-24T12:00:00.000Z" });
+  assert.ok(result.errors.length > 0);
+  assert.equal(result.draft.status, "draft");
+});
+```
+
+- [ ] **Step 2: Run tests and verify failure**
+
+Run: `node --test tests/markdown-roundtrip.test.mjs`
+Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `lib/blog/markdown.ts`.
+
+- [ ] **Step 3: Implement deterministic Markdown conversion**
+
+```ts
+export interface ImportResult { draft: BlogPostDraft; errors: string[]; warnings: string[]; unknownFrontmatter: Record<string, string>; }
+export interface ImportOptions { id: string; now: string; }
+
+const knownHeadings: Record<PostType, Record<string, string>> = {
+  papers: { "研究问题": "question", "粗读记录": "skim", "细读记录": "deep", "阅读总结": "synthesis" },
+  jobs: { "投递": "applied", "笔试": "written_test", "面试": "interview", "最终复盘": "review" },
+  internship: { "今日任务": "tasks", "解决的问题": "problems", "学习收获": "learning", "明日计划": "next" },
+  reflections: { "今日事件": "event", "感受": "feeling", "反思": "reflection", "一句话总结": "summary" },
+};
+
+export function exportPostMarkdown(post: BlogPostDraft): string {
+  const metadata = canonicalFrontmatter(post);
+  const frontmatter = Object.entries(metadata).map(([key, value]) => `${key}: ${formatYamlScalar(value)}`).join("\n");
+  const body = [...post.sections].sort((a, b) => a.position - b.position).map(sectionToMarkdown).join("\n\n");
+  return `---\n${frontmatter}\n---\n\n${body}\n`;
+}
+
+export function importPostMarkdown(source: string, options: ImportOptions): ImportResult {
+  const parsed = parseFrontmatterAndBody(source);
+  const draft = frontmatterToDraft(parsed.frontmatter, options);
+  draft.status = "draft";
+  draft.sections = splitH2Sections(parsed.body).map((section, index) => ({
+    id: `${options.id}-section-${index + 1}`,
+    title: section.title,
+    kind: "markdown",
+    content: section.body,
+    items: [],
+    relationSlugs: [],
+    position: (index + 1) * 10,
+    templateId: null,
+    standardKey: knownHeadings[draft.type][section.title] ?? null,
+  }));
+  return { draft, errors: validateDraft(draft), warnings: parsed.warnings, unknownFrontmatter: parsed.unknownFrontmatter };
+}
+```
+
+Implement the helper functions in the same file with no YAML dependency: support the existing flat scalar/array frontmatter, preserve unknown fields in the report, split only real level-two headings outside fenced code, and convert checklist/relation sections without dropping visible text.
+
+```ts
+function parseFrontmatterAndBody(source: string) {
+  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!match) return { frontmatter: {}, body: source, warnings: ["缺少 YAML frontmatter"], unknownFrontmatter: {} };
+  const frontmatter: Record<string, unknown> = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    const separator = line.indexOf(":");
+    if (separator < 1) continue;
+    frontmatter[line.slice(0, separator).trim()] = parseScalar(line.slice(separator + 1));
+  }
+  const known = new Set(["title", "slug", "type", "date", "summary", "tags", "related", "status", "read_at", "authors", "venue", "year", "paper_url", "reading_methods", "reading_status", "topics", "company", "role", "location", "application_stage", "applied_at", "next_action"]);
+  return { frontmatter, body: match[2], warnings: [], unknownFrontmatter: Object.fromEntries(Object.entries(frontmatter).filter(([key]) => !known.has(key)).map(([key, value]) => [key, String(value)])) };
+}
+
+function splitH2Sections(body: string): Array<{ title: string; body: string }> {
+  const lines = body.split(/\r?\n/); const sections: Array<{ title: string; body: string }> = []; let fence = ""; let current: { title: string; lines: string[] } | null = null;
+  for (const line of lines) {
+    const fenceMatch = line.match(/^\s*(```|~~~)/); if (fenceMatch) fence = fence ? "" : fenceMatch[1];
+    const heading = !fence ? line.match(/^##\s+(.+?)\s*$/) : null;
+    if (heading) { if (current) sections.push({ title: current.title, body: current.lines.join("\n").trim() }); current = { title: heading[1], lines: [] }; }
+    else if (current) current.lines.push(line);
+  }
+  if (current) sections.push({ title: current.title, body: current.lines.join("\n").trim() });
+  return sections;
+}
+
+function sectionToMarkdown(section: BlogSection): string {
+  const value = section.kind === "checklist" ? section.items.map((item) => `- [ ] ${item}`).join("\n") : section.kind === "relation" ? section.relationSlugs.map((slug) => `- [[${slug}]]`).join("\n") : section.content;
+  return `## ${section.title}\n\n${value}`;
+}
+```
+
+- [ ] **Step 4: Run Markdown tests**
+
+Run: `node --test tests/markdown-roundtrip.test.mjs`
+Expected: 3 tests PASS.
+
+- [ ] **Step 5: Commit Markdown conversion**
+
+```bash
+git add lib/blog/markdown.ts tests/markdown-roundtrip.test.mjs
+git commit -m "feat: add blog markdown round trip"
+```
+
+---
+
+### Task 3: D1 Schema and Atomic Store
+
+**Files:**
+- Modify: `.openai/hosting.json`
+- Modify: `db/schema.ts`
+- Create: `lib/blog/store.ts`
+- Create: `lib/blog/d1-store.ts`
+- Create: generated migration under `drizzle/`
+- Test: `tests/blog-store-contract.test.mjs`
+
+**Interfaces:**
+- Consumes: Task 1 domain types.
+- Produces: `BlogStore` interface, `D1BlogStore`, `VersionConflictError`, `SlugConflictError`.
+
+- [ ] **Step 1: Write the store contract test against an in-memory fake**
+
+```js
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createEmptyDraft } from "../lib/blog/default-templates.ts";
+import { MemoryBlogStore } from "../lib/blog/store.ts";
+
+test("saving requires the expected draft version", async () => {
+  const store = new MemoryBlogStore();
+  const input = createEmptyDraft("reflections", "p1", "2026-07-24", []);
+  const created = await store.createDraft({ ...input, slug: "first" });
+  const saved = await store.saveDraft({ ...created, title: "First" }, 0);
+  assert.equal(saved.draftVersion, 1);
+  await assert.rejects(() => store.saveDraft({ ...saved, title: "Stale" }, 0), /version conflict/i);
+});
+
+test("publishing stores an immutable snapshot", async () => {
+  const store = new MemoryBlogStore();
+  const input = createEmptyDraft("reflections", "p2", "2026-07-24", []);
+  const draft = await store.createDraft({ ...input, slug: "second" });
+  const revision = await store.publish(draft, draft.draftVersion, "r1", "2026-07-24T12:10:00.000Z");
+  const published = await store.getPublishedBySlug("second");
+  assert.equal(published.revisionId, revision.revisionId);
+});
+```
+
+- [ ] **Step 2: Run the contract test and verify failure**
+
+Run: `node --test tests/blog-store-contract.test.mjs`
+Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `lib/blog/store.ts`.
+
+- [ ] **Step 3: Define the store boundary and test fake**
+
+```ts
+export class VersionConflictError extends Error { constructor() { super("Draft version conflict"); } }
+export class SlugConflictError extends Error { constructor() { super("Slug already exists"); } }
+
+export interface BlogStore {
+  listDrafts(): Promise<BlogPostDraft[]>;
+  getDraft(id: string): Promise<BlogPostDraft | null>;
+  createDraft(draft: BlogPostDraft): Promise<BlogPostDraft>;
+  saveDraft(draft: BlogPostDraft, expectedVersion: number): Promise<BlogPostDraft>;
+  deleteDraft(id: string): Promise<void>;
+  publish(draft: BlogPostDraft, expectedVersion: number, revisionId: string, publishedAt: string): Promise<PublishedSnapshot>;
+  getPublishedBySlug(slug: string): Promise<PublishedSnapshot | null>;
+  listPublished(): Promise<PublishedSnapshot[]>;
+  listTemplates(type: PostType): Promise<SectionTemplate[]>;
+  saveTemplate(template: SectionTemplate): Promise<SectionTemplate>;
+  disableTemplate(id: string): Promise<void>;
+  hasBootstrapMarker(): Promise<boolean>;
+  markBootstrapped(now: string): Promise<void>;
+}
+```
+
+Implement `MemoryBlogStore` in the same file using cloned map values so service tests cannot mutate stored objects by reference.
+
+- [ ] **Step 4: Define the D1 schema and binding**
+
+Set `.openai/hosting.json` to:
+
+```json
+{
+  "project_id": "appgprj_6a61a1f70c5881919c26ca0628f50ac7",
+  "d1": "DB",
+  "r2": null
+}
+```
+
+Define `posts`, `postSections`, `sectionTemplates`, `postRevisions`, `postRelations`, and `blogState` in `db/schema.ts`. Store type-specific metadata, section item arrays, relation slugs, and revision snapshots as JSON text. Give `posts` a nullable `last_write_token` used to bind every statement in one optimistic-concurrency batch to the same save attempt. Add unique indexes for `posts.slug`, `(post_id, position)`, `(post_id, revision_number)`, and `(source_post_id, target_slug, relation_type)`.
+
+```ts
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const posts = sqliteTable("posts", {
+  id: text("id").primaryKey(), slug: text("slug").notNull(), type: text("type").notNull(), title: text("title").notNull().default(""),
+  date: text("date").notNull(), summary: text("summary").notNull().default(""), tagsJson: text("tags_json").notNull().default("[]"),
+  relatedJson: text("related_json").notNull().default("[]"), metadataJson: text("metadata_json").notNull().default("{}"),
+  status: text("status").notNull().default("draft"), draftVersion: integer("draft_version").notNull().default(0),
+  publishedRevisionId: text("published_revision_id"), lastWriteToken: text("last_write_token"), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("posts_slug_uq").on(table.slug), index("posts_type_date_idx").on(table.type, table.date)]);
+
+export const postSections = sqliteTable("post_sections", {
+  id: text("id").primaryKey(), postId: text("post_id").notNull(), kind: text("kind").notNull(), title: text("title").notNull(),
+  content: text("content").notNull().default(""), itemsJson: text("items_json").notNull().default("[]"), relationSlugsJson: text("relation_slugs_json").notNull().default("[]"),
+  position: integer("position").notNull(), templateId: text("template_id"), standardKey: text("standard_key"),
+}, (table) => [uniqueIndex("post_sections_position_uq").on(table.postId, table.position)]);
+
+export const sectionTemplates = sqliteTable("section_templates", {
+  id: text("id").primaryKey(), postType: text("post_type").notNull(), title: text("title").notNull(), kind: text("kind").notNull(),
+  position: integer("position").notNull(), standardKey: text("standard_key"), enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+});
+
+export const postRevisions = sqliteTable("post_revisions", {
+  id: text("id").primaryKey(), postId: text("post_id").notNull(), revisionNumber: integer("revision_number").notNull(),
+  snapshotJson: text("snapshot_json").notNull(), publishedAt: text("published_at").notNull(),
+}, (table) => [uniqueIndex("post_revisions_number_uq").on(table.postId, table.revisionNumber)]);
+
+export const postRelations = sqliteTable("post_relations", {
+  id: text("id").primaryKey(), sourcePostId: text("source_post_id").notNull(), targetSlug: text("target_slug").notNull(), relationType: text("relation_type").notNull(),
+}, (table) => [uniqueIndex("post_relations_edge_uq").on(table.sourcePostId, table.targetSlug, table.relationType)]);
+
+export const blogState = sqliteTable("blog_state", { key: text("key").primaryKey(), value: text("value").notNull(), updatedAt: text("updated_at").notNull() });
+```
+
+- [ ] **Step 5: Implement the D1 store**
+
+```ts
+export class D1BlogStore implements BlogStore {
+  async saveDraft(draft: BlogPostDraft, expectedVersion: number): Promise<BlogPostDraft> {
+    const nextVersion = expectedVersion + 1;
+    const writeToken = crypto.randomUUID();
+    const d1 = env.DB;
+    const results = await d1.batch([
+      d1.prepare("UPDATE posts SET slug=?1, title=?2, summary=?3, date=?4, tags_json=?5, related_json=?6, metadata_json=?7, draft_version=?8, updated_at=?9, last_write_token=?10 WHERE id=?11 AND draft_version=?12").bind(draft.slug, draft.title, draft.summary, draft.date, JSON.stringify(draft.tags), JSON.stringify(draft.related), JSON.stringify(draft.metadata), nextVersion, draft.updatedAt, writeToken, draft.id, expectedVersion),
+      d1.prepare("DELETE FROM post_sections WHERE post_id=?1 AND EXISTS (SELECT 1 FROM posts WHERE id=?1 AND last_write_token=?2)").bind(draft.id, writeToken),
+      ...draft.sections.map((section) => d1.prepare("INSERT INTO post_sections (id, post_id, kind, title, content, items_json, relation_slugs_json, position, template_id, standard_key) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10 WHERE EXISTS (SELECT 1 FROM posts WHERE id=?2 AND last_write_token=?11)").bind(section.id, draft.id, section.kind, section.title, section.content, JSON.stringify(section.items), JSON.stringify(section.relationSlugs), section.position, section.templateId, section.standardKey, writeToken)),
+    ]);
+    if (results[0].meta.changes !== 1) throw new VersionConflictError();
+    return { ...draft, draftVersion: nextVersion };
+  }
+}
+```
+
+Use one D1 `batch` for post update, section replacement, and relation replacement; every dependent statement checks the same `last_write_token`. Catch D1 unique-constraint errors and translate them to `SlugConflictError`. `publish` accepts `expectedVersion`, inserts the full serialized `PublishedSnapshot` only when that version still matches, and conditionally updates `posts.publishedRevisionId` and status in the same batch. Public reads deserialize only `post_revisions.snapshot_json` referenced by `publishedRevisionId`.
+
+- [ ] **Step 6: Generate and inspect the migration**
+
+Run: `npm run db:generate`
+Expected: a new SQL migration in `drizzle/` containing six `CREATE TABLE` statements and the declared indexes. Inspect it and verify it contains no destructive `DROP TABLE` statements.
+
+- [ ] **Step 7: Run store and build checks**
+
+Run: `node --test tests/blog-store-contract.test.mjs && npm run build`
+Expected: store tests PASS and the deployment build succeeds with `DB` bound locally.
+
+- [ ] **Step 8: Commit persistence**
+
+```bash
+git add .openai/hosting.json db/schema.ts lib/blog/store.ts lib/blog/d1-store.ts drizzle tests/blog-store-contract.test.mjs
+git commit -m "feat: persist blog drafts and revisions"
+```
+
+---
+
+### Task 4: Owner Authorization and Blog Service
+
+**Files:**
+- Modify: `app/chatgpt-auth.ts`
+- Create: `lib/blog/service.ts`
+- Test: `tests/blog-auth.test.mjs`
+- Test: `tests/blog-service.test.mjs`
+
+**Interfaces:**
+- Consumes: `getChatGPTUser`, Task 1 validation, Task 2 conversion, Task 3 `BlogStore`.
+- Produces: `requireBlogOwner`, `assertBlogOwner`, and `createBlogService(store, clock, ids)`.
+
+- [ ] **Step 1: Write failing owner authorization tests**
+
+```js
+import assert from "node:assert/strict";
+import test from "node:test";
+import { isBlogOwner } from "../app/chatgpt-auth.ts";
+
+test("owner email comparison is exact after lowercase normalization", () => {
+  assert.equal(isBlogOwner("Guo@example.com", "guo@example.com"), true);
+  assert.equal(isBlogOwner("other@example.com", "guo@example.com"), false);
+  assert.equal(isBlogOwner("", "guo@example.com"), false);
+});
+```
+
+- [ ] **Step 2: Add server-side owner helpers**
+
+```ts
+export function isBlogOwner(userEmail: string, ownerEmail: string | undefined): boolean {
+  return Boolean(ownerEmail) && userEmail.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
+export async function requireBlogOwner(returnTo = "/editor"): Promise<ChatGPTUser> {
+  const user = await requireChatGPTUser(returnTo);
+  if (!isBlogOwner(user.email, process.env.BLOG_OWNER_EMAIL)) notFound();
+  return user;
+}
+
+export async function assertBlogOwner(): Promise<ChatGPTUser> {
+  const user = await getChatGPTUser();
+  if (!user) throw new BlogAuthError(401, "请先登录");
+  if (!isBlogOwner(user.email, process.env.BLOG_OWNER_EMAIL)) throw new BlogAuthError(403, "无权修改此博客");
+  return user;
+}
+```
+
+- [ ] **Step 3: Write failing service tests**
+
+```js
+test("autosave validates and increments draft version without publishing", async () => {
+  const store = new MemoryBlogStore();
+  const service = createBlogService(store, () => "2026-07-24T12:00:00.000Z", () => "fixed-id");
+  const created = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const saved = await service.saveDraft({ ...created, title: "今日感悟", slug: "2026-07-24" }, 0);
+  assert.equal(saved.draftVersion, 1);
+  assert.equal(await store.getPublishedBySlug("2026-07-24"), null);
+});
+
+test("publish rejects invalid drafts and preserves the previous snapshot", async () => {
+  const store = new MemoryBlogStore();
+  const service = createBlogService(store, () => "2026-07-24T12:00:00.000Z", () => "fixed-id");
+  const created = await service.createPost({ type: "papers", date: "2026-07-24" });
+  await assert.rejects(() => service.publishPost(created.id, created.draftVersion), /标题/);
+  assert.equal(await store.getPublishedBySlug(created.slug), null);
+});
+```
+
+- [ ] **Step 4: Implement the blog service**
+
+```ts
+export function createBlogService(store: BlogStore, clock: () => string, ids: () => string) {
+  return {
+    async createPost(input: { type: PostType; date: string }) {
+      const templates = await store.listTemplates(input.type);
+      const draft = createEmptyDraft(input.type, ids(), input.date, templates);
+      const now = clock();
+      return store.createDraft({ ...draft, createdAt: now, updatedAt: now });
+    },
+    async saveDraft(draft: BlogPostDraft, expectedVersion: number) {
+      const errors = validateDraft(draft);
+      if (errors.length) throw new BlogValidationError(errors);
+      return store.saveDraft({ ...draft, updatedAt: clock() }, expectedVersion);
+    },
+    async publishPost(id: string, expectedVersion: number) {
+      const draft = await store.getDraft(id);
+      if (!draft) throw new BlogNotFoundError();
+      if (draft.draftVersion !== expectedVersion) throw new VersionConflictError();
+      const errors = validateForPublish(draft);
+      if (errors.length) throw new BlogValidationError(errors);
+      return store.publish(draft, expectedVersion, ids(), clock());
+    },
+  };
+}
+```
+
+Add list/load/delete post, template save/disable, import preview, and Markdown export methods using the same error classes. Saving a section as reusable copies only title, kind, position, and standard key; it never copies article content.
+
+- [ ] **Step 5: Run authorization and service tests**
+
+Run: `node --test tests/blog-auth.test.mjs tests/blog-service.test.mjs`
+Expected: all tests PASS.
+
+- [ ] **Step 6: Commit service and authorization**
+
+```bash
+git add app/chatgpt-auth.ts lib/blog/service.ts tests/blog-auth.test.mjs tests/blog-service.test.mjs
+git commit -m "feat: protect blog authoring operations"
+```
+
+---
+
+### Task 5: Owner-Only Editor APIs
+
+**Files:**
+- Create: `lib/blog/http.ts`
+- Create: `app/api/editor/posts/route.ts`
+- Create: `app/api/editor/posts/[id]/route.ts`
+- Create: `app/api/editor/posts/[id]/publish/route.ts`
+- Create: `app/api/editor/posts/[id]/export/route.ts`
+- Create: `app/api/editor/import/route.ts`
+- Create: `app/api/editor/templates/route.ts`
+- Create: `app/api/editor/templates/[id]/route.ts`
+- Test: `tests/editor-api-source.test.mjs`
+
+**Interfaces:**
+- Consumes: `assertBlogOwner`, `D1BlogStore`, `createBlogService`.
+- Produces: JSON API consumed only by the structured editor.
+
+- [ ] **Step 1: Write route-source security tests**
+
+```js
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const routes = [
+  "../app/api/editor/posts/route.ts",
+  "../app/api/editor/posts/[id]/route.ts",
+  "../app/api/editor/posts/[id]/publish/route.ts",
+  "../app/api/editor/posts/[id]/export/route.ts",
+  "../app/api/editor/import/route.ts",
+  "../app/api/editor/templates/route.ts",
+  "../app/api/editor/templates/[id]/route.ts",
+];
+
+test("every editor API performs server-side owner authorization", async () => {
+  for (const route of routes) {
+    const source = await readFile(new URL(route, import.meta.url), "utf8");
+    assert.match(source, /assertBlogOwner\(\)/, route);
+  }
+});
+
+test("publish is a separate explicit endpoint", async () => {
+  const save = await readFile(new URL("../app/api/editor/posts/[id]/route.ts", import.meta.url), "utf8");
+  const publish = await readFile(new URL("../app/api/editor/posts/[id]/publish/route.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(save, /publishPost/);
+  assert.match(publish, /publishPost/);
+});
+```
+
+- [ ] **Step 2: Implement shared HTTP error mapping**
+
+```ts
+export async function withOwnerJson(operation: () => Promise<unknown>): Promise<Response> {
+  try {
+    await assertBlogOwner();
+    return Response.json(await operation());
+  } catch (error) {
+    if (error instanceof BlogAuthError) return Response.json({ error: error.message }, { status: error.status });
+    if (error instanceof BlogValidationError) return Response.json({ error: "内容校验失败", fields: error.errors }, { status: 400 });
+    if (error instanceof VersionConflictError) return Response.json({ error: "草稿已在其他设备更新", code: "VERSION_CONFLICT" }, { status: 409 });
+    if (error instanceof SlugConflictError) return Response.json({ error: "文章地址已存在", code: "SLUG_CONFLICT" }, { status: 409 });
+    if (error instanceof BlogNotFoundError) return Response.json({ error: "文章不存在" }, { status: 404 });
+    return Response.json({ error: "保存失败，请稍后重试" }, { status: 500 });
+  }
+}
+```
+
+- [ ] **Step 3: Implement CRUD and publish routes**
+
+```ts
+const service = createBlogService(new D1BlogStore(), () => new Date().toISOString(), () => crypto.randomUUID());
+
+export async function POST(request: Request) {
+  return withOwnerJson(async () => {
+    const input = await request.json() as { type: PostType; date: string };
+    return { post: await service.createPost(input) };
+  });
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  return withOwnerJson(async () => {
+    const { id } = await params;
+    const payload = await request.json() as { draft: BlogPostDraft; expectedVersion: number };
+    if (payload.draft.id !== id) throw new BlogValidationError(["文章 ID 不一致"]);
+    return { post: await service.saveDraft(payload.draft, payload.expectedVersion) };
+  });
+}
+```
+
+Use `GET/POST` on collection routes, `GET/PATCH/DELETE` on item routes, and `POST` on publish/import. Export returns `text/markdown; charset=utf-8` with a safe `Content-Disposition` filename. Import returns `{ draft, errors, warnings, unknownFrontmatter }` and never calls a store mutation.
+
+- [ ] **Step 4: Run API source tests and build**
+
+Run: `node --test tests/editor-api-source.test.mjs && npm run build`
+Expected: route tests PASS and build succeeds.
+
+- [ ] **Step 5: Commit APIs**
+
+```bash
+git add lib/blog/http.ts app/api/editor tests/editor-api-source.test.mjs
+git commit -m "feat: add owner-only blog editor api"
+```
+
+---
+
+### Task 6: Structured Writing Studio UI
+
+**Files:**
+- Modify: `app/editor/page.tsx`
+- Delete: `components/portable-editor.tsx`
+- Create: `components/editor/editor-types.ts`
+- Create: `components/editor/structured-editor.tsx`
+- Create: `components/editor/editor-sidebar.tsx`
+- Create: `components/editor/post-fields.tsx`
+- Create: `components/editor/section-editor.tsx`
+- Create: `components/editor/add-section-drawer.tsx`
+- Create: `components/editor/article-preview.tsx`
+- Modify: `tests/editor-source.test.mjs`
+
+**Interfaces:**
+- Consumes: Task 5 JSON API and Task 1 domain types.
+- Produces: complete owner workflow for list/create/edit/autosave/preview/publish/import/export/template reuse.
+
+- [ ] **Step 1: Replace legacy editor expectations with structured-editor tests**
+
+```js
+test("editor page is owner-protected and renders the structured studio", async () => {
+  const page = await readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /requireBlogOwner/);
+  assert.match(page, /StructuredEditor/);
+  assert.match(page, /force-dynamic/);
+});
+
+test("structured editor autosaves drafts but publishes only on explicit action", async () => {
+  const source = await readFile(new URL("../components/editor/structured-editor.tsx", import.meta.url), "utf8");
+  assert.match(source, /setTimeout/);
+  assert.match(source, /expectedVersion/);
+  assert.match(source, /VERSION_CONFLICT/);
+  assert.match(source, /publish/);
+  assert.match(source, />发布</);
+});
+
+test("custom sections can be added and saved as reusable templates", async () => {
+  const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
+  for (const kind of ["long_text", "short_text", "checklist", "markdown", "relation"]) assert.match(drawer, new RegExp(kind));
+  assert.match(drawer, /保存为.*常用模块/);
+});
+```
+
+- [ ] **Step 2: Protect and bootstrap the editor page**
+
+```tsx
+export const dynamic = "force-dynamic";
+
+export default async function EditorPage() {
+  const owner = await requireBlogOwner("/editor");
+  const store = new D1BlogStore();
+  await ensureLegacyContentImported(store);
+  const [posts, templates] = await Promise.all([store.listDrafts(), listAllTemplates(store)]);
+  return <StructuredEditor initialPosts={posts} initialTemplates={templates} ownerName={owner.displayName} />;
+}
+```
+
+- [ ] **Step 3: Implement the editor state machine and autosave**
+
+```ts
+export type SaveState = "idle" | "saving" | "saved" | "failed" | "conflict";
+
+function scheduleAutosave(next: BlogPostDraft) {
+  window.clearTimeout(saveTimer.current);
+  persistEmergencyDraft(next);
+  saveTimer.current = window.setTimeout(async () => {
+    setSaveState("saving");
+    const response = await fetch(`/api/editor/posts/${next.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ draft: next, expectedVersion: next.draftVersion }),
+    });
+    const payload = await response.json();
+    if (response.status === 409 && payload.code === "VERSION_CONFLICT") return setSaveState("conflict");
+    if (!response.ok) return setSaveState("failed");
+    setCurrent(payload.post);
+    clearEmergencyDraft(next.id);
+    setSaveState("saved");
+  }, 700);
+}
+```
+
+Use one selected post, one active section ID, one mobile pane, and one add-section drawer state. Emergency browser storage is keyed by post ID and stores only unsaved recovery data; D1 remains authoritative.
+
+- [ ] **Step 4: Implement structured fields and section editors**
+
+`PostFields` renders common fields plus exact type-specific controls. `SectionEditor` dispatches by `section.kind`: textarea for long/short text and Markdown, repeatable rows for checklist, and a searchable relation picker for relations. Every section exposes rename, move up/down, duplicate, and delete actions; drag-and-drop is optional visual enhancement, not the only accessible ordering method.
+
+```tsx
+export function SectionEditor({ section, onChange, onMove, onDuplicate, onDelete }: SectionEditorProps) {
+  return <section className="studio-section" aria-labelledby={`section-${section.id}`}>
+    <div className="studio-section__heading">
+      <input id={`section-${section.id}`} value={section.title} onChange={(event) => onChange({ ...section, title: event.target.value })} />
+      <button type="button" onClick={() => onMove(-1)} aria-label={`上移${section.title}`}>↑</button>
+      <button type="button" onClick={() => onMove(1)} aria-label={`下移${section.title}`}>↓</button>
+      <button type="button" onClick={onDuplicate}>复制</button>
+      <button type="button" onClick={onDelete}>删除</button>
+    </div>
+    <SectionValueControl section={section} onChange={onChange} />
+  </section>;
+}
+```
+
+- [ ] **Step 5: Implement add-section and reusable-template flow**
+
+The drawer collects title, one of five kinds, insertion position, and `saveAsTemplate`. Add the blank section locally first. If `saveAsTemplate` is checked, POST only `{ postType, title, kind, position, standardKey: null }` to `/api/editor/templates`.
+
+```ts
+const section: BlogSection = {
+  id: crypto.randomUUID(), title: form.title.trim(), kind: form.kind,
+  content: "", items: [], relationSlugs: [], position: insertionPosition,
+  templateId: savedTemplate?.id ?? null, standardKey: null,
+};
+onAdd(section);
+```
+
+- [ ] **Step 6: Implement preview, import, export, and publish controls**
+
+`ArticlePreview` converts the in-memory draft sections to Markdown and renders with the same `ReactMarkdown`, `remarkGfm`, `remarkMath`, and `rehypeKatex` stack as public posts. Import opens a file picker, posts text to `/api/editor/import`, shows errors/warnings, and replaces the current form only after confirmation. Publish first flushes autosave, then POSTs `{ expectedVersion }` to the publish endpoint and shows the returned timestamp.
+
+- [ ] **Step 7: Run editor tests and build**
+
+Run: `node --test tests/editor-source.test.mjs && npm run build`
+Expected: editor tests PASS and build succeeds.
+
+- [ ] **Step 8: Commit the writing studio**
+
+```bash
+git add app/editor/page.tsx components/editor components/portable-editor.tsx tests/editor-source.test.mjs
+git commit -m "feat: build structured web writing studio"
+```
+
+---
+
+### Task 7: Legacy Bootstrap and Public D1 Read Model
+
+**Files:**
+- Modify: `scripts/generate-content-index.mjs`
+- Create: `lib/content/legacy-generated.ts`
+- Create: `lib/blog/bootstrap.ts`
+- Create: `lib/blog/read-model.ts`
+- Modify: `lib/content/query.ts`
+- Modify: `app/page.tsx`
+- Modify: `app/jobs/page.tsx`
+- Modify: `app/internship/page.tsx`
+- Modify: `app/papers/page.tsx`
+- Modify: `app/reflections/page.tsx`
+- Modify: `app/search/page.tsx`
+- Modify: `app/post/[slug]/page.tsx`
+- Test: `tests/legacy-bootstrap.test.mjs`
+- Test: `tests/public-read-model.test.mjs`
+
+**Interfaces:**
+- Consumes: current generated content, Task 2 importer, Task 3 store.
+- Produces: `ensureLegacyContentImported(store)`, `listPublicEntries()`, `getPublicEntry(slug)`.
+
+- [ ] **Step 1: Write bootstrap and public-read tests**
+
+```js
+test("bootstrap imports published and draft legacy entries exactly once", async () => {
+  const store = new MemoryBlogStore();
+  await ensureLegacyContentImported(store, LEGACY_CONTENT_ENTRIES, () => "2026-07-24T12:00:00.000Z", deterministicIds());
+  const firstCount = (await store.listDrafts()).length;
+  await ensureLegacyContentImported(store, LEGACY_CONTENT_ENTRIES, () => "2026-07-24T12:00:00.000Z", deterministicIds());
+  assert.equal((await store.listDrafts()).length, firstCount);
+  assert.ok((await store.listDrafts()).some((post) => post.status === "draft"));
+});
+
+test("public read returns published snapshots and excludes draft updates", async () => {
+  const store = new MemoryBlogStore();
+  await seedPublishedPost(store, { slug: "public-note", title: "Published" });
+  const draft = await store.getDraft("post-public-note");
+  await store.saveDraft({ ...draft, title: "Unpublished edit" }, draft.draftVersion);
+  const entries = await listPublicEntries(store, []);
+  assert.equal(entries[0].title, "Published");
+});
+
+test("public read falls back to generated Markdown before bootstrap", async () => {
+  const store = new MemoryBlogStore();
+  assert.deepEqual(await listPublicEntries(store, [{ slug: "legacy", status: "published" }]), [{ slug: "legacy", status: "published" }]);
+});
+```
+
+- [ ] **Step 2: Generate a legacy all-content artifact**
+
+Modify the generator so it still writes published entries to `lib/content/generated.ts` and additionally writes all validated entries to `lib/content/legacy-generated.ts`. Add CLI flag `--legacy-output` with the project path as default. Drafts remain excluded from `CONTENT_ENTRIES` but appear in `LEGACY_CONTENT_ENTRIES`.
+
+```ts
+export const LEGACY_CONTENT_ENTRIES: ContentEntry[] = [
+  // Generated JSON entries are written here by the script; this source file contains no hand-authored content.
+];
+```
+
+- [ ] **Step 3: Implement idempotent legacy bootstrap**
+
+```ts
+export async function ensureLegacyContentImported(
+  store: BlogStore,
+  entries = LEGACY_CONTENT_ENTRIES,
+  clock = () => new Date().toISOString(),
+  ids = () => crypto.randomUUID(),
+) {
+  if (await store.hasBootstrapMarker()) return;
+  for (const entry of entries) {
+    const markdown = legacyEntryToMarkdown(entry);
+    const imported = importPostMarkdown(markdown, { id: ids(), now: clock() });
+    if (imported.errors.length) throw new Error(`Legacy import failed for ${entry.slug}: ${imported.errors.join(", ")}`);
+    const created = await store.importDraft(imported.draft);
+    if (entry.status === "published") await store.publish(created, created.draftVersion, ids(), clock());
+  }
+  await store.markBootstrapped(clock());
+}
+```
+
+Add `importDraft` to `BlogStore` in Task 3 files as an idempotent slug-based insert used only by bootstrap. Update store contract tests before adding the implementation.
+
+- [ ] **Step 4: Implement the public read model**
+
+```ts
+export async function listPublicEntries(store: BlogStore = new D1BlogStore(), fallback: ContentEntry[] = CONTENT_ENTRIES): Promise<ContentEntry[]> {
+  try {
+    if (!(await store.hasBootstrapMarker())) return structuredClone(fallback);
+    return (await store.listPublished()).map(snapshotToContentEntry);
+  } catch (error) {
+    if (isMissingBlogSchema(error)) return structuredClone(fallback);
+    throw error;
+  }
+}
+
+export async function getPublicEntry(slug: string): Promise<ContentEntry | null> {
+  return (await listPublicEntries()).find((entry) => entry.slug === slug) ?? null;
+}
+```
+
+Convert `lib/content/query.ts` pure helpers to accept an explicit `entries` argument, for example `getRecentEntries(entries, limit)`, so page components load once and reuse the same snapshot.
+
+- [ ] **Step 5: Convert public pages to the asynchronous read model**
+
+```tsx
+export const dynamic = "force-dynamic";
+
+export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const entries = await listPublicEntries();
+  const entry = entries.find((candidate) => candidate.slug === slug);
+  if (!entry) notFound();
+  return <SiteShell><MarkdownArticle entry={entry} relatedEntries={getRelatedEntries(entries, slug)} /></SiteShell>;
+}
+```
+
+Apply the same one-load pattern to the homepage, module pages, and search page. Keep existing presentation components and index semantics unchanged.
+
+- [ ] **Step 6: Run bootstrap, public-read, and existing content tests**
+
+Run: `node --test tests/legacy-bootstrap.test.mjs tests/public-read-model.test.mjs tests/content-index.test.mjs`
+Expected: all tests PASS; existing five published entries remain visible and the paper draft remains excluded publicly.
+
+- [ ] **Step 7: Commit migration and public reads**
+
+```bash
+git add scripts/generate-content-index.mjs lib/content lib/blog/bootstrap.ts lib/blog/read-model.ts app tests/legacy-bootstrap.test.mjs tests/public-read-model.test.mjs tests/content-index.test.mjs
+git commit -m "feat: publish database-backed blog content"
+```
+
+---
+
+### Task 8: Responsive, Accessible Editor Styling and Failure Recovery
+
+**Files:**
+- Modify: `app/globals.css`
+- Modify: `components/editor/structured-editor.tsx`
+- Modify: `components/editor/editor-sidebar.tsx`
+- Modify: `components/editor/add-section-drawer.tsx`
+- Test: `tests/editor-responsive.test.mjs`
+- Test: `tests/rendered-html.test.mjs`
+
+**Interfaces:**
+- Consumes: Task 6 editor components.
+- Produces: approved A-layout behavior at mobile, tablet, and desktop widths.
+
+- [ ] **Step 1: Write responsive and accessibility source tests**
+
+```js
+test("editor has desktop, tablet, and mobile layout rules", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /grid-template-columns:\s*205px\s+minmax\([^)]*\)\s+340px/);
+  assert.match(css, /@media\s*\(max-width:\s*950px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*620px\)/);
+});
+
+test("section ordering and drawer actions have keyboard-operable buttons", async () => {
+  const section = await readFile(new URL("../components/editor/section-editor.tsx", import.meta.url), "utf8");
+  const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
+  assert.match(section, /aria-label=.*上移/);
+  assert.match(section, /aria-label=.*下移/);
+  assert.match(drawer, /role="dialog"/);
+  assert.match(drawer, /aria-modal="true"/);
+});
+```
+
+- [ ] **Step 2: Implement the approved responsive layout**
+
+```css
+.writing-studio { display:grid; grid-template-columns:205px minmax(440px, 1fr) 340px; min-height:calc(100vh - var(--site-header-height)); }
+.writing-studio__nav { position:sticky; top:0; align-self:start; max-height:100vh; overflow-y:auto; }
+.writing-studio__form { min-width:0; padding:28px; }
+.writing-studio__preview { min-width:0; border-left:1px solid var(--line); overflow-x:hidden; }
+.writing-studio button,.writing-studio input,.writing-studio select { min-height:44px; }
+.writing-studio :focus-visible { outline:3px solid #9f4934; outline-offset:2px; }
+
+@media (max-width:950px) {
+  .writing-studio { grid-template-columns:160px minmax(0, 1fr); }
+  .writing-studio__preview { display:none; }
+}
+
+@media (max-width:620px) {
+  .writing-studio { display:block; }
+  .writing-studio__nav { position:static; max-height:none; }
+  .writing-studio__form,.writing-studio__preview { display:none; padding:14px; }
+  .writing-studio[data-mobile-pane="edit"] .writing-studio__form { display:block; }
+  .writing-studio[data-mobile-pane="preview"] .writing-studio__preview { display:block; }
+}
+```
+
+Keep existing public typography and colors. Add scroll ownership to preview tables, code blocks, and KaTeX containers. The add-section drawer traps focus while open, closes on Escape, and restores focus to its trigger.
+
+- [ ] **Step 3: Add visible recovery and conflict actions**
+
+When save state is `failed`, render “重试保存” and “导出当前草稿”. When state is `conflict`, render “重新加载线上草稿” and “另存为新文章”; neither action silently discards the emergency local draft.
+
+- [ ] **Step 4: Run responsive and rendered-output tests**
+
+Run: `node --test tests/editor-responsive.test.mjs tests/rendered-html.test.mjs`
+Expected: all tests PASS.
+
+- [ ] **Step 5: Commit responsive and recovery work**
+
+```bash
+git add app/globals.css components/editor tests/editor-responsive.test.mjs tests/rendered-html.test.mjs
+git commit -m "feat: polish responsive blog authoring"
+```
+
+---
+
+### Task 9: Full Verification, Runtime Configuration, and Public Deployment
+
+**Files:**
+- Modify: `.env.example`
+- Modify: `README.md`
+- Modify: `package.json`
+- Verify: all source, migrations, tests, and deployment artifact.
+
+**Interfaces:**
+- Consumes: all previous tasks.
+- Produces: deployable site with configured owner email and D1 migrations.
+
+- [ ] **Step 1: Document the owner variable and author workflow**
+
+Add to `.env.example`:
+
+```dotenv
+BLOG_OWNER_EMAIL=owner@example.com
+```
+
+Document in `README.md`: open `/editor`, sign in, create a post type, fill structured fields, add or save common modules, wait for “已保存”, preview, publish, export Markdown, and import Markdown as a draft. State that hosted runtime values are configured through Sites and that local iCloud is not written by the hosted app.
+
+- [ ] **Step 2: Expand the test command**
+
+Set `package.json` test script to run the build followed by every `tests/*.test.mjs` file through Node's test runner:
+
+```json
+"test": "npm run build && node --test tests/*.test.mjs"
+```
+
+- [ ] **Step 3: Run the complete local verification**
+
+Run: `npm run blog:sync && npm test && npm run lint`
+Expected: Obsidian sync succeeds, deployment build succeeds, all tests PASS, and ESLint exits with no errors.
+
+- [ ] **Step 4: Inspect migration and repository state**
+
+Run: `git diff --check && git status --short && rg -n "DROP TABLE|DROP COLUMN" drizzle -g '*.sql'`
+Expected: no whitespace errors; only intended files are changed; migration scan returns no destructive statements.
+
+- [ ] **Step 5: Commit verification documentation**
+
+```bash
+git add .env.example README.md package.json package-lock.json
+git commit -m "docs: document web blog publishing"
+```
+
+- [ ] **Step 6: Configure hosted runtime and deploy privately for owner verification**
+
+Read the existing Sites access policy and use the sole allowed owner's email as `BLOG_OWNER_EMAIL`; if it is unavailable or ambiguous, ask the user for the exact email before configuring it. Set the runtime value with the Sites environment tool, build once after configuration-sensitive changes, push the exact HEAD, package with the Sites helper, save one version, deploy privately for verification, and poll until `succeeded`.
+
+- [ ] **Step 7: Verify the production acceptance path**
+
+On the deployed URL, verify the following using the owner session:
+
+1. `/editor` requires sign-in and loads existing posts.
+2. Create a draft reflection and confirm it is absent from public search.
+3. Add an “创新点” long-text component to a paper and save it as a common module.
+4. Create another paper and confirm “创新点” appears empty by default.
+5. Enter `$a_t = f(o_t)$`, confirm preview rendering, publish, and confirm the public article renders it.
+6. Edit the published title without republishing and confirm the public title remains unchanged.
+7. Export Markdown, import it as a new draft, and confirm the key fields and sections survive.
+
+Delete only the disposable acceptance-test drafts after verification; do not delete existing user content.
+
+- [ ] **Step 8: Publish the verified site for public reading**
+
+After the owner-only writing path passes, change the Sites access policy to public and deploy the exact verified saved version. The user's approved design explicitly requires public reading while `/editor` and every mutation API remain protected by `BLOG_OWNER_EMAIL`. Poll the public deployment until `succeeded`, then verify an anonymous reader can open a published article but cannot read or mutate editor data.
+
+- [ ] **Step 9: Final completion gate**
+
+Run: `npm test && npm run lint && git status --short --branch`
+Expected: all tests and lint PASS; worktree is clean except intentionally ignored local configuration; the deployed production URL reports success.
+
+---
+
+## Execution Order and Review Gates
+
+Tasks 1–2 establish pure domain behavior and Markdown compatibility. Tasks 3–5 add persistence, authorization, and APIs. Task 6 builds the owner workflow. Task 7 migrates existing content and switches public reads. Task 8 matches the approved responsive design. Task 9 verifies and deploys the integrated system.
+
+Each task must complete its failing-test, passing-test, and commit cycle before the next task begins. Review especially at the end of Tasks 3, 5, 7, and 9 because those gates change persistence, authorization, public visibility, and production state respectively.

@@ -1,11 +1,21 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { headers } from "next/headers.js";
+import { notFound, redirect } from "next/navigation.js";
 
 export type ChatGPTUser = {
   displayName: string;
   email: string;
   fullName: string | null;
 };
+
+export class BlogAuthError extends Error {
+  readonly status: 401 | 403;
+
+  constructor(status: 401 | 403, message: string) {
+    super(message);
+    this.name = "BlogAuthError";
+    this.status = status;
+  }
+}
 
 const USER_EMAIL_HEADER = "oai-authenticated-user-email";
 const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
@@ -42,6 +52,31 @@ export async function requireChatGPTUser(
   if (user) return user;
 
   redirect(chatGPTSignInPath(returnTo));
+}
+
+export function isBlogOwner(
+  userEmail: string,
+  ownerEmail: string | undefined,
+): boolean {
+  if (!ownerEmail?.trim()) return false;
+  return userEmail.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
+export async function requireBlogOwner(
+  returnTo = "/editor",
+): Promise<ChatGPTUser> {
+  const user = await requireChatGPTUser(returnTo);
+  if (!isBlogOwner(user.email, process.env.BLOG_OWNER_EMAIL)) notFound();
+  return user;
+}
+
+export async function assertBlogOwner(): Promise<ChatGPTUser> {
+  const user = await getChatGPTUser();
+  if (!user) throw new BlogAuthError(401, "请先登录");
+  if (!isBlogOwner(user.email, process.env.BLOG_OWNER_EMAIL)) {
+    throw new BlogAuthError(403, "无权修改此博客");
+  }
+  return user;
 }
 
 export function chatGPTSignInPath(returnTo: string): string {

@@ -1,12 +1,15 @@
 import { PaperIndex } from "../../components/paper-index";
 import { SiteShell } from "../../components/site-shell";
 import { getEntriesByType, getRelatedEntries } from "../../lib/content/query";
+import { listPublicEntries } from "../../lib/blog/read-model";
 
-export default function PapersPage() {
-  const entries = getEntriesByType("papers");
+export const dynamic = "force-dynamic";
+export default async function PapersPage() {
+  const allEntries = await listPublicEntries();
+  const entries = getEntriesByType("papers", allEntries);
   const connections = Object.fromEntries(entries.map((entry) => [
     entry.slug,
-    getRelatedEntries(entry.slug).slice(0, 3).map(({ slug, title, type }) => ({ slug, title, type })),
+    getRelatedEntries(entry.slug, allEntries).slice(0, 3).map(({ slug, title, type }) => ({ slug, title, type })),
   ]));
   return (
     <SiteShell>

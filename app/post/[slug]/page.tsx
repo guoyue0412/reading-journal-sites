@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { MarkdownArticle } from "../../../components/markdown-article";
 import { SiteShell } from "../../../components/site-shell";
-import { CONTENT_ENTRIES } from "../../../lib/content/generated";
 import { getRelatedEntries } from "../../../lib/content/query";
+import { listPublicEntries } from "../../../lib/blog/read-model";
+
+export const dynamic = "force-dynamic";
 
 export default async function PostPage({
   params,
@@ -10,7 +12,8 @@ export default async function PostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const entry = CONTENT_ENTRIES.find((candidate) => candidate.slug === slug);
+  const entries = await listPublicEntries();
+  const entry = entries.find((candidate) => candidate.slug === slug);
 
   if (!entry) {
     notFound();
@@ -20,7 +23,7 @@ export default async function PostPage({
     <SiteShell>
       <MarkdownArticle
         entry={entry}
-        relatedEntries={getRelatedEntries(entry.slug)}
+        relatedEntries={getRelatedEntries(entry.slug, entries)}
       />
     </SiteShell>
   );
