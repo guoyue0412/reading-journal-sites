@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BlogSection, SectionKind, SectionTemplate } from "@/lib/blog/types";
 import { sectionKindLabels } from "./editor-types";
+import { READING_SUMMARY, READING_SUMMARY_TITLE } from "@/lib/blog/section-constants";
 
 type Props = { open: boolean; insertionPosition: number; templates: SectionTemplate[]; onClose: () => void; onAdd: (section: BlogSection, saveAsTemplate: boolean) => Promise<void> };
 const kinds: SectionKind[] = ["long_text", "short_text", "checklist", "markdown", "relation"];
@@ -30,11 +31,12 @@ export function AddSectionDrawer({ open, insertionPosition, templates, onClose, 
   if (!open) return null;
   async function submit() {
     if (!title.trim()) return;
-    await onAdd({ id: crypto.randomUUID(), title: title.trim(), kind, content: "", items: [], relationSlugs: [], position: insertionPosition, templateId: null, standardKey: null }, saveAsTemplate);
+    const normalizedTitle = title.trim();
+    await onAdd({ id: crypto.randomUUID(), title: normalizedTitle, kind, content: "", items: [], relationSlugs: [], position: insertionPosition, templateId: null, standardKey: normalizedTitle === READING_SUMMARY_TITLE ? READING_SUMMARY : null }, saveAsTemplate);
     setTitle(""); setSaveAsTemplate(false); onClose();
   }
   function addTemplate(template: SectionTemplate) {
-    void onAdd({ id: crypto.randomUUID(), title: template.title, kind: template.kind, content: "", items: [], relationSlugs: [], position: insertionPosition, templateId: template.id, standardKey: null }, false).then(onClose);
+    void onAdd({ id: crypto.randomUUID(), title: template.title, kind: template.kind, content: "", items: [], relationSlugs: [], position: insertionPosition, templateId: template.id, standardKey: template.standardKey }, false).then(onClose);
   }
   return <div ref={dialogRef} className="studio-drawer" role="dialog" aria-modal="true" aria-label="添加模块">
     <div><h2>添加新模块</h2><button type="button" onClick={onClose}>关闭</button></div>

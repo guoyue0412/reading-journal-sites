@@ -10,8 +10,12 @@ import { PostFields } from "./post-fields";
 import { SectionEditor } from "./section-editor";
 
 type Props = { initialPosts: BlogPostDraft[]; initialTemplates: SectionTemplate[]; ownerName: string };
-type ApiError = { message?: string; code?: string; fields?: string[] };
+type ApiError = { error?: string; message?: string; code?: string; fields?: string[] };
 const emergencyKey = (id: string) => `guoyue-blog-recovery:${id}`;
+const formatApiError = (payload: ApiError, fallback: string) => {
+  const detail = payload.fields?.filter(Boolean).join("；");
+  return [payload.error || payload.message, detail].filter(Boolean).join("：") || fallback;
+};
 
 export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: Props) {
   const [posts, setPosts] = useState(initialPosts);
@@ -39,7 +43,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       const response = await fetch(`/api/editor/posts/${next.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ draft: next, expectedVersion: next.draftVersion }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
       if (response.status === 409 && payload.code === "VERSION_CONFLICT") { setSaveState("conflict"); setMessage("检测到其他页面的更新，请重新载入后继续。"); return null; }
-      if (!response.ok || !payload.post) { setSaveState("failed"); setMessage(payload.fields?.join("；") || payload.message || "保存失败"); return null; }
+      if (!response.ok || !payload.post) { setSaveState("failed"); setMessage(formatApiError(payload, "保存失败")); return null; }
       setCurrent(payload.post); currentRef.current = payload.post;
       setPosts((value) => replacePost(value, payload.post!));
       clearEmergencyDraft(next.id); setSaveState("saved"); setMessage("");
@@ -78,7 +82,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     try {
       const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, date: localDate() }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
-      if (!response.ok || !payload.post) throw new Error(payload.message || "新建失败");
+      if (!response.ok || !payload.post) throw new Error(formatApiError(payload, "新建失败"));
       setPosts((value) => replacePost(value, payload.post!)); setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved");
     } catch (error) { setMessage(error instanceof Error ? error.message : "新建失败"); } finally { setCreating(false); }
   }
@@ -110,7 +114,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     if (saveAsTemplate) {
       const response = await fetch("/api/editor/templates", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ postType: current.type, section }) });
       const payload = await response.json() as { template?: SectionTemplate } & ApiError;
-      if (!response.ok || !payload.template) { setMessage(payload.message || "常用模块保存失败"); return; }
+      if (!response.ok || !payload.template) { setMessage(formatApiError(payload, "常用模块保存失败")); return; }
       setTemplates((value) => [...value, payload.template!]); nextSection = { ...section, templateId: payload.template.id };
     }
     scheduleAutosave({ ...current, sections: [...current.sections, nextSection].map((item, index) => ({ ...item, position: (index + 1) * 10 })), updatedAt: new Date().toISOString() });
@@ -121,7 +125,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     setMessage("正在发布……");
     const response = await fetch(`/api/editor/posts/${saved.id}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
     const payload = await response.json() as { post?: BlogPostDraft & { publishedAt?: string } } & ApiError;
-    if (!response.ok || !payload.post) { setMessage(payload.fields?.join("；") || payload.message || "发布失败"); return; }
+    if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "发布失败")); return; }
     setCurrent(payload.post); currentRef.current = payload.post; setPosts((value) => replacePost(value, payload.post!)); setSaveState("saved"); setMessage(`已发布${payload.post.publishedAt ? ` · ${payload.post.publishedAt}` : ""}`);
   }
 
@@ -129,7 +133,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     if (!current) return;
     const response = await fetch(`/api/editor/posts/${current.id}`);
     const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
-    if (!response.ok || !payload.post) { setMessage(payload.message || "重新加载失败"); return; }
+    if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "重新加载失败")); return; }
     setCurrent(payload.post); currentRef.current = payload.post; setPosts((value) => replacePost(value, payload.post!)); setSaveState("saved"); setMessage("已重新加载线上草稿；本地恢复副本仍保留。");
   }
 
@@ -145,8 +149,8 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     if (!current) return;
     const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: current.type, date: current.date }) });
     const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
-    if (!response.ok || !payload.post) { setMessage(payload.message || "另存失败"); return; }
-    const copy = { ...current, id: payload.post.id, slug: `${current.slug}-copy`, title: `${current.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: current.sections.map((section) => ({ ...section, id: crypto.randomUUID(), standardKey: null })) };
+    if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
+    const copy = { ...current, id: payload.post.id, slug: `${current.slug}-copy`, title: `${current.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: current.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
     setSelectedId(copy.id); scheduleAutosave(copy); setMessage("已创建新文章副本，本地恢复副本仍保留。");
   }
 
@@ -154,13 +158,13 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
     const response = await fetch("/api/editor/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown: await file.text() }) });
     const payload = await response.json() as { draft?: BlogPostDraft; errors?: string[]; warnings?: string[] } & ApiError;
-    if (!response.ok || !payload.draft) { setMessage(payload.message || "导入失败"); return; }
+    if (!response.ok || !payload.draft) { setMessage(formatApiError(payload, "导入失败")); return; }
     if (payload.errors?.length) { setMessage(`导入校验：${payload.errors.join("；")}`); return; }
     const warning = payload.warnings?.length ? `\n警告：${payload.warnings.join("；")}` : "";
     if (!window.confirm(`导入内容将创建为新草稿，是否继续？${warning}`)) return;
     const createResponse = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: payload.draft.type, date: payload.draft.date }) });
     const created = await createResponse.json() as { post?: BlogPostDraft } & ApiError;
-    if (!createResponse.ok || !created.post) { setMessage(created.message || "创建导入草稿失败"); return; }
+    if (!createResponse.ok || !created.post) { setMessage(formatApiError(created, "创建导入草稿失败")); return; }
     const merged = { ...payload.draft, id: created.post.id, draftVersion: created.post.draftVersion, createdAt: created.post.createdAt, sections: payload.draft.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
     setSelectedId(merged.id); scheduleAutosave(merged);
   }

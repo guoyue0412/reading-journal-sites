@@ -1,5 +1,6 @@
 import type { BlogPostDraft, BlogSection } from "@/lib/blog/types";
 import { sectionKindLabels } from "./editor-types";
+import { READING_SUMMARY } from "@/lib/blog/section-constants";
 
 type Props = { section: BlogSection; posts: BlogPostDraft[]; onChange: (section: BlogSection) => void; onMove: (delta: number) => void; onDuplicate: () => void; onDelete: () => void };
 
@@ -7,7 +8,7 @@ export function SectionEditor({ section, posts, onChange, onMove, onDuplicate, o
   return <section className="studio-section" aria-labelledby={`section-${section.id}`}>
     <div className="studio-section__heading">
       <input id={`section-${section.id}`} aria-label="模块标题" value={section.title} onChange={(e) => onChange({ ...section, title: e.target.value })} />
-      <small>{sectionKindLabels[section.kind]}</small>
+      <small>{section.standardKey === READING_SUMMARY ? "阅读总结组件" : sectionKindLabels[section.kind]}</small>
       <button type="button" onClick={() => onMove(-1)} aria-label={`上移${section.title}`}>↑</button>
       <button type="button" onClick={() => onMove(1)} aria-label={`下移${section.title}`}>↓</button>
       <button type="button" onClick={onDuplicate}>复制</button>

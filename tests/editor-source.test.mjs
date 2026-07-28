@@ -29,6 +29,19 @@ test("custom sections can be added and saved as reusable templates", async () =>
   const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
   for (const kind of ["long_text", "short_text", "checklist", "markdown", "relation"]) assert.match(drawer, new RegExp(kind));
   assert.match(drawer, /保存为常用模块/);
+  assert.match(drawer, /standardKey:\s*template\.standardKey/);
+});
+
+test("publish errors show the backend error and field details", async () => {
+  const source = await readFile(editorUrl, "utf8");
+  assert.match(source, /payload\.error/);
+  assert.match(source, /formatApiError/);
+  assert.match(source, /fields/);
+});
+
+test("saving an article copy preserves structured component identities", async () => {
+  const source = await readFile(editorUrl, "utf8");
+  assert.doesNotMatch(source, /sections:\s*current\.sections\.map\(\(section\)\s*=>\s*\(\{[^}]*standardKey:\s*null/);
 });
 
 test("editor page is owner-protected and renders the structured studio", async () => {

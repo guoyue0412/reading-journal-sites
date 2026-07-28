@@ -7,6 +7,7 @@ import type {
   PostType,
 } from "./types.ts";
 import { validateDraft } from "./validation.ts";
+import { READING_SUMMARY, normalizeBlogPost } from "./section-constants.ts";
 
 export interface ImportResult {
   draft: BlogPostDraft;
@@ -21,7 +22,7 @@ export interface ImportOptions {
 }
 
 const knownHeadings: Record<PostType, Record<string, string>> = {
-  papers: { "研究问题": "question", "粗读记录": "skim", "细读记录": "deep", "阅读总结": "synthesis" },
+  papers: { "研究问题": "question", "粗读记录": "skim", "细读记录": "deep", "阅读总结": READING_SUMMARY },
   jobs: { "投递": "applied", "笔试": "written_test", "面试": "interview", "最终复盘": "review" },
   internship: { "今日任务": "tasks", "解决的问题": "problems", "学习收获": "learning", "明日计划": "next" },
   reflections: { "今日事件": "event", "感受": "feeling", "反思": "reflection", "一句话总结": "summary" },
@@ -60,9 +61,10 @@ export function importPostMarkdown(source: string, options: ImportOptions): Impo
     standardKey: (knownHeadings[draft.type] ?? {})[section.title] ?? null,
   }));
 
+  const normalizedDraft = normalizeBlogPost(draft);
   return {
-    draft,
-    errors: validateDraft(draft),
+    draft: normalizedDraft,
+    errors: validateDraft(normalizedDraft),
     warnings: parsed.warnings,
     unknownFrontmatter: parsed.unknownFrontmatter,
   };

@@ -3,6 +3,7 @@ import type {
   PostType,
   SectionKind,
 } from "./types.ts";
+import { READING_SUMMARY, isReadingSummarySection } from "./section-constants.ts";
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 const slugPattern = /^[a-z0-9\u4e00-\u9fff]+(?:-[a-z0-9\u4e00-\u9fff]+)*$/;
@@ -79,10 +80,11 @@ export function validateForPublish(post: BlogPostDraft): string[] {
     if (metadata.readingStatus !== "queued" && methods.length === 0) {
       errors.push("阅读开始后至少选择一种阅读方式");
     }
-    const sectionKeys = new Set(post.sections.map((section) => section.standardKey));
+    const sectionKeys = new Set(post.sections.map((section) => isReadingSummarySection(section) ? READING_SUMMARY : section.standardKey));
     const labels = { skim: "粗读记录", deep: "细读记录", synthesis: "阅读总结" } as const;
+    const requiredSectionKeys = { skim: "skim", deep: "deep", synthesis: READING_SUMMARY } as const;
     for (const method of methods) {
-      if (includes(readingMethods, method) && !sectionKeys.has(method)) errors.push(`缺少${labels[method]}组件`);
+      if (includes(readingMethods, method) && !sectionKeys.has(requiredSectionKeys[method])) errors.push(`缺少${labels[method]}组件`);
     }
   }
 

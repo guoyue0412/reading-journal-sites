@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createBlogService, BlogNotFoundError, BlogValidationError } from "../lib/blog/service.ts";
 import { MemoryBlogStore } from "../lib/blog/store.ts";
+import { createEmptyDraft } from "../lib/blog/default-templates.ts";
 
 function createService(store = new MemoryBlogStore()) {
   let id = 0;
@@ -94,6 +95,37 @@ test("publish delegates its expected version to the store CAS", async () => {
 
   assert.equal(published.draftVersion, 2);
   await assert.rejects(() => service.publishPost(saved.id, saved.draftVersion), /conflict/i);
+});
+
+test("old paper drafts are migrated on read, survive autosave, and publish", async () => {
+  const { store, service } = createService();
+  const legacy = createEmptyDraft("papers", "legacy-paper", "2026-07-24", []);
+  legacy.title = "Legacy paper";
+  legacy.summary = "Summary";
+  legacy.metadata = { authors: [], venue: "arXiv", year: 2026, paperUrl: "https://arxiv.org/abs/1", readAt: "2026-07-24", readingMethods: ["synthesis"], readingStatus: "completed", topics: [] };
+  legacy.sections = legacy.sections.map((section) => section.title === "阅读总结" ? { ...section, standardKey: null, content: "旧文章总结" } : section);
+  await store.createDraft(legacy);
+
+  const loaded = await service.loadPost(legacy.id);
+  assert.equal(loaded.sections.find((section) => section.title === "阅读总结")?.standardKey, "reading-summary");
+  const saved = await service.saveDraft(loaded, loaded.draftVersion);
+  const refreshed = await service.loadPost(saved.id);
+  assert.equal(refreshed.sections.find((section) => section.title === "阅读总结")?.standardKey, "reading-summary");
+  await assert.doesNotReject(() => service.publishPost(refreshed.id, refreshed.draftVersion));
+});
+
+test("removing the reading summary component blocks publication", async () => {
+  const { service } = createService();
+  const created = await service.createPost({ type: "papers", date: "2026-07-24" });
+  const draft = {
+    ...created,
+    title: "Paper",
+    summary: "Summary",
+    metadata: { authors: [], venue: "arXiv", year: 2026, paperUrl: "https://arxiv.org/abs/1", readAt: "2026-07-24", readingMethods: ["synthesis"], readingStatus: "completed", topics: [] },
+    sections: created.sections.filter((section) => section.title !== "阅读总结"),
+  };
+  const saved = await service.saveDraft(draft, created.draftVersion);
+  await assert.rejects(() => service.publishPost(saved.id, saved.draftVersion), /缺少阅读总结组件/);
 });
 
 test("post reads, deletion, import preview, and Markdown export use service errors without unintended writes", async () => {

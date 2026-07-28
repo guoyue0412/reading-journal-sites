@@ -10,6 +10,7 @@ test("paper drafts load standard modules and allow reusable custom modules", () 
   assert.deepEqual(draft.sections.map((section) => section.title), ["研究问题", "粗读记录", "细读记录", "阅读总结", "创新点"]);
   assert.equal(draft.status, "draft");
   assert.equal(draft.draftVersion, 0);
+  assert.equal(draft.sections.find((section) => section.title === "阅读总结")?.standardKey, "reading-summary");
 });
 
 test("active paper methods must match standard sections", () => {
@@ -51,4 +52,14 @@ test("validators report null metadata without throwing", () => {
   const draft = createEmptyDraft("papers", "post-7", "2026-07-24", []);
   draft.metadata = null;
   assert.match(validateForPublish(draft).join("\n"), /阅读状态无效/);
+});
+
+test("legacy paper sections titled 阅读总结 are recognized as the structured component", () => {
+  const draft = createEmptyDraft("papers", "post-legacy", "2026-07-24", []);
+  draft.title = "Legacy paper";
+  draft.summary = "Summary";
+  draft.metadata = { authors: [], venue: "arXiv", year: 2026, paperUrl: "https://arxiv.org/abs/1", readAt: "2026-07-24", readingMethods: ["synthesis"], readingStatus: "completed", topics: [] };
+  draft.sections = draft.sections.map((section) => section.title === "阅读总结" ? { ...section, standardKey: null, content: "已有的总结正文" } : section);
+
+  assert.doesNotMatch(validateForPublish(draft).join("\n"), /缺少阅读总结组件/);
 });

@@ -5,6 +5,7 @@ import type {
   PostType,
   SectionTemplate,
 } from "./types.ts";
+import { READING_SUMMARY } from "./section-constants.ts";
 
 export const defaultTemplatesFor: Record<PostType, Array<Omit<SectionTemplate, "id" | "postType">>> = {
   jobs: [
@@ -23,7 +24,7 @@ export const defaultTemplatesFor: Record<PostType, Array<Omit<SectionTemplate, "
     { title: "研究问题", kind: "long_text", position: 5, standardKey: "question", enabled: true },
     { title: "粗读记录", kind: "markdown", position: 10, standardKey: "skim", enabled: true },
     { title: "细读记录", kind: "markdown", position: 20, standardKey: "deep", enabled: true },
-    { title: "阅读总结", kind: "markdown", position: 30, standardKey: "synthesis", enabled: true },
+    { title: "阅读总结", kind: "markdown", position: 30, standardKey: READING_SUMMARY, enabled: true },
   ],
   reflections: [
     { title: "今日事件", kind: "long_text", position: 10, standardKey: "event", enabled: true },

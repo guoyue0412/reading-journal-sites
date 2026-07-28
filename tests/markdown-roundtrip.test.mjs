@@ -44,6 +44,19 @@ test("exports canonical snake_case frontmatter and preserves latex", () => {
   assert.match(exported, /\$a_t = f\(o_t\)\$/);
 });
 
+test("Markdown import and export preserve the structured reading summary identity", () => {
+  const withSummary = source
+    .replace("reading_methods: [skim]", "reading_methods: [skim, synthesis]")
+    .replace("## 创新点\n\n- 统一表征", "## 阅读总结\n\n可复用结论。\n\n## 创新点\n\n- 统一表征");
+  const imported = importPostMarkdown(withSummary, { id: "post-summary", now: "2026-07-24T12:00:00.000Z" });
+  const summary = imported.draft.sections.find((section) => section.title === "阅读总结");
+  assert.equal(summary?.standardKey, "reading-summary");
+
+  const roundTripped = importPostMarkdown(exportPostMarkdown(imported.draft), { id: "post-summary-2", now: "2026-07-24T12:00:00.000Z" });
+  assert.equal(roundTripped.draft.sections.find((section) => section.title === "阅读总结")?.standardKey, "reading-summary");
+  assert.doesNotMatch(roundTripped.errors.join("\n"), /缺少阅读总结组件/);
+});
+
 test("malformed imports report fields and never claim publication", () => {
   const result = importPostMarkdown("---\ntitle: Broken\n---\nBody", { id: "post-2", now: "2026-07-24T12:00:00.000Z" });
   assert.ok(result.errors.length > 0);

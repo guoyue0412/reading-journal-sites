@@ -12,6 +12,7 @@ import type {
   SectionTemplate,
 } from "./types.ts";
 import { validateDraft, validateForPublish } from "./validation.ts";
+import { normalizeBlogPost } from "./section-constants.ts";
 
 const postTypes: readonly PostType[] = ["jobs", "internship", "papers", "reflections"];
 const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relation"] as const;
@@ -92,7 +93,7 @@ export function createBlogService(
   async function loadPost(id: string): Promise<BlogPostDraft> {
     const draft = await store.getDraft(id);
     if (!draft) throw new BlogNotFoundError();
-    return draft;
+    return normalizeBlogPost(draft);
   }
 
   return {
@@ -105,15 +106,15 @@ export function createBlogService(
       return store.createDraft({ ...draft, createdAt: now, updatedAt: now });
     },
 
-    listPosts() {
-      return store.listDrafts();
+    async listPosts() {
+      return (await store.listDrafts()).map(normalizeBlogPost);
     },
 
     loadPost,
 
     async saveDraft(draft, expectedVersion) {
       const stored = await loadPost(draft.id);
-      const canonical = {
+      const canonical = normalizeBlogPost({
         ...draft,
         id: stored.id,
         type: stored.type,
@@ -121,7 +122,7 @@ export function createBlogService(
         publishedRevisionId: stored.publishedRevisionId,
         createdAt: stored.createdAt,
         updatedAt: clock(),
-      };
+      });
       const errors = validateDraft(canonical);
       if (errors.length) throw new BlogValidationError(errors);
       return store.saveDraft(canonical, expectedVersion);
@@ -133,7 +134,7 @@ export function createBlogService(
     },
 
     async publishPost(id, expectedVersion) {
-      const draft = await loadPost(id);
+      const draft = normalizeBlogPost(await loadPost(id));
       if (draft.draftVersion !== expectedVersion) throw new VersionConflictError();
       const errors = validateForPublish(draft);
       if (errors.length) throw new BlogValidationError(errors);
