@@ -25,6 +25,15 @@ test("structured editor autosaves drafts but publishes only on explicit action",
   assert.match(source, />预览</);
 });
 
+test("editor serializes autosaves and keeps newer local edits ahead of stale responses", async () => {
+  const source = await readFile(editorUrl, "utf8");
+  assert.match(source, /const saveInFlight = useRef\(false\)/);
+  assert.match(source, /const editRevision = useRef\(0\)/);
+  assert.match(source, /const requestRevision = editRevision\.current/);
+  assert.match(source, /if \(requestRevision === editRevision\.current\)/);
+  assert.match(source, /}, 800\)/);
+});
+
 test("custom sections can be added and saved as reusable templates", async () => {
   const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
   for (const kind of ["long_text", "short_text", "checklist", "markdown", "relation"]) assert.match(drawer, new RegExp(kind));

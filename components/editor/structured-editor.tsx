@@ -29,6 +29,11 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   const [mobilePane, setMobilePane] = useState<MobilePane>("edit");
   const saveTimer = useRef<number | null>(null);
   const currentRef = useRef(current);
+  const saveInFlight = useRef(false);
+  const editRevision = useRef(0);
+  const savedRevision = useRef(0);
+  const queuedSave = useRef<BlogPostDraft | null>(null);
+  const savePromise = useRef<Promise<BlogPostDraft | null> | null>(null);
 
   useEffect(() => () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); }, []);
 
@@ -38,32 +43,63 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   function clearEmergencyDraft(id: string) { try { localStorage.removeItem(emergencyKey(id)); } catch { /* D1 remains authoritative. */ } }
 
   async function persistDraft(next: BlogPostDraft): Promise<BlogPostDraft | null> {
-    setSaveState("saving");
+    if (saveInFlight.current) {
+      queuedSave.current = next;
+      return savePromise.current ?? null;
+    }
+
+    saveInFlight.current = true;
+    const requestRevision = editRevision.current;
+    let savedPost: BlogPostDraft | null = null;
+    const request = (async () => {
+      setSaveState("saving");
+      try {
+        const response = await fetch(`/api/editor/posts/${next.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ draft: next, expectedVersion: next.draftVersion }) });
+        const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
+        if (response.status === 409 && payload.code === "VERSION_CONFLICT") { setSaveState("conflict"); setMessage("检测到其他页面的更新，请重新载入后继续。"); return null; }
+        if (!response.ok || !payload.post) { setSaveState("failed"); setMessage(formatApiError(payload, "保存失败")); return null; }
+        savedPost = payload.post;
+        if (requestRevision === editRevision.current) {
+          setCurrent(payload.post); currentRef.current = payload.post;
+          setPosts((value) => replacePost(value, payload.post!));
+          savedRevision.current = requestRevision;
+          clearEmergencyDraft(next.id); setSaveState("saved"); setMessage("");
+        }
+        return payload.post;
+      } catch { setSaveState("failed"); setMessage("网络异常，内容已保存在当前浏览器的恢复副本中。"); return null; }
+    })();
+    savePromise.current = request;
+
     try {
-      const response = await fetch(`/api/editor/posts/${next.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ draft: next, expectedVersion: next.draftVersion }) });
-      const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
-      if (response.status === 409 && payload.code === "VERSION_CONFLICT") { setSaveState("conflict"); setMessage("检测到其他页面的更新，请重新载入后继续。"); return null; }
-      if (!response.ok || !payload.post) { setSaveState("failed"); setMessage(formatApiError(payload, "保存失败")); return null; }
-      setCurrent(payload.post); currentRef.current = payload.post;
-      setPosts((value) => replacePost(value, payload.post!));
-      clearEmergencyDraft(next.id); setSaveState("saved"); setMessage("");
-      return payload.post;
-    } catch { setSaveState("failed"); setMessage("网络异常，内容已保存在当前浏览器的恢复副本中。"); return null; }
+      return await request;
+    } finally {
+      saveInFlight.current = false;
+      savePromise.current = null;
+      const queued = queuedSave.current;
+      queuedSave.current = null;
+      if (queued && savedPost) void persistDraft({ ...queued, draftVersion: savedPost.draftVersion });
+    }
   }
 
   function scheduleAutosave(next: BlogPostDraft) {
+    editRevision.current += 1;
     setCurrent(next); currentRef.current = next; setPosts((value) => replacePost(value, next)); setSaveState("idle");
     persistEmergencyDraft(next);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => { saveTimer.current = null; void persistDraft(next); }, 700);
+    saveTimer.current = window.setTimeout(() => { saveTimer.current = null; void persistDraft(next); }, 800);
   }
 
   async function flushAutosave(): Promise<BlogPostDraft | null> {
     if (saveTimer.current) { window.clearTimeout(saveTimer.current); saveTimer.current = null; }
-    const next = currentRef.current;
-    if (!next) return null;
-    if (saveState === "saved") return next;
-    return persistDraft(next);
+    if (!saveInFlight.current && !queuedSave.current && savedRevision.current === editRevision.current) return currentRef.current;
+    while (true) {
+      const next = currentRef.current;
+      if (!next) return null;
+      const revision = editRevision.current;
+      const saved = await persistDraft(next);
+      if (!saved && !saveInFlight.current && !queuedSave.current) return null;
+      if (!saveInFlight.current && !queuedSave.current && revision === editRevision.current) return currentRef.current;
+    }
   }
 
   async function selectPost(id: string) {
