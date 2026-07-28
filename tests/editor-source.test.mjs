@@ -42,6 +42,18 @@ test("editor serializes autosaves and keeps newer local edits ahead of stale res
   assert.match(selectPost, /if \(id === selectedId\) return;\s*await flushAutosave\(\);\s*const local/s);
 });
 
+test("every new-article path flushes the old draft before switching active articles", async () => {
+  const source = await readFile(editorUrl, "utf8");
+  const createPost = source.slice(source.indexOf("async function createPost"), source.indexOf("function updateSection"));
+  const saveAsNewArticle = source.slice(source.indexOf("async function saveAsNewArticle"), source.indexOf("async function importMarkdown"));
+  const importMarkdown = source.slice(source.indexOf("async function importMarkdown"), source.indexOf("const typeTemplates"));
+
+  for (const path of [createPost, saveAsNewArticle, importMarkdown]) {
+    assert.ok(path.indexOf("await flushAutosave();") >= 0);
+    assert.ok(path.indexOf("await flushAutosave();") < path.indexOf("activePostId.current ="));
+  }
+});
+
 test("custom sections can be added and saved as reusable templates", async () => {
   const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
   for (const kind of ["long_text", "short_text", "checklist", "markdown", "relation"]) assert.match(drawer, new RegExp(kind));

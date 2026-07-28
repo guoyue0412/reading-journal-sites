@@ -27,3 +27,9 @@
 
 - `node --test tests/editor-source.test.mjs` — passed: 14 tests.
 - `npm test` — focused source tests passed; the build then stopped because this checkout has no `vinext` executable (`sh: vinext: command not found`).
+
+## Fix — Cross-article save handoff
+
+- `createPost`, `saveAsNewArticle`, and `importMarkdown` now await `flushAutosave()` before changing the active article or visible draft.
+- This drains any pending debounce, queued snapshot, or in-flight PATCH for the prior article, so a returned version is never reused as the `expectedVersion` for the newly active article.
+- Added a focused source-level regression test covering all three switch paths.

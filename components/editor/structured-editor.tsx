@@ -121,6 +121,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, date: localDate() }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
       if (!response.ok || !payload.post) throw new Error(formatApiError(payload, "新建失败"));
+      await flushAutosave();
       setPosts((value) => replacePost(value, payload.post!)); activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved");
     } catch (error) { setMessage(error instanceof Error ? error.message : "新建失败"); } finally { setCreating(false); }
   }
@@ -189,6 +190,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
     if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
     const copy = { ...current, id: payload.post.id, slug: `${current.slug}-copy`, title: `${current.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: current.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
+    await flushAutosave();
     activePostId.current = copy.id; setSelectedId(copy.id); scheduleAutosave(copy); setMessage("已创建新文章副本，本地恢复副本仍保留。");
   }
 
@@ -204,6 +206,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const created = await createResponse.json() as { post?: BlogPostDraft } & ApiError;
     if (!createResponse.ok || !created.post) { setMessage(formatApiError(created, "创建导入草稿失败")); return; }
     const merged = { ...payload.draft, id: created.post.id, draftVersion: created.post.draftVersion, createdAt: created.post.createdAt, sections: payload.draft.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
+    await flushAutosave();
     activePostId.current = merged.id; setSelectedId(merged.id); scheduleAutosave(merged);
   }
 
