@@ -16,3 +16,14 @@
 
 - The existing PATCH body and `expectedVersion` contract are unchanged.
 - Newer local text is not replaced by an older response, and recovery storage is cleared only for the matching edit revision.
+
+## Fix
+
+- Editing while a PATCH is in flight now queues the newest snapshot immediately, then persists it with the server version returned by the completed request. Normal idle edits retain the 800 ms debounce.
+- Switching articles now awaits every active or queued save before changing the selection. An active-article identity guard also prevents a late response for another article from replacing the visible editor draft.
+- Strengthened `tests/editor-source.test.mjs` to assert the immediate queue, returned-version chaining, active-article guard, and unconditional selection flush.
+
+### Verification
+
+- `node --test tests/editor-source.test.mjs` — passed: 14 tests.
+- `npm test` — focused source tests passed; the build then stopped because this checkout has no `vinext` executable (`sh: vinext: command not found`).

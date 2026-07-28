@@ -29,6 +29,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   const [mobilePane, setMobilePane] = useState<MobilePane>("edit");
   const saveTimer = useRef<number | null>(null);
   const currentRef = useRef(current);
+  const activePostId = useRef<string | null>(initialPosts[0]?.id ?? null);
   const saveInFlight = useRef(false);
   const editRevision = useRef(0);
   const savedRevision = useRef(0);
@@ -59,7 +60,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
         if (response.status === 409 && payload.code === "VERSION_CONFLICT") { setSaveState("conflict"); setMessage("检测到其他页面的更新，请重新载入后继续。"); return null; }
         if (!response.ok || !payload.post) { setSaveState("failed"); setMessage(formatApiError(payload, "保存失败")); return null; }
         savedPost = payload.post;
-        if (requestRevision === editRevision.current) {
+        if (requestRevision === editRevision.current && activePostId.current === next.id) {
           setCurrent(payload.post); currentRef.current = payload.post;
           setPosts((value) => replacePost(value, payload.post!));
           savedRevision.current = requestRevision;
@@ -86,27 +87,28 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     setCurrent(next); currentRef.current = next; setPosts((value) => replacePost(value, next)); setSaveState("idle");
     persistEmergencyDraft(next);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    if (saveInFlight.current) {
+      queuedSave.current = next;
+      return;
+    }
     saveTimer.current = window.setTimeout(() => { saveTimer.current = null; void persistDraft(next); }, 800);
   }
 
   async function flushAutosave(): Promise<BlogPostDraft | null> {
     if (saveTimer.current) { window.clearTimeout(saveTimer.current); saveTimer.current = null; }
-    if (!saveInFlight.current && !queuedSave.current && savedRevision.current === editRevision.current) return currentRef.current;
     while (true) {
+      if (saveInFlight.current) { await savePromise.current; continue; }
+      if (savedRevision.current === editRevision.current) return currentRef.current;
       const next = currentRef.current;
-      if (!next) return null;
-      const revision = editRevision.current;
-      const saved = await persistDraft(next);
-      if (!saved && !saveInFlight.current && !queuedSave.current) return null;
-      if (!saveInFlight.current && !queuedSave.current && revision === editRevision.current) return currentRef.current;
+      if (!next || !await persistDraft(next)) return null;
     }
   }
 
   async function selectPost(id: string) {
     if (id === selectedId) return;
-    if (saveTimer.current) await flushAutosave();
+    await flushAutosave();
     const local = posts.find((post) => post.id === id);
-    setSelectedId(id); setCurrent(local ?? null); currentRef.current = local ?? null; setSaveState("idle"); setMessage("");
+    activePostId.current = id; setSelectedId(id); setCurrent(local ?? null); currentRef.current = local ?? null; setSaveState("idle"); setMessage("");
     try {
       const recovery = localStorage.getItem(emergencyKey(id));
       if (recovery && window.confirm("发现这个文章的未保存恢复副本，是否恢复？")) scheduleAutosave(JSON.parse(recovery) as BlogPostDraft);
@@ -119,7 +121,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, date: localDate() }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
       if (!response.ok || !payload.post) throw new Error(formatApiError(payload, "新建失败"));
-      setPosts((value) => replacePost(value, payload.post!)); setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved");
+      setPosts((value) => replacePost(value, payload.post!)); activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved");
     } catch (error) { setMessage(error instanceof Error ? error.message : "新建失败"); } finally { setCreating(false); }
   }
 
@@ -187,7 +189,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
     if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
     const copy = { ...current, id: payload.post.id, slug: `${current.slug}-copy`, title: `${current.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: current.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
-    setSelectedId(copy.id); scheduleAutosave(copy); setMessage("已创建新文章副本，本地恢复副本仍保留。");
+    activePostId.current = copy.id; setSelectedId(copy.id); scheduleAutosave(copy); setMessage("已创建新文章副本，本地恢复副本仍保留。");
   }
 
   async function importMarkdown(event: ChangeEvent<HTMLInputElement>) {
@@ -202,7 +204,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const created = await createResponse.json() as { post?: BlogPostDraft } & ApiError;
     if (!createResponse.ok || !created.post) { setMessage(formatApiError(created, "创建导入草稿失败")); return; }
     const merged = { ...payload.draft, id: created.post.id, draftVersion: created.post.draftVersion, createdAt: created.post.createdAt, sections: payload.draft.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
-    setSelectedId(merged.id); scheduleAutosave(merged);
+    activePostId.current = merged.id; setSelectedId(merged.id); scheduleAutosave(merged);
   }
 
   const typeTemplates = current ? templates.filter((template) => template.postType === current.type && template.enabled) : [];

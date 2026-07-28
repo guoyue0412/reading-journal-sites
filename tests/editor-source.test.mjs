@@ -30,8 +30,16 @@ test("editor serializes autosaves and keeps newer local edits ahead of stale res
   assert.match(source, /const saveInFlight = useRef\(false\)/);
   assert.match(source, /const editRevision = useRef\(0\)/);
   assert.match(source, /const requestRevision = editRevision\.current/);
-  assert.match(source, /if \(requestRevision === editRevision\.current\)/);
+  assert.match(source, /if \(requestRevision === editRevision\.current && activePostId\.current === next\.id\)/);
   assert.match(source, /}, 800\)/);
+  assert.match(source, /const activePostId = useRef<string \| null>\(initialPosts\[0\]\?\.id \?\? null\)/);
+  assert.match(source, /void persistDraft\(\{ \.\.\.queued, draftVersion: savedPost\.draftVersion \}\)/);
+
+  const scheduleAutosave = source.slice(source.indexOf("function scheduleAutosave"), source.indexOf("async function flushAutosave"));
+  assert.match(scheduleAutosave, /if \(saveInFlight\.current\) \{\s*queuedSave\.current = next;\s*return;\s*\}/s);
+
+  const selectPost = source.slice(source.indexOf("async function selectPost"), source.indexOf("async function createPost"));
+  assert.match(selectPost, /if \(id === selectedId\) return;\s*await flushAutosave\(\);\s*const local/s);
 });
 
 test("custom sections can be added and saved as reusable templates", async () => {
