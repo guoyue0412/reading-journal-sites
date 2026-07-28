@@ -170,9 +170,15 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   }
 
   const typeTemplates = current ? templates.filter((template) => template.postType === current.type && template.enabled) : [];
-  return <section className="structured-editor" aria-label="结构化写作工作台">
-    <header className="studio-toolbar"><span>{ownerName}</span><span className={`save-state save-state--${saveState}`}>{({ idle: "待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "版本冲突" })[saveState]}</span><label className="studio-import">导入 Markdown<input type="file" accept=".md,text/markdown" onChange={(e) => void importMarkdown(e)} /></label>{current ? <a href={`/api/editor/posts/${current.id}/export`} download>导出 Markdown</a> : null}<button type="button" disabled={!current || saveState === "saving"} onClick={() => void publish()}>发布</button></header>
-    {message ? <p className="studio-message" role="status">{message}</p> : null}
+  return <section className="structured-editor article-surface" aria-label="结构化写作工作台">
+    <header className="studio-toolbar studio-toolbar--floating material-toolbar">
+      <span className="studio-owner">{ownerName}</span>
+      <span className={`studio-save-state save-state--${saveState}`} aria-live="polite">{({ idle: "待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "版本冲突" })[saveState]}</span>
+      <label className="studio-import material-action">导入 Markdown<input type="file" accept=".md,text/markdown" onChange={(e) => void importMarkdown(e)} /></label>
+      {current ? <a className="material-action" href={`/api/editor/posts/${current.id}/export`} download>导出 Markdown</a> : null}
+      <button className="material-action material-action--primary" type="button" disabled={!current || saveState === "saving"} onClick={() => void publish()}>发布</button>
+    </header>
+    {message ? <p className="studio-message" role="status" aria-live="polite">{message}</p> : null}
     {saveState === "failed" ? <div className="studio-recovery"><button type="button" onClick={() => currentRef.current && void persistDraft(currentRef.current)}>重试保存</button><button type="button" onClick={exportCurrentDraft}>导出当前草稿</button></div> : null}
     {saveState === "conflict" ? <div className="studio-recovery"><button type="button" onClick={() => void reloadOnlineDraft()}>重新加载线上草稿</button><button type="button" onClick={() => void saveAsNewArticle()}>另存为新文章</button></div> : null}
     <div className="studio-mobile-tabs"><button type="button" aria-pressed={mobilePane === "edit"} onClick={() => setMobilePane("edit")}>编辑</button><button type="button" aria-pressed={mobilePane === "preview"} onClick={() => setMobilePane("preview")}>预览</button></div>

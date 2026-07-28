@@ -44,6 +44,13 @@ test("saving an article copy preserves structured component identities", async (
   assert.doesNotMatch(source, /sections:\s*current\.sections\.map\(\(section\)\s*=>\s*\(\{[^}]*standardKey:\s*null/);
 });
 
+test("writing studio exposes semantic save feedback and material action hooks", async () => {
+  const source = await readFile(editorUrl, "utf8");
+  assert.match(source, /studio-save-state/);
+  assert.match(source, /material-action/);
+  assert.match(source, /aria-live="polite"/);
+});
+
 test("editor page is owner-protected and renders the structured studio", async () => {
   const page = await readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8");
   assert.match(page, /requireBlogOwner/);

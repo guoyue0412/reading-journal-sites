@@ -15,3 +15,23 @@ test("section ordering and drawer actions are keyboard operable", async () => {
   assert.match(drawer, /role="dialog"/); assert.match(drawer, /aria-modal="true"/); assert.match(drawer, /Escape/);
   for (const action of ["重试保存", "导出当前草稿", "重新加载线上草稿", "另存为新文章"]) assert.match(editor, new RegExp(action));
 });
+
+test("Apple-style material layers respect motion, transparency, and contrast preferences", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /--surface:/);
+  assert.match(css, /\.material-toolbar\s*{[^}]*backdrop-filter:/s);
+  assert.match(css, /@media\s*\(prefers-reduced-transparency:\s*reduce\)/);
+  assert.match(css, /@media\s*\(prefers-contrast:\s*more\)/);
+});
+
+test("reading and editor controls have direct press feedback without breaking mobile panes", async () => {
+  const [css, editor] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/editor/structured-editor.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(css, /\.material-action:active\s*{[^}]*transform:\s*scale\(0\.98\)/s);
+  assert.match(css, /\.studio-toolbar--floating/);
+  assert.match(css, /\.article-surface/);
+  assert.match(editor, /studio-toolbar--floating/);
+  assert.match(editor, /aria-live="polite"/);
+});
