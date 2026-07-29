@@ -19,7 +19,7 @@ export function ContentIndex({
 }) {
   return (
     <div className="index-page">
-      <header className="index-heading">
+      <header className="index-heading index-heading--ambient">
         <p className="eyebrow">{typeLabels[entries[0]?.type] ?? "内容索引"}</p>
         <h1>{title}</h1>
         <p>{description}</p>
@@ -27,7 +27,7 @@ export function ContentIndex({
       <section className="index-list" aria-label={`${title}文章列表`}>
         {entries.length ? (
           entries.map((entry, index) => (
-            <article className="index-entry" key={entry.slug}>
+            <article className="index-entry interactive-row" key={entry.slug}>
               <span className="entry-number">
                 {String(index + 1).padStart(2, "0")}
               </span>

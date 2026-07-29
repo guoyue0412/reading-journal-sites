@@ -13,7 +13,9 @@ const navigation = [
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
-    <div className="site-page">
+    <div className="site-page site-shell">
+      <div className="site-ambient site-ambient--one" aria-hidden="true" />
+      <div className="site-ambient site-ambient--two" aria-hidden="true" />
       <header className="site-header">
         <Link className="site-brand" href="/" aria-label="郭跃个人博客首页">
           郭跃 <span>GUO YUE</span>

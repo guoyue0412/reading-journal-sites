@@ -33,7 +33,7 @@ export function MarkdownArticle({
       <Link className="article-back" href={`/${entry.type}`}>
         ← 返回{typeLabels[entry.type]}
       </Link>
-      <header className="article-header">
+      <header className="article-header article-header--ambient">
         <p className="eyebrow">{typeLabels[entry.type]}</p>
         <h1>{entry.title}</h1>
         <p className="article-summary">{entry.summary}</p>
@@ -91,7 +91,7 @@ export function MarkdownArticle({
         </ul>
       </header>
 
-      <div className="markdown-body">
+      <div className="markdown-body reading-body">
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
@@ -101,7 +101,7 @@ export function MarkdownArticle({
       </div>
 
       {relatedEntries.length ? (
-        <aside className="article-related" aria-label="相关文章与日记">
+        <aside className="article-related content-panel" aria-label="相关文章与日记">
           <p className="eyebrow">CONNECTIONS</p>
           <h2>相关文章与日记</h2>
           <div className="article-related-list">

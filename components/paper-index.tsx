@@ -39,7 +39,7 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
 
   return (
     <>
-      <div className="paper-filters" aria-label="论文筛选">
+      <div className="paper-filters panel-controls" aria-label="论文筛选">
         <label>阅读方式<select value={readingMethod} onChange={(event) => setReadingMethod(event.target.value)}>
           <option value="">全部方式</option>{methods.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
         </select></label>
@@ -79,7 +79,7 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
             ))}</tbody>
           </table>
           <div className="paper-mobile-list">{filteredEntries.map((entry) => (
-            <article key={entry.slug}>
+            <article className="interactive-row" key={entry.slug}>
               <p>{entry.year} · {entry.venue ?? "未注明来源"} · {readingStatusLabels[entry.readingStatus ?? "queued"]}</p>
               <h2><Link href={`/post/${entry.slug}`}>{entry.title}</Link></h2>
               <p className="paper-mobile-byline">{entry.authors?.join("、")} · 阅读于 {entry.readAt ?? entry.date}</p>

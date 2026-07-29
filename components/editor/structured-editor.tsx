@@ -211,7 +211,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   }
 
   const typeTemplates = current ? templates.filter((template) => template.postType === current.type && template.enabled) : [];
-  return <section className="structured-editor article-surface" aria-label="结构化写作工作台">
+  return <section className="structured-editor article-surface studio-surface" aria-label="结构化写作工作台">
     <header className="studio-toolbar studio-toolbar--floating material-toolbar">
       <span className="studio-owner">{ownerName}</span>
       <span className={`studio-save-state save-state--${saveState}`} aria-live="polite">{({ idle: "待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "版本冲突" })[saveState]}</span>
@@ -225,7 +225,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     <div className="studio-mobile-tabs"><button type="button" aria-pressed={mobilePane === "edit"} onClick={() => setMobilePane("edit")}>编辑</button><button type="button" aria-pressed={mobilePane === "preview"} onClick={() => setMobilePane("preview")}>预览</button></div>
     <div className={`studio-layout studio-layout--${mobilePane}`} data-mobile-pane={mobilePane}>
       <EditorSidebar posts={posts} selectedId={selectedId} creating={creating} onSelect={(id) => void selectPost(id)} onCreate={(type) => void createPost(type)} />
-      <main className="studio-form">{current ? <><p className="eyebrow">{postTypeLabels[current.type]}</p><PostFields post={current} onChange={scheduleAutosave} /><div className="studio-sections"><div className="studio-sections__title"><h2>内容模块</h2><button type="button" onClick={() => setDrawerOpen(true)}>+ 添加模块</button></div>{[...current.sections].sort((a, b) => a.position - b.position).map((section) => <SectionEditor key={section.id} section={section} posts={posts.filter(post => post.id !== current.id)} onChange={updateSection} onMove={(delta) => moveSection(section.id, delta)} onDuplicate={() => duplicateSection(section.id)} onDelete={() => deleteSection(section.id)} />)}</div></> : <div className="studio-empty"><h2>开始写作</h2><p>从左侧选择文章类型，系统会提供对应的结构化模板。</p></div>}</main>
+      <main className="studio-form">{current ? <><p className="eyebrow">{postTypeLabels[current.type]}</p><PostFields post={current} onChange={scheduleAutosave} /><div className="studio-sections"><div className="studio-sections__title"><h2>内容模块</h2><button className="material-action" type="button" onClick={() => setDrawerOpen(true)}>+ 添加模块</button></div>{[...current.sections].sort((a, b) => a.position - b.position).map((section) => <SectionEditor key={section.id} section={section} posts={posts.filter(post => post.id !== current.id)} onChange={updateSection} onMove={(delta) => moveSection(section.id, delta)} onDuplicate={() => duplicateSection(section.id)} onDelete={() => deleteSection(section.id)} />)}</div></> : <div className="studio-empty"><h2>开始写作</h2><p>从左侧选择文章类型，系统会提供对应的结构化模板。</p></div>}</main>
       <ArticlePreview post={current} />
     </div>
     <AddSectionDrawer open={drawerOpen} insertionPosition={(current?.sections.length ?? 0) * 10 + 10} templates={typeTemplates} onClose={() => setDrawerOpen(false)} onAdd={addSection} />

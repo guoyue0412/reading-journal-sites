@@ -39,7 +39,7 @@ export default async function Home() {
 
   return (
     <SiteShell>
-      <section className="home-hero" aria-labelledby="hero-title">
+      <section className="home-hero reading-hero" aria-labelledby="hero-title">
         <div>
           <p className="hero-kicker"><span aria-hidden="true" />写给自己，也与世界分享</p>
           <h1 id="hero-title">在具体的生活里，<br />留下诚实的文字。</h1>
@@ -49,7 +49,7 @@ export default async function Home() {
 
       <section className="module-grid" aria-label="文章模块">
         {modules.map(([number, href, title, description]) => (
-          <Link className="module-card" href={href} key={href}>
+          <Link className="module-card interactive-panel" href={href} key={href}>
             <span className="module-number">{number}</span>
             <span className="module-arrow" aria-hidden="true">→</span>
             <h2>{title}</h2>
@@ -58,7 +58,7 @@ export default async function Home() {
         ))}
       </section>
 
-      <section className="editorial-section recent-section" aria-labelledby="recent-title">
+      <section className="editorial-section recent-section content-panel" aria-labelledby="recent-title">
         <div className="section-intro">
           <p className="eyebrow">LATEST NOTES</p>
           <h2 id="recent-title">近期阅读与记录</h2>
@@ -77,7 +77,7 @@ export default async function Home() {
 
       <ProgressOverview paperCounts={getPaperStatusCounts(entries)} recruitingCounts={getRecruitingStageCounts(entries)} />
 
-      <section className="home-focus-grid" aria-label="最近研究与秋招动态">
+      <section className="home-focus-grid content-panel" aria-label="最近研究与秋招动态">
         <article aria-labelledby="recent-paper-title">
           <p className="eyebrow">RECENT PAPER</p>
           <h2 id="recent-paper-title">最近论文笔记</h2>
@@ -100,7 +100,7 @@ export default async function Home() {
         </article>
       </section>
 
-      <section className="editorial-section split-section" aria-labelledby="reflection-title">
+      <section className="editorial-section split-section content-panel" aria-labelledby="reflection-title">
         <div>
           <p className="eyebrow">DAILY NOTE</p>
           <h2 id="reflection-title">今日感悟</h2>
