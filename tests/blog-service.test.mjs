@@ -128,6 +128,19 @@ test("removing the reading summary component blocks publication", async () => {
   await assert.rejects(() => service.publishPost(saved.id, saved.draftVersion), /缺少阅读总结组件/);
 });
 
+test("allows unknown wiki relations while saving but rejects them while publishing", async () => {
+  const { service } = createService();
+  const created = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const saved = await service.saveDraft({
+    ...created,
+    title: "带关联的感悟",
+    summary: "小结",
+    sections: created.sections.map((section, index) => index === 0 ? { ...section, content: "[[missing-post]]" } : section),
+  }, created.draftVersion);
+  assert.deepEqual(saved.related, ["missing-post"]);
+  await assert.rejects(() => service.publishPost(saved.id, saved.draftVersion), /关联文章不存在：missing-post/);
+});
+
 test("post reads, deletion, import preview, and Markdown export use service errors without unintended writes", async () => {
   const { store, service } = createService();
   const created = await service.createPost({ type: "reflections", date: "2026-07-24" });

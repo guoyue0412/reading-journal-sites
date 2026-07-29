@@ -12,7 +12,7 @@ import type {
   SectionTemplate,
 } from "./types.ts";
 import { validateDraft, validateForPublish } from "./validation.ts";
-import { normalizeBlogPost } from "./section-constants.ts";
+import { derivePostRelations, normalizeMarkdownPost } from "./markdown-sections.ts";
 
 const postTypes: readonly PostType[] = ["jobs", "internship", "papers", "reflections"];
 const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relation"] as const;
@@ -93,7 +93,7 @@ export function createBlogService(
   async function loadPost(id: string): Promise<BlogPostDraft> {
     const draft = await store.getDraft(id);
     if (!draft) throw new BlogNotFoundError();
-    return normalizeBlogPost(draft);
+    return normalizeMarkdownPost(draft);
   }
 
   return {
@@ -103,18 +103,18 @@ export function createBlogService(
       const templates = await store.listTemplates(input.type);
       const draft = createEmptyDraft(input.type, ids(), input.date, templates);
       const now = clock();
-      return store.createDraft({ ...draft, createdAt: now, updatedAt: now });
+      return store.createDraft(normalizeMarkdownPost({ ...draft, createdAt: now, updatedAt: now }));
     },
 
     async listPosts() {
-      return (await store.listDrafts()).map(normalizeBlogPost);
+      return (await store.listDrafts()).map(normalizeMarkdownPost);
     },
 
     loadPost,
 
     async saveDraft(draft, expectedVersion) {
       const stored = await loadPost(draft.id);
-      const canonical = normalizeBlogPost({
+      const canonical = normalizeMarkdownPost({
         ...draft,
         id: stored.id,
         type: stored.type,
@@ -134,8 +134,13 @@ export function createBlogService(
     },
 
     async publishPost(id, expectedVersion) {
-      const draft = normalizeBlogPost(await loadPost(id));
+      const draft = normalizeMarkdownPost(await loadPost(id));
       if (draft.draftVersion !== expectedVersion) throw new VersionConflictError();
+      const knownSlugs = new Set((await store.listDrafts()).map((post) => post.slug));
+      const missingRelations = derivePostRelations(draft).filter((slug) => !knownSlugs.has(slug));
+      if (missingRelations.length) {
+        throw new BlogValidationError(missingRelations.map((slug) => `关联文章不存在：${slug}`));
+      }
       const errors = validateForPublish(draft);
       if (errors.length) throw new BlogValidationError(errors);
       return store.publish(draft, expectedVersion, ids(), clock());
