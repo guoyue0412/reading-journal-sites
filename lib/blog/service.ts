@@ -13,6 +13,8 @@ import type {
 } from "./types.ts";
 import { validateDraft, validateForPublish } from "./validation.ts";
 import { derivePostRelations, normalizeMarkdownPost } from "./markdown-sections.ts";
+import { extractLocalAssetIds } from "./markdown-sections.ts";
+import type { BlogAssetStore } from "./asset-store.ts";
 
 const postTypes: readonly PostType[] = ["jobs", "internship", "papers", "reflections"];
 const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relation"] as const;
@@ -89,6 +91,7 @@ export function createBlogService(
   store: BlogStore,
   clock: () => string,
   ids: () => string,
+  assetStore?: BlogAssetStore,
 ): BlogService {
   async function loadPost(id: string): Promise<BlogPostDraft> {
     const draft = await store.getDraft(id);
@@ -143,7 +146,16 @@ export function createBlogService(
       }
       const errors = validateForPublish(draft);
       if (errors.length) throw new BlogValidationError(errors);
-      return store.publish(draft, expectedVersion, ids(), clock());
+      const assetIds=[...new Set(draft.sections.flatMap((section)=>extractLocalAssetIds(section.content)))];
+      if(assetStore){
+        const assets=await Promise.all(assetIds.map((assetId)=>assetStore.getById(assetId)));
+        const invalid=assetIds.filter((assetId,index)=>!assets[index]||assets[index]!.postId!==draft.id);
+        if(invalid.length)throw new BlogValidationError(invalid.map((id)=>`图片不存在或不属于当前文章：${id}`));
+      }
+      const publishedAt=clock();
+      const snapshot=await store.publish(draft, expectedVersion, ids(), publishedAt);
+      if(assetStore)await assetStore.markPublished(draft.id,assetIds,publishedAt);
+      return snapshot;
     },
 
     listTemplates(type) {
@@ -161,7 +173,7 @@ export function createBlogService(
         id: ids(),
         postType,
         title: section.title,
-        kind: section.kind,
+        kind: "markdown" as const,
         position: section.position,
         standardKey: section.standardKey,
         enabled: true,

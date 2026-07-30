@@ -76,3 +76,20 @@ export const blogState = sqliteTable("blog_state", {
   value: text("value").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const blogAssets = sqliteTable("blog_assets", {
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  objectKey: text("object_key").notNull(),
+  originalName: text("original_name").notNull(),
+  safeName: text("safe_name").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  visibility: text("visibility").notNull().default("draft"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("blog_assets_post_hash_uq").on(table.postId, table.sha256),
+  index("blog_assets_post_idx").on(table.postId),
+]);

@@ -1790,6 +1790,10 @@ textarea {
 .studio-fields input:focus, .studio-fields select:focus, .studio-fields textarea:focus, .studio-section input:focus, .studio-section textarea:focus, .studio-drawer input:focus, .studio-drawer select:focus { border-color: var(--vermilion); background: var(--surface-strong); box-shadow: 0 0 0 3px rgb(184 66 47 / 13%); outline: 0; }
 .studio-fields textarea, .studio-section textarea { min-height: 150px; resize: vertical; }
 .studio-section textarea.is-short { min-height: 72px; }
+.markdown-editor__toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+.markdown-editor__toolbar button { min-height: 36px; padding: 5px 10px; font-size: .82rem; }
+.markdown-editor textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.65; }
+.markdown-editor__error { margin: 7px 0 0; color: var(--vermilion); font-size: .86rem; }
 .studio-fields__specific { margin: 8px 0 0; padding: 16px; border: 1px solid var(--rule); border-radius: 16px; background: rgb(255 255 255 / 36%); }
 .studio-choice { display: flex; flex-wrap: wrap; gap: 12px; }
 .studio-sections__title, .studio-section__heading, .studio-drawer > div:first-child { display: flex; align-items: center; gap: 8px; }

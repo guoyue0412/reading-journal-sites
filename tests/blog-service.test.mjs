@@ -161,7 +161,7 @@ test("saving a reusable section excludes article content and checklist data", as
   const template = await service.saveSectionAsTemplate("internship", {
     id: "section-1",
     title: "可复用模块",
-    kind: "checklist",
+    kind: "markdown",
     content: "article-only text",
     items: ["article-only item"],
     relationSlugs: ["article-only-relation"],
@@ -174,7 +174,7 @@ test("saving a reusable section excludes article content and checklist data", as
     id: "fixed-id-1",
     postType: "internship",
     title: "可复用模块",
-    kind: "checklist",
+    kind: "markdown",
     position: 90,
     standardKey: "custom",
     enabled: true,

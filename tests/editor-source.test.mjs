@@ -56,7 +56,8 @@ test("every new-article path flushes the old draft before switching active artic
 
 test("custom sections can be added and saved as reusable templates", async () => {
   const drawer = await readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8");
-  for (const kind of ["long_text", "short_text", "checklist", "markdown", "relation"]) assert.match(drawer, new RegExp(kind));
+  assert.match(drawer, /kind:\s*"markdown"/);
+  assert.doesNotMatch(drawer, /内容类型<select/);
   assert.match(drawer, /保存为常用模块/);
   assert.match(drawer, /standardKey:\s*template\.standardKey/);
 });

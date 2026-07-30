@@ -15,10 +15,12 @@ const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relat
 
 export async function createEditorBlogService(): Promise<BlogService> {
   const { D1BlogStore } = await import("./d1-store.ts");
+  const { D1BlogAssetStore } = await import("./d1-asset-store.ts");
   return createBlogService(
     new D1BlogStore(),
     () => new Date().toISOString(),
     () => crypto.randomUUID(),
+    new D1BlogAssetStore(),
   );
 }
 
