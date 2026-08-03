@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 const navigation = [
   ["/", "首页"],
+  ["/index", "索引"],
   ["/blog", "博客"],
   ["/papers", "论文"],
   ["/projects", "项目"],

@@ -68,6 +68,7 @@ test("server-renders the research homepage without starter markers", async () =>
   assert.match(html, /LingBot-VA/);
   assert.match(html, /Research projects/);
   assert.match(html, /Recent writing/);
+  assert.match(html, /Full index/);
   assert.match(html, /CONTENT PULSE/);
   assert.match(html, /论文精读/);
   assert.match(html, /近 30 天发布/);
@@ -103,6 +104,15 @@ test("keeps all four legacy content indexes reachable", async () => {
     const html = await response.text();
     assert.match(html, new RegExp(entry), pathname);
   }
+});
+
+test("server-renders a title-only Markdown index", async () => {
+  const response = await render("/index");
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /内容索引/);
+  assert.match(html, /论文精读/);
+  assert.match(html, /href="\/blog\/unitacvla-reading"/);
 });
 
 test("server-renders the paper reading matrix with independent methods and execution status", async () => {
