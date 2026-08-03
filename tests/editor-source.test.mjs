@@ -81,8 +81,8 @@ test("writing studio exposes semantic save feedback and material action hooks", 
   assert.match(source, /aria-live="polite"/);
 });
 
-test("editor page is owner-protected and renders the structured studio", async () => {
-  const page = await readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8");
+test("admin posts page is owner-protected and renders the structured studio", async () => {
+  const page = await readFile(new URL("../app/admin/posts/page.tsx", import.meta.url), "utf8");
   assert.match(page, /requireBlogOwner/);
   assert.match(page, /StructuredEditor/);
   assert.match(page, /force-dynamic/);
@@ -116,13 +116,13 @@ test("rich Markdown tables and code blocks own narrow-screen horizontal scrollin
   assert.match(css, /\.markdown-body pre\s*{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s);
 });
 
-test("editor route uses the shared shell and structured panes", async () => {
+test("admin editor route uses the admin shell and structured panes", async () => {
   const [page, source] = await Promise.all([
-    readFile(new URL("../app/editor/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/posts/page.tsx", import.meta.url), "utf8"),
     readFile(editorUrl, "utf8"),
   ]);
 
-  assert.match(page, /SiteShell/);
+  assert.match(page, /AdminShell/);
   assert.match(page, /StructuredEditor/);
   assert.match(source, /studio-layout/);
   assert.match(source, /ArticlePreview/);

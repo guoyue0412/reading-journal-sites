@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+/* Research public surface. Legacy article/editor styles below remain intact so
+   existing D1 content, drafts, revisions, and R2 image URLs render unchanged. */
+:root { --research-ink: #161616; --research-muted: #6e6e73; --research-line: #dedee3; --research-paper: #fff; }
+* { box-sizing: border-box; }
+.research-page { min-height: 100vh; color: var(--research-ink); background: var(--research-paper); font-family: Arial, Helvetica, sans-serif; }
+.research-header, .admin-header { height: 68px; max-width: 1180px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--research-line); }
+.research-brand { color: var(--research-ink); font-weight: 700; letter-spacing: -.03em; text-decoration: none; white-space: nowrap; }
+.research-brand span { color: var(--research-muted); font-weight: 500; }
+.research-nav { display: flex; gap: 18px; margin-left: auto; }
+.research-nav a, .research-tools a, .admin-header a { color: var(--research-muted); text-decoration: none; font-size: 14px; }
+.research-nav a:hover, .research-tools a:hover, .admin-header a:hover { color: var(--research-ink); }
+.research-tools { display: flex; gap: 14px; }
+.research-hero, .research-intro, .research-feature, .research-list-section, .project-grid { max-width: 1180px; margin-left: auto; margin-right: auto; padding-left: 24px; padding-right: 24px; }
+.research-hero { padding-top: 116px; padding-bottom: 110px; }
+.research-hero > p, .research-intro > p, .research-feature header > p, .project-grid article > p { color: #5b5bd6; font-size: 12px; font-weight: 700; letter-spacing: .16em; margin: 0 0 18px; }
+.research-hero h1, .research-intro h1 { max-width: 880px; margin: 0; letter-spacing: -.065em; font-size: clamp(48px, 7.2vw, 94px); line-height: .98; }
+.research-hero > span, .research-intro > span { display: block; max-width: 650px; margin-top: 30px; color: var(--research-muted); font-size: 19px; line-height: 1.6; }
+.research-hero > div { display: flex; gap: 12px; margin-top: 36px; }
+.research-hero > div a, .admin-action { background: var(--research-ink); color: white; border-radius: 7px; padding: 12px 16px; text-decoration: none; font-size: 14px; }
+.research-hero > div a + a { background: white; color: var(--research-ink); border: 1px solid var(--research-line); }
+.research-feature { padding-top: 54px; padding-bottom: 54px; border-top: 1px solid var(--research-line); }
+.research-feature header { display: grid; grid-template-columns: 1fr auto; align-items: end; }
+.research-feature header p, .research-feature header h2 { grid-column: 1; }.research-feature header a { grid-column: 2; grid-row: 1 / 3; color: var(--research-muted); text-decoration: none; font-size: 14px; }
+.research-feature h2, .research-intro h1 { margin-top: 0; }.research-feature h2 { font-size: 32px; letter-spacing: -.04em; }
+.project-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-top: 24px; padding-bottom: 88px; }
+.research-feature .project-grid { padding-left: 0; padding-right: 0; padding-bottom: 0; max-width: none; }
+.project-grid article { min-height: 205px; border: 1px solid var(--research-line); border-radius: 14px; padding: 22px; }.project-grid h2, .project-grid h3 { margin: 60px 0 8px; font-size: 22px; letter-spacing: -.03em; }.project-grid span { color: var(--research-muted); line-height: 1.5; }
+.research-intro { padding-top: 84px; padding-bottom: 46px; }.research-intro h1 { font-size: clamp(42px, 5.5vw, 72px); }.research-intro > span { margin-top: 20px; }
+.research-list-section { padding-bottom: 100px; }.blog-filter { display: flex; gap: 10px; padding: 18px 0; border-top: 1px solid var(--research-line); border-bottom: 1px solid var(--research-line); }.blog-filter input, .blog-filter select, .blog-filter button { border: 1px solid var(--research-line); border-radius: 6px; min-height: 38px; padding: 0 10px; background: white; }.blog-filter input { flex: 1; }.blog-filter button { color: white; background: var(--research-ink); }
+.research-list { border-top: 1px solid var(--research-line); }.blog-filter + .research-list { border-top: 0; }.research-list article { padding: 25px 0; border-bottom: 1px solid var(--research-line); }.research-list article p:first-child { margin: 0; color: var(--research-muted); font-size: 13px; }.research-list h2, .research-list h3 { margin: 8px 0; font-size: 22px; letter-spacing: -.03em; }.research-list a { color: var(--research-ink); text-decoration: none; }.research-list article > p:not(:first-child), .research-list article > span { display: block; color: var(--research-muted); line-height: 1.6; max-width: 720px; }.research-list article div { display: flex; gap: 7px; margin-top: 13px; }.research-list article div span { color: var(--research-muted); font-size: 12px; }
+.research-footer { max-width: 1180px; margin: 0 auto; padding: 28px 24px; border-top: 1px solid var(--research-line); color: var(--research-muted); font-size: 13px; }
+.admin-page { min-height: 100vh; background: #f7f7f8; color: var(--research-ink); font-family: Arial, Helvetica, sans-serif; }.admin-header { max-width: none; background: white; padding-left: max(24px, calc((100vw - 1180px) / 2)); padding-right: max(24px, calc((100vw - 1180px) / 2)); }.admin-header nav { display: flex; gap: 20px; margin-left: auto; }.admin-main { max-width: 1180px; margin: 0 auto; padding: 54px 24px; }.admin-main h1 { margin: 6px 0; font-size: 38px; letter-spacing: -.05em; }.admin-copy { margin-bottom: 28px; }.admin-copy p:last-child { color: var(--research-muted); }.admin-stats { display: flex; gap: 14px; margin: 28px 0; }.admin-stats article { min-width: 180px; background: white; border: 1px solid var(--research-line); border-radius: 12px; padding: 20px; }.admin-stats strong { display: block; font-size: 34px; }.admin-stats span { color: var(--research-muted); font-size: 14px; }
+@media (max-width: 720px) { .research-header { padding: 0 16px; gap: 13px; }.research-nav { display: none; }.research-tools { margin-left: auto; }.research-hero { padding: 78px 20px; }.research-intro, .research-feature, .research-list-section, .project-grid { padding-left: 20px; padding-right: 20px; }.project-grid { grid-template-columns: 1fr; padding-bottom: 50px; }.research-hero h1, .research-intro h1 { letter-spacing: -.05em; }.research-feature header a { display: none; }.admin-main { padding: 34px 18px; }.admin-header { padding: 0 18px; }.admin-header nav { gap: 10px; }.admin-stats { flex-wrap: wrap; } }
+
 :root {
   --paper: #f3eee4;
   --ink: #20201e;

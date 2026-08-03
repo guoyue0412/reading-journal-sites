@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
-const title = "郭跃｜阅读、成长与思考";
-const description = "郭跃的个人写作空间，记录秋招、实习、论文阅读与日常思考。";
+const title = "Guo Yue Research";
+const description = "Embodied AI, world models, robot learning, simulation, and research writing by Guo Yue.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

@@ -30,8 +30,8 @@ export function MarkdownArticle({
 }) {
   return (
     <article className="article-page">
-      <Link className="article-back" href={`/${entry.type}`}>
-        ← 返回{typeLabels[entry.type]}
+      <Link className="article-back" href="/blog">
+        ← 返回文章列表
       </Link>
       <header className="article-header article-header--ambient">
         <p className="eyebrow">{typeLabels[entry.type]}</p>
@@ -106,7 +106,7 @@ export function MarkdownArticle({
           <h2>相关文章与日记</h2>
           <div className="article-related-list">
             {relatedEntries.map((related) => (
-              <Link href={`/post/${related.slug}`} key={related.slug}>
+              <Link href={`/blog/${related.slug}`} key={related.slug}>
                 <span>{typeLabels[related.type]}</span>
                 {related.title}
               </Link>

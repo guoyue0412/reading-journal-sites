@@ -57,55 +57,47 @@ test("derives absolute Open Graph and X image URLs from the incoming host", asyn
   );
 });
 
-test("server-renders the editorial homepage without starter markers", async () => {
+test("server-renders the research homepage without starter markers", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /郭跃/);
-  assert.match(html, /写给自己，也与世界分享/);
-  assert.match(html, /秋招记录/);
-  assert.match(html, /实习日记/);
-  assert.match(html, /论文阅读/);
-  assert.match(html, /个人感悟/);
-  assert.match(html, /近期阅读与记录/);
+  assert.match(html, /Guo Yue/);
+  assert.match(html, /Embodied AI/);
+  assert.match(html, /LingBot-VA/);
+  assert.match(html, /Research projects/);
+  assert.match(html, /Recent writing/);
   assert.doesNotMatch(
     html,
     /codex-preview|SkeletonPreview|react-loading-skeleton/i,
   );
 });
 
-test("homepage combines paper and recruiting progress without becoming a dashboard shell", async () => {
+test("homepage presents research projects and recent writing without admin controls", async () => {
   const response = await render("/");
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.match(html, /论文阅读概览/);
-  assert.match(html, /秋招进展概览/);
-  assert.match(html, /已完成/);
-  assert.match(html, /面试中/);
-  assert.match(html, /href="\/papers"/);
-  assert.match(html, /href="\/jobs"/);
-  assert.match(html, /最近论文笔记/);
-  assert.match(html, /最近秋招动态/);
-  assert.match(html, /UniTacVLA Team/);
-  assert.match(html, /个人秋招总览/);
+  assert.match(html, /href="\/projects"/);
+  assert.match(html, /href="\/blog"/);
+  assert.match(html, /EgoEngine/);
+  assert.match(html, /GenWAM/);
+  assert.doesNotMatch(html, /文章管理/);
 });
 
-test("server-renders all four module indexes", async () => {
+test("keeps all four legacy content indexes reachable", async () => {
   const routes = [
-    ["/jobs", "秋招记录", "秋招不是一场考试"],
-    ["/internship", "实习日记", "实习第 47 天"],
-    ["/papers", "论文阅读", "UniTacVLA"],
-    ["/reflections", "个人感悟", "2026-07-22"],
+    ["/jobs", "具身智能算法工程师"],
+    ["/internship", "实习第 47 天"],
+    ["/papers", "UniTacVLA"],
+    ["/reflections", "2026-07-22"],
   ];
 
-  for (const [pathname, label, entry] of routes) {
+  for (const [pathname, entry] of routes) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     const html = await response.text();
-    assert.match(html, new RegExp(label), pathname);
     assert.match(html, new RegExp(entry), pathname);
   }
 });
@@ -147,7 +139,7 @@ test("server-renders a paper article with LaTeX metadata and a related reflectio
   assert.match(html, /UniTacVLA Team/);
   assert.match(html, /arXiv/);
   assert.match(html, /2026/);
-  assert.match(html, /href="\/post\/2026-07-22"/);
+  assert.match(html, /href="\/blog\/2026-07-22"/);
   assert.match(html, /关于长期主义，我最近改变的三个看法/);
   assert.match(html, /<table>/);
   assert.match(html, /<pre><code/);
@@ -220,7 +212,7 @@ test("removes the disposable starter preview and dependency", async () => {
   assert.doesNotMatch(page, /codex-preview|SkeletonPreview/i);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/i);
   assert.match(layout, /lang="zh-CN"/);
-  assert.match(layout, /郭跃｜阅读、成长与思考/);
+  assert.match(layout, /Guo Yue Research/);
   await assert.rejects(access(new URL("app/_sites-preview", projectRoot)));
 });
 

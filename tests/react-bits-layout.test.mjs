@@ -5,21 +5,20 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-test("uses one ambient shell and honors reduced motion", async () => {
+test("uses the research shell with responsive public navigation", async () => {
   const [shell, css] = await Promise.all([read("components/site-shell.tsx"), read("app/globals.css")]);
-  assert.match(shell, /site-page site-shell/);
-  assert.match(shell, /site-ambient--one/);
-  assert.match(shell, /site-ambient--two/);
-  assert.match(css, /@keyframes ambient-drift/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.site-ambient \{ animation: none; \}/);
+  assert.match(shell, /ResearchShell/);
+  assert.match(css, /\.research-header/);
+  assert.match(css, /\.research-nav/);
+  assert.match(css, /@media \(max-width: 720px\)/);
 });
 
-test("applies shared visual markers without animating reading content", async () => {
+test("uses a research home while retaining article reading surfaces", async () => {
   const [home, index, papers, article, css] = await Promise.all([
     read("app/page.tsx"), read("components/content-index.tsx"), read("components/paper-index.tsx"), read("components/markdown-article.tsx"), read("app/globals.css"),
   ]);
-  assert.match(home, /reading-hero/);
-  assert.match(home, /interactive-panel/);
+  assert.match(home, /research-hero/);
+  assert.match(home, /LingBot-VA/);
   assert.match(index, /index-heading--ambient/);
   assert.match(papers, /panel-controls/);
   assert.match(article, /article-header--ambient/);
