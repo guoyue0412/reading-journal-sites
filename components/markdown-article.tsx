@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Children, isValidElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -21,6 +22,24 @@ const applicationStageLabels = {
   closed: "结束",
 } as const;
 
+function headingId(value: string) {
+  return `section-${value.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "")}`;
+}
+
+function textFromChildren(children: ReactNode): string {
+  return Children.toArray(children).map((child) => {
+    if (typeof child === "string" || typeof child === "number") return String(child);
+    return isValidElement<{ children?: ReactNode }>(child) ? textFromChildren(child.props.children) : "";
+  }).join("");
+}
+
+function markdownHeadings(body: string) {
+  return body.replace(/```[\s\S]*?```/g, "").split("\n").flatMap((line) => {
+    const match = /^(#{2,3})\s+(.+?)\s*$/.exec(line);
+    return match ? [{ level: match[1].length, title: match[2].replace(/[*_`]/g, "") }] : [];
+  });
+}
+
 export function MarkdownArticle({
   entry,
   relatedEntries,
@@ -28,6 +47,7 @@ export function MarkdownArticle({
   entry: ContentEntry;
   relatedEntries: ContentEntry[];
 }) {
+  const headings = markdownHeadings(entry.body);
   return (
     <article className="article-page">
       <Link className="article-back" href="/blog">
@@ -91,13 +111,20 @@ export function MarkdownArticle({
         </ul>
       </header>
 
-      <div className="markdown-body reading-body">
+      <div className="article-reading-layout">
+        {headings.length ? <nav className="article-outline" aria-label="文章目录"><p>ON THIS PAGE</p><ol>{headings.map((heading, index) => <li className={`outline-level-${heading.level}`} key={`${heading.title}-${index}`}><a href={`#${headingId(heading.title)}`}>{heading.title}</a></li>)}</ol></nav> : null}
+        <div className="markdown-body reading-body">
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
+          components={{
+            h2: ({ children }) => <h2 id={headingId(textFromChildren(children))}>{children}</h2>,
+            h3: ({ children }) => <h3 id={headingId(textFromChildren(children))}>{children}</h3>,
+          }}
         >
           {entry.body}
         </ReactMarkdown>
+        </div>
       </div>
 
       {relatedEntries.length ? (

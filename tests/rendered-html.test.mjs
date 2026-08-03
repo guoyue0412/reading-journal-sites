@@ -160,6 +160,8 @@ test("server-renders a paper article with LaTeX metadata and a related reflectio
   assert.match(html, /细读/);
   assert.match(html, /总结/);
   assert.match(html, /已完成/);
+  assert.match(html, /ON THIS PAGE/);
+  assert.match(html, /href="#section-细读记录"/);
 });
 
 test("server-renders recruiting metadata on a岗位 article", async () => {
