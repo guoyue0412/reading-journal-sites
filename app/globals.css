@@ -5,7 +5,7 @@
 :root { --research-ink: #1b1c2b; --research-muted: #686a7a; --research-line: rgb(78 83 126 / 16%); --research-paper: #f8f6f2; --research-accent: #4b54b8; --research-accent-warm: #a85a78; --research-display: "Iowan Old Style", "Baskerville", "Songti SC", "STSong", serif; --research-sans: "Avenir Next", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif; }
 * { box-sizing: border-box; }
 .research-page { min-height: 100vh; color: var(--research-ink); background: radial-gradient(900px 520px at 88% -4%, rgb(110 120 220 / 16%), transparent 64%), radial-gradient(720px 540px at -7% 32%, rgb(222 150 177 / 12%), transparent 68%), linear-gradient(150deg, #fbfaf7 0%, #f6f4f6 52%, #f8f7f3 100%); font-family: var(--research-sans); }
-.research-header, .admin-header { height: 68px; max-width: 1180px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--research-line); background: rgb(250 249 247 / 72%); backdrop-filter: blur(18px) saturate(135%); -webkit-backdrop-filter: blur(18px) saturate(135%); }
+.research-header, .admin-header { position: sticky; top: 0; z-index: 20; height: 68px; max-width: 1180px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--research-line); background: rgb(250 249 247 / 72%); backdrop-filter: blur(18px) saturate(135%); -webkit-backdrop-filter: blur(18px) saturate(135%); }
 .research-brand { color: var(--research-ink); font-family: var(--research-display); font-size: 18px; font-weight: 600; letter-spacing: -.035em; text-decoration: none; white-space: nowrap; }
 .research-brand span { color: var(--research-muted); font-weight: 500; }
 .research-nav { display: flex; gap: 18px; margin-left: auto; }
