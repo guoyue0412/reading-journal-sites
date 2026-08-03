@@ -99,12 +99,28 @@ export function createBlogService(
     return normalizeMarkdownPost(draft);
   }
 
+  async function nextAvailableSlug(baseSlug: string): Promise<string> {
+    const draftSlugs = new Set((await store.listDrafts()).map((post) => post.slug));
+    let suffix = 1;
+    let candidate = baseSlug;
+
+    while (draftSlugs.has(candidate) || await store.getPublishedBySlug(candidate)) {
+      suffix += 1;
+      candidate = `${baseSlug}-${suffix}`;
+    }
+
+    return candidate;
+  }
+
   return {
     async createPost(input) {
       const errors = validateCreatePostInput(input);
       if (errors.length) throw new BlogValidationError(errors);
       const templates = await store.listTemplates(input.type);
       const draft = createEmptyDraft(input.type, ids(), input.date, templates);
+      if (input.type !== "reflections") {
+        draft.slug = await nextAvailableSlug(draft.slug);
+      }
       const now = clock();
       return store.createDraft(normalizeMarkdownPost({ ...draft, createdAt: now, updatedAt: now }));
     },

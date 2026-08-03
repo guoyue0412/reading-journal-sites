@@ -79,6 +79,16 @@ test("createPost rejects invalid runtime type and dates without writing", async 
   assert.deepEqual(await service.listPosts(), []);
 });
 
+test("createPost gives repeated same-day article types distinct addresses", async () => {
+  const { service } = createService();
+
+  const first = await service.createPost({ type: "internship", date: "2026-07-24" });
+  const second = await service.createPost({ type: "internship", date: "2026-07-24" });
+
+  assert.equal(first.slug, "internship-2026-07-24");
+  assert.equal(second.slug, "internship-2026-07-24-2");
+});
+
 test("publish rejects invalid drafts and preserves the previous snapshot", async () => {
   const { store, service } = createService();
   const created = await service.createPost({ type: "papers", date: "2026-07-24" });
