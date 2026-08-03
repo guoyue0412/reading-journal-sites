@@ -68,6 +68,9 @@ test("server-renders the research homepage without starter markers", async () =>
   assert.match(html, /LingBot-VA/);
   assert.match(html, /Research projects/);
   assert.match(html, /Recent writing/);
+  assert.match(html, /CONTENT PULSE/);
+  assert.match(html, /论文精读/);
+  assert.match(html, /近 30 天发布/);
   assert.doesNotMatch(
     html,
     /codex-preview|SkeletonPreview|react-loading-skeleton/i,
