@@ -4,20 +4,68 @@ import { listPublicEntries } from "@/lib/blog/read-model";
 
 export const dynamic = "force-dynamic";
 
-const labels = { papers: "论文精读", jobs: "求职记录", internship: "项目进展", reflections: "随笔" } as const;
+const labels = {
+  papers: "论文阅读",
+  jobs: "秋招记录",
+  internship: "实习日记",
+  reflections: "个人随笔",
+} as const;
 
-export default async function BlogPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; type?: string }>;
+}) {
   const { q = "", type = "all" } = await searchParams;
-  const needle = q.trim().toLowerCase();
-  const entries = (await listPublicEntries()).filter((entry) =>
-    (type === "all" || entry.type === type) &&
-    (!needle || `${entry.title} ${entry.summary} ${entry.tags.join(" ")}`.toLowerCase().includes(needle)),
+  const needle = q.trim().toLocaleLowerCase();
+  const entries = (await listPublicEntries()).filter(
+    (entry) =>
+      (type === "all" || entry.type === type) &&
+      (!needle ||
+        [entry.title, entry.summary, ...entry.tags].some((value) =>
+          value.toLocaleLowerCase().includes(needle),
+        )),
   );
-  return <ResearchShell>
-    <section className="research-intro"><p>WRITING</p><h1>Writing index.</h1><span>以标题作为入口；文章主体统一使用 Markdown 阅读格式。</span></section>
-    <section className="research-list-section">
-      <form className="blog-filter" method="get"><input name="q" defaultValue={q} placeholder="搜索文章" aria-label="搜索文章" /><select name="type" defaultValue={type} aria-label="文章类型"><option value="all">全部</option><option value="papers">论文精读</option><option value="internship">项目进展</option><option value="jobs">求职记录</option><option value="reflections">随笔</option></select><button type="submit">筛选</button></form>
-      <div className="research-list research-list--titles">{entries.map((entry) => <article key={entry.slug}><p>{labels[entry.type]} · <time dateTime={entry.date}>{entry.date}</time></p><h2><Link href={`/blog/${entry.slug}`}>{entry.title}</Link></h2></article>)}{!entries.length && <p className="empty-state">没有符合条件的已发布文章。</p>}</div>
-    </section>
-  </ResearchShell>;
+
+  return (
+    <ResearchShell>
+      <div className="index-page">
+        <header className="archive-index-heading">
+          <p className="archive-kicker">WRITING</p>
+          <h1>记录</h1>
+          <p>论文之外，保存秋招、实习和每日思考。</p>
+        </header>
+        <form className="archive-record-filter" method="get">
+          <label>
+            搜索
+            <input type="search" name="q" defaultValue={q} />
+          </label>
+          <label>
+            类型
+            <select name="type" defaultValue={type}>
+              <option value="all">全部</option>
+              {Object.entries(labels).map(([value, label]) => (
+                <option value={value} key={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit">筛选</button>
+        </form>
+        <ol className="archive-record-list">
+          {entries.map((entry) => (
+            <li key={entry.slug}>
+              <time dateTime={entry.date}>{entry.date}</time>
+              <Link href={`/blog/${entry.slug}`}>{entry.title}</Link>
+              <span>{labels[entry.type]}</span>
+            </li>
+          ))}
+        </ol>
+        {!entries.length ? (
+          <p className="empty-state">没有符合条件的已发布文章。</p>
+        ) : null}
+      </div>
+    </ResearchShell>
+  );
 }

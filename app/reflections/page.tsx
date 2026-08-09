@@ -25,20 +25,20 @@ export default async function ReflectionsPage() {
   return (
     <SiteShell>
       <div className="index-page">
-        <header className="index-heading">
-          <p className="eyebrow">DAILY REFLECTIONS</p>
+        <header className="archive-index-heading">
+          <p className="archive-kicker">DAILY REFLECTIONS</p>
           <h1>个人感悟</h1>
           <p>以自然日为索引，收留那些尚未完成，却值得诚实记下的思考。</p>
         </header>
-        <div className="reflection-archive">
+        <div className="archive-reflection-ledger">
           {grouped.length ? grouped.map(([month, entries]) => {
             const [year, monthNumber] = month.split("-");
             return (
-              <section className="reflection-month" key={month} aria-labelledby={`month-${month}`}>
+              <section className="archive-reflection-month" key={month} aria-labelledby={`month-${month}`}>
                 <h2 id={`month-${month}`}><span>{year}</span>{monthNumber} 月</h2>
                 <div>
                   {entries.map((entry) => (
-                    <article className="reflection-day" key={entry.slug}>
+                    <article className="archive-reflection-day" key={entry.slug}>
                       <h3><Link href={`/post/${entry.slug}`}>{entry.date}</Link></h3>
                       <div>
                         <h4>{entry.title}</h4>

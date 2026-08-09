@@ -53,7 +53,7 @@ export function MarkdownArticle({
       <Link className="article-back" href="/blog">
         ← 返回文章列表
       </Link>
-      <header className="article-header article-header--ambient">
+      <header className={`article-header article-header--${entry.type}`}>
         <p className="eyebrow">{typeLabels[entry.type]}</p>
         <h1>{entry.title}</h1>
         <p className="article-summary">{entry.summary}</p>
@@ -128,8 +128,8 @@ export function MarkdownArticle({
       </div>
 
       {relatedEntries.length ? (
-        <aside className="article-related content-panel" aria-label="相关文章与日记">
-          <p className="eyebrow">CONNECTIONS</p>
+        <aside className="article-related" aria-label="相关文章与日记">
+          <p className="archive-kicker">CONNECTIONS</p>
           <h2>相关文章与日记</h2>
           <div className="article-related-list">
             {relatedEntries.map((related) => (

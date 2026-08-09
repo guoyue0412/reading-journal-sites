@@ -293,3 +293,21 @@ test("includes editor source coverage in the standard test command", async () =>
 
   assert.match(packageJson.scripts.test, /tests\/(?:\*|editor-source)\.test\.mjs/);
 });
+
+test("record indexes use ledger semantics instead of ambient cards", async () => {
+  for (const pathname of ["/blog", "/index", "/internship", "/jobs", "/reflections"]) {
+    const html = await (await render(pathname)).text();
+    assert.match(html, /archive-(record|index|recruiting|reflection)/, pathname);
+    assert.doesNotMatch(html, /--ambient|interactive-panel|interactive-row/, pathname);
+  }
+});
+
+test("articles expose metadata, outline, readable markdown, and related records", async () => {
+  const html = await (await render("/post/unitacvla-reading")).text();
+  assert.match(html, /article-reading-layout/);
+  assert.match(html, /article-outline/);
+  assert.match(html, /markdown-body/);
+  assert.match(html, /相关文章与日记/);
+  assert.match(html, /katex/);
+  assert.doesNotMatch(html, /article-header--ambient|content-panel/);
+});
