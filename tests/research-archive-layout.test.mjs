@@ -153,6 +153,18 @@ test("keeps all archive navigation and entry links as explicit 44px targets", as
   }
 });
 
+test("short public navigation links keep a real 44px minimum width", async () => {
+  const css = await read("app/research-archive.css");
+
+  for (const selector of [
+    ".archive-desktop-nav a",
+    ".archive-tools a",
+    ".archive-hero nav a",
+  ]) {
+    assert.match(declarationsFor(css, selector), /min-width:\s*44px/, selector);
+  }
+});
+
 test("homepage derives non-paper records through the shared recency query", async () => {
   const page = await read("app/page.tsx");
 
