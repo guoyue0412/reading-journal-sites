@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { BlogPostDraft, BlogSection, PostType, SectionTemplate } from "@/lib/blog/types";
 import { AddSectionDrawer } from "./add-section-drawer";
 import { ArticlePreview } from "./article-preview";
+import { EditorMobileBar } from "./editor-mobile-bar";
 import { EditorSidebar } from "./editor-sidebar";
 import { localDate, postTypeLabels, replacePost, type MobilePane, type SaveState } from "./editor-types";
 import { PostFields } from "./post-fields";
@@ -27,6 +28,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   const [creating, setCreating] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobilePane, setMobilePane] = useState<MobilePane>("edit");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const currentRef = useRef(current);
   const activePostId = useRef<string | null>(initialPosts[0]?.id ?? null);
@@ -214,6 +216,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   return <section className="structured-editor article-surface studio-surface" aria-label="结构化写作工作台">
     <header className="studio-toolbar studio-toolbar--floating material-toolbar">
       <span className="studio-owner">{ownerName}</span>
+      <button className="studio-posts-toggle" type="button" aria-expanded={sidebarOpen} aria-controls="studio-post-list" onClick={() => setSidebarOpen((value) => !value)}>文章列表</button>
       <span className={`studio-save-state save-state--${saveState}`} aria-live="polite">{({ idle: "待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "版本冲突" })[saveState]}</span>
       <label className="studio-import material-action">导入 Markdown<input type="file" accept=".md,text/markdown" onChange={(e) => void importMarkdown(e)} /></label>
       {current ? <a className="material-action" href={`/api/editor/posts/${current.id}/export`} download>导出 Markdown</a> : null}
@@ -224,10 +227,11 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     {saveState === "conflict" ? <div className="studio-recovery"><button type="button" onClick={() => void reloadOnlineDraft()}>重新加载线上草稿</button><button type="button" onClick={() => void saveAsNewArticle()}>另存为新文章</button></div> : null}
     <div className="studio-mobile-tabs"><button type="button" aria-pressed={mobilePane === "edit"} onClick={() => setMobilePane("edit")}>编辑</button><button type="button" aria-pressed={mobilePane === "preview"} onClick={() => setMobilePane("preview")}>预览</button></div>
     <div className={`studio-layout studio-layout--${mobilePane}`} data-mobile-pane={mobilePane}>
-      <EditorSidebar posts={posts} selectedId={selectedId} creating={creating} onSelect={(id) => void selectPost(id)} onCreate={(type) => void createPost(type)} />
+      <EditorSidebar id="studio-post-list" isOpen={sidebarOpen} posts={posts} selectedId={selectedId} creating={creating} onSelect={(id) => { setSidebarOpen(false); void selectPost(id); }} onCreate={(type) => { setSidebarOpen(false); void createPost(type); }} />
       <main className="studio-form">{current ? <><p className="eyebrow">{postTypeLabels[current.type]}</p><PostFields post={current} onChange={scheduleAutosave} /><div className="studio-sections"><div className="studio-sections__title"><h2>内容模块</h2><button className="material-action" type="button" onClick={() => setDrawerOpen(true)}>+ 添加模块</button></div>{[...current.sections].sort((a, b) => a.position - b.position).map((section) => <SectionEditor key={section.id} postId={current.id} section={section} onChange={updateSection} onMove={(delta) => moveSection(section.id, delta)} onDuplicate={() => duplicateSection(section.id)} onDelete={() => deleteSection(section.id)} />)}</div></> : <div className="studio-empty"><h2>开始写作</h2><p>从左侧选择文章类型，系统会提供对应的结构化模板。</p></div>}</main>
       <ArticlePreview post={current} />
     </div>
+    <EditorMobileBar pane={mobilePane} saveState={saveState} disabled={!current} onAdd={() => setDrawerOpen(true)} onPaneChange={setMobilePane} onPublish={() => void publish()} />
     <AddSectionDrawer open={drawerOpen} insertionPosition={(current?.sections.length ?? 0) * 10 + 10} templates={typeTemplates} onClose={() => setDrawerOpen(false)} onAdd={addSection} />
   </section>;
 }

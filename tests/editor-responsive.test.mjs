@@ -2,36 +2,35 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("editor has desktop, tablet, and mobile layout rules", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(css, /grid-template-columns:\s*205px\s+minmax\(440px,\s*1fr\)\s+340px/);
-  assert.match(css, /@media\s*\(max-width:\s*950px\)/);
-  assert.match(css, /@media\s*\(max-width:\s*620px\)/);
-});
+const root = new URL("../", import.meta.url);
+const read = (path) => readFile(new URL(path, root), "utf8");
 
-test("section ordering and drawer actions are keyboard operable", async () => {
-  const [section, drawer, editor] = await Promise.all([readFile(new URL("../components/editor/section-editor.tsx", import.meta.url), "utf8"), readFile(new URL("../components/editor/add-section-drawer.tsx", import.meta.url), "utf8"), readFile(new URL("../components/editor/structured-editor.tsx", import.meta.url), "utf8")]);
-  assert.match(section, /aria-label=.*上移/); assert.match(section, /aria-label=.*下移/);
-  assert.match(drawer, /role="dialog"/); assert.match(drawer, /aria-modal="true"/); assert.match(drawer, /Escape/);
-  for (const action of ["重试保存", "导出当前草稿", "重新加载线上草稿", "另存为新文章"]) assert.match(editor, new RegExp(action));
-});
-
-test("Apple-style material layers respect motion, transparency, and contrast preferences", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(css, /--surface:/);
-  assert.match(css, /\.material-toolbar\s*{[^}]*backdrop-filter:/s);
-  assert.match(css, /@media\s*\(prefers-reduced-transparency:\s*reduce\)/);
-  assert.match(css, /@media\s*\(prefers-contrast:\s*more\)/);
-});
-
-test("reading and editor controls have direct press feedback without breaking mobile panes", async () => {
-  const [css, editor] = await Promise.all([
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../components/editor/structured-editor.tsx", import.meta.url), "utf8"),
+test("editor exposes desktop, tablet, and phone presentation controls", async () => {
+  const [editor, sidebar, mobileBar, css] = await Promise.all([
+    read("components/editor/structured-editor.tsx"), read("components/editor/editor-sidebar.tsx"),
+    read("components/editor/editor-mobile-bar.tsx"), read("app/editor-archive.css"),
   ]);
-  assert.match(css, /\.material-action:active\s*{[^}]*transform:\s*scale\(0\.98\)/s);
-  assert.match(css, /\.studio-toolbar--floating/);
-  assert.match(css, /\.article-surface/);
-  assert.match(editor, /studio-toolbar--floating/);
-  assert.match(editor, /aria-live="polite"/);
+  assert.match(editor, /sidebarOpen/);
+  assert.match(editor, /studio-posts-toggle/);
+  assert.match(sidebar, /isOpen/);
+  assert.match(mobileBar, /添加模块/);
+  assert.match(mobileBar, /预览/);
+  assert.match(mobileBar, /发布/);
+  assert.match(css, /grid-template-columns:\s*220px\s+minmax\(440px,\s*1fr\)\s+360px/);
+  assert.match(css, /@media\s*\(max-width:\s*1024px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*640px\)/);
+  assert.match(css, /padding-bottom:\s*calc\(88px\s*\+\s*env\(safe-area-inset-bottom\)\)/);
+});
+
+test("editor archive chrome has no glass, gradients, or hover lift", async () => {
+  const css = await read("app/editor-archive.css");
+  assert.doesNotMatch(css, /linear-gradient|radial-gradient|backdrop-filter|translateY\(-/);
+  assert.match(css, /min-height:\s*44px/);
+});
+
+test("section actions are grouped in a native keyboard-accessible disclosure", async () => {
+  const section = await read("components/editor/section-editor.tsx");
+  assert.match(section, /<details className="studio-section-menu"/);
+  assert.match(section, /<summary>模块操作<\/summary>/);
+  for (const action of ["上移", "下移", "复制", "删除"]) assert.match(section, new RegExp(action));
 });

@@ -2,6 +2,8 @@ import type { BlogPostDraft, PostType } from "@/lib/blog/types";
 import { postTypeLabels } from "./editor-types";
 
 type Props = {
+  id: string;
+  isOpen: boolean;
   posts: BlogPostDraft[];
   selectedId: string | null;
   creating: boolean;
@@ -9,9 +11,9 @@ type Props = {
   onCreate: (type: PostType) => void;
 };
 
-export function EditorSidebar({ posts, selectedId, creating, onSelect, onCreate }: Props) {
+export function EditorSidebar({ id, isOpen, posts, selectedId, creating, onSelect, onCreate }: Props) {
   return (
-    <aside className="studio-sidebar" aria-label="文章列表">
+    <aside id={id} className={`studio-sidebar${isOpen ? " is-open" : ""}`} aria-label="文章列表">
       <div className="studio-sidebar__create">
         <strong>新建文章</strong>
         {(Object.keys(postTypeLabels) as PostType[]).map((type) => (
