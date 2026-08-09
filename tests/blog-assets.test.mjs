@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { MemoryBlogAssetStore } from "../lib/blog/asset-store.ts";
 import { assetMarkdownUrl, validateImageFile } from "../lib/blog/assets.ts";
@@ -31,4 +32,45 @@ test("asset metadata deduplicates per post and promotes only owned ids", async (
 
 test("builds stable markdown media urls", () => {
   assert.equal(assetMarkdownUrl({ id: "asset-id", safeName: "figure.png" }), "/media/asset-id/figure.png");
+});
+
+test("asset stores clone draft aliases without changing the source object metadata", async () => {
+  const store = new MemoryBlogAssetStore();
+  const source = {
+    id: "11111111-1111-4111-8111-111111111111", postId: "source-post", objectKey: "posts/source-post/original.png",
+    originalName: "original.png", safeName: "original.png", contentType: "image/png", sizeBytes: 12, sha256: "alias-hash",
+    visibility: "draft", createdAt: "2026-07-01T00:00:00.000Z", updatedAt: "2026-07-01T00:00:00.000Z",
+  };
+  await store.createDraftAsset(source);
+
+  const alias = await store.createDraftAlias(source.id, {
+    id: "22222222-2222-4222-8222-222222222222",
+    postId: "imported-post",
+    now: "2026-07-02T00:00:00.000Z",
+  });
+
+  assert.deepEqual(alias, {
+    ...source,
+    id: "22222222-2222-4222-8222-222222222222",
+    postId: "imported-post",
+    visibility: "draft",
+    createdAt: "2026-07-02T00:00:00.000Z",
+    updatedAt: "2026-07-02T00:00:00.000Z",
+  });
+  assert.deepEqual(await store.getById(source.id), source);
+  await assert.rejects(
+    () => store.createDraftAlias("missing", { id: "alias-missing", postId: "imported-post", now: "2026-07-02T00:00:00.000Z" }),
+    /图片不存在/,
+  );
+});
+
+test("D1 asset aliases use one metadata INSERT SELECT and retain the immutable object key", async () => {
+  const source = await readFile(new URL("../lib/blog/d1-asset-store.ts", import.meta.url), "utf8");
+  const method = source.slice(source.indexOf("async createDraftAlias"), source.indexOf("async getById"));
+
+  assert.match(method, /INSERT INTO blog_assets/);
+  assert.match(method, /SELECT/);
+  assert.match(method, /object_key/);
+  assert.match(method, /'draft'/);
+  assert.match(method, /meta\.changes/);
 });

@@ -17,6 +17,7 @@ export interface BlogAsset {
 export interface BlogAssetStore {
   findByPostAndHash(postId: string, sha256: string): Promise<BlogAsset | null>;
   createDraftAsset(asset: BlogAsset): Promise<BlogAsset>;
+  createDraftAlias(sourceAssetId: string, input: { id: string; postId: string; now: string }): Promise<BlogAsset>;
   getById(id: string): Promise<BlogAsset | null>;
   listByPost(postId: string): Promise<BlogAsset[]>;
   markPublished(postId: string, assetIds: string[], now: string): Promise<void>;
@@ -36,6 +37,18 @@ export class MemoryBlogAssetStore implements BlogAssetStore {
     if (await this.findByPostAndHash(asset.postId, asset.sha256)) throw new Error("重复图片");
     this.#assets.set(asset.id, clone(asset));
     return clone(asset);
+  }
+  async createDraftAlias(sourceAssetId: string, input: { id: string; postId: string; now: string }) {
+    const source = this.#assets.get(sourceAssetId);
+    if (!source) throw new Error("图片不存在");
+    return this.createDraftAsset({
+      ...source,
+      id: input.id,
+      postId: input.postId,
+      visibility: "draft",
+      createdAt: input.now,
+      updatedAt: input.now,
+    });
   }
   async getById(id: string) {
     const asset = this.#assets.get(id);

@@ -34,6 +34,26 @@ export function extractLocalAssetIds(markdown: string): string[] {
   return [...found];
 }
 
+export function rewriteLocalAssetIds(markdown: string, replacements: ReadonlyMap<string, string>): string {
+  let fence: { character: string; length: number } | null = null;
+  return markdown.split(/\r?\n/).map((line) => {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+    if (fenceMatch) {
+      if (!fence) fence = { character: fenceMatch[1][0], length: fenceMatch[1].length };
+      else if (fenceMatch[1][0] === fence.character && fenceMatch[1].length >= fence.length && !fenceMatch[2].trim()) fence = null;
+      return line;
+    }
+    if (fence) return line;
+    return line.replace(
+      /(!\[[^\]]*\]\(\/media\/)([0-9a-f-]{36})(\/[^)]+\))/gi,
+      (match, prefix: string, assetId: string, suffix: string) => {
+        const replacement = replacements.get(assetId.toLowerCase());
+        return replacement ? `${prefix}${replacement}${suffix}` : match;
+      },
+    );
+  }).join("\n");
+}
+
 export function normalizeMarkdownSection(input: BlogSection): BlogSection {
   const section = normalizeSection(input);
   const checklist = section.kind === "checklist" ? section.items.map((item) => `- [ ] ${item}`).join("\n") : "";

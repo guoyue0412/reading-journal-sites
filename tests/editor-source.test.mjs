@@ -12,6 +12,10 @@ test("structured editor supports server drafts, recovery, Markdown import, and e
   assert.match(source, /accept=["']\.md,text\/markdown["']/);
   assert.match(source, /\.text\(\)/);
   assert.match(source, /\/export/);
+  assert.match(source, /const importInputRef = useRef/);
+  assert.match(source, /ref=\{importInputRef\}/);
+  assert.match(source, /onImport=\{\(\) => importInputRef\.current\?\.click\(\)\}/);
+  assert.match(source, /onExport=\{exportCurrentDraft\}/);
 });
 
 test("structured editor autosaves drafts but publishes only on explicit action", async () => {
@@ -39,7 +43,7 @@ test("editor serializes autosaves and keeps newer local edits ahead of stale res
   assert.match(scheduleAutosave, /if \(saveInFlight\.current\) \{\s*queuedSave\.current = next;\s*return;\s*\}/s);
 
   const selectPost = source.slice(source.indexOf("async function selectPost"), source.indexOf("async function createPost"));
-  assert.match(selectPost, /if \(id === selectedId\) return;\s*await flushAutosave\(\);\s*const local/s);
+  assert.match(selectPost, /if \(id === selectedId\) return;[\s\S]*?const saved = await flushAutosave\(\);\s*if \(!saved\) return;[\s\S]*?const local/);
 });
 
 test("every new-article path flushes the old draft before switching active articles", async () => {
@@ -52,6 +56,21 @@ test("every new-article path flushes the old draft before switching active artic
     assert.ok(path.indexOf("await flushAutosave();") >= 0);
     assert.ok(path.indexOf("await flushAutosave();") < path.indexOf("activePostId.current ="));
   }
+});
+
+test("phone editor keeps import and export in a 44px non-scrolling tool menu", async () => {
+  const [bar, css] = await Promise.all([
+    readFile(new URL("../components/editor/editor-mobile-bar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/editor-archive.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(bar, /<details className="studio-mobile-tools">/);
+  assert.match(bar, /<summary>更多工具<\/summary>/);
+  assert.match(bar, />导入 Markdown<\/button>/);
+  assert.match(bar, />导出 Markdown<\/button>/);
+  assert.match(css, /\.studio-mobile-bar\s*\{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(css, /\.studio-mobile-tools[^}]*min-width:\s*0/s);
+  assert.match(css, /\.studio-mobile-tools button[^}]*min-height:\s*44px/s);
 });
 
 test("custom sections can be added and saved as reusable templates", async () => {
@@ -72,6 +91,8 @@ test("publish errors show the backend error and field details", async () => {
 test("saving an article copy preserves structured component identities", async () => {
   const source = await readFile(editorUrl, "utf8");
   assert.doesNotMatch(source, /sections:\s*current\.sections\.map\(\(section\)\s*=>\s*\(\{[^}]*standardKey:\s*null/);
+  assert.match(source, /slug:\s*payload\.post\.slug/);
+  assert.doesNotMatch(source, /slug:\s*`\$\{saved\.slug\}-copy`/);
 });
 
 test("writing studio exposes semantic save feedback and material action hooks", async () => {
@@ -86,6 +107,10 @@ test("admin posts page is owner-protected and renders the structured studio", as
   assert.match(page, /requireBlogOwner/);
   assert.match(page, /StructuredEditor/);
   assert.match(page, /force-dynamic/);
+  assert.match(page, /createEditorBlogService/);
+  assert.match(page, /service\.listPosts\(\)/);
+  assert.match(page, /service\.listTemplates\(type\)/);
+  assert.doesNotMatch(page, /store\.listDrafts\(\)/);
 });
 
 test("search and module empty states provide reset and first-Markdown actions", async () => {

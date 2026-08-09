@@ -5,6 +5,7 @@ import { MemoryBlogStore, SlugConflictError } from "../lib/blog/store.ts";
 import { createEmptyDraft } from "../lib/blog/default-templates.ts";
 import { validateDraft } from "../lib/blog/validation.ts";
 import { MemoryBlogAssetStore } from "../lib/blog/asset-store.ts";
+import { extractLocalAssetIds } from "../lib/blog/markdown-sections.ts";
 
 function createService(store = new MemoryBlogStore(), assetStore) {
   let id = 0;
@@ -13,7 +14,7 @@ function createService(store = new MemoryBlogStore(), assetStore) {
     service: createBlogService(
       store,
       () => "2026-07-24T12:00:00.000Z",
-      () => `fixed-id-${++id}`,
+      () => `00000000-0000-4000-8000-${String(++id).padStart(12, "0")}`,
       assetStore,
     ),
   };
@@ -90,6 +91,7 @@ test("createPost gives repeated same-day article types distinct addresses", asyn
 
   assert.equal(first.slug, "internship-2026-07-24");
   assert.equal(second.slug, "internship-2026-07-24-2");
+  assert.deepEqual(validateDraft(second), []);
 });
 
 test("ordinary post creation retries a slug race with a complete draft", async () => {
@@ -345,7 +347,7 @@ test("publishing promotes an owned draft asset", async () => {
   assert.equal((await assets.getById(asset.id))?.visibility, "published");
 });
 
-test("an exported published asset remains immutable and can be shared by an imported post", async () => {
+test("an exported published asset is cloned as an owned alias while its source stays immutable", async () => {
   const assets = new MemoryBlogAssetStore();
   const { service } = createService(new MemoryBlogStore(), assets);
   const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
@@ -365,19 +367,24 @@ test("an exported published asset remains immutable and can be shared by an impo
   const publishedAsset = await assets.getById(asset.id);
 
   const imported = await service.createImportedPost(await service.exportPost(originalSaved.id));
+  const importedAssetIds = [...new Set(imported.draft.sections.flatMap((section) => extractLocalAssetIds(section.content)))];
   assert.notEqual(imported.draft.id, originalSaved.id);
-  assert.match(imported.draft.sections[0].content, new RegExp(asset.id));
+  assert.equal(importedAssetIds.length, 1);
+  assert.notEqual(importedAssetIds[0], asset.id);
+  const aliasBeforePublish = await assets.getById(importedAssetIds[0]);
+  assert.equal(aliasBeforePublish?.postId, imported.draft.id);
+  assert.equal(aliasBeforePublish?.visibility, "draft");
+  assert.equal(aliasBeforePublish?.objectKey, asset.objectKey);
   await service.publishPost(imported.draft.id, imported.draft.draftVersion);
 
   assert.deepEqual(await assets.getById(asset.id), publishedAsset);
-  assert.equal((await assets.getById(asset.id))?.postId, originalSaved.id);
-  assert.equal((await assets.getById(asset.id))?.objectKey, `posts/${original.id}/figure.png`);
+  assert.equal((await assets.getById(importedAssetIds[0]))?.visibility, "published");
 
   await service.deletePost(originalSaved.id);
   assert.deepEqual(await assets.getById(asset.id), publishedAsset);
 });
 
-test("an import rejects another draft's private asset before creating a draft", async () => {
+test("a draft image export imports one owned alias, rewrites repeated references, and publishes", async () => {
   const assets = new MemoryBlogAssetStore();
   const { service } = createService(new MemoryBlogStore(), assets);
   const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
@@ -391,15 +398,28 @@ test("an import rejects another draft's private asset before creating a draft", 
     ...original,
     title: "Private source",
     summary: "Draft image",
-    sections: original.sections.map((section, index) => index === 0 ? { ...section, content: `![private](/media/${asset.id}/private.png)` } : section),
+    sections: original.sections.map((section, index) => index < 2
+      ? { ...section, content: `![private](/media/${asset.id}/private.png)\n\n![again](/media/${asset.id}/private.png)` }
+      : section),
   }, original.draftVersion);
-  await assert.rejects(
-    async () => service.createImportedPost(await service.exportPost(originalSaved.id)),
-    /图片不存在或不属于当前文章/,
-  );
-  assert.equal((await assets.getById(asset.id))?.visibility, "draft");
-  assert.equal((await assets.getById(asset.id))?.postId, originalSaved.id);
-  assert.equal((await service.listPosts()).length, 1);
+  const sourceBeforeImport = await assets.getById(asset.id);
+
+  const imported = await service.createImportedPost(await service.exportPost(originalSaved.id));
+  const importedAssetIds = imported.draft.sections.flatMap((section) => extractLocalAssetIds(section.content));
+  const uniqueImportedIds = [...new Set(importedAssetIds)];
+
+  assert.equal(uniqueImportedIds.length, 1);
+  assert.notEqual(uniqueImportedIds[0], asset.id);
+  assert.doesNotMatch(imported.draft.sections.map((section) => section.content).join("\n"), new RegExp(asset.id));
+  const alias = await assets.getById(uniqueImportedIds[0]);
+  assert.equal(alias?.postId, imported.draft.id);
+  assert.equal(alias?.visibility, "draft");
+  assert.equal(alias?.objectKey, asset.objectKey);
+  assert.deepEqual(await assets.getById(asset.id), sourceBeforeImport);
+
+  await service.publishPost(imported.draft.id, imported.draft.draftVersion);
+  assert.equal((await assets.getById(uniqueImportedIds[0]))?.visibility, "published");
+  assert.deepEqual(await assets.getById(asset.id), sourceBeforeImport);
 });
 
 test("an import rejects missing asset references before creating a draft", async () => {
@@ -422,6 +442,54 @@ status: draft
 
   await assert.rejects(() => service.createImportedPost(markdown), /图片不存在或不属于当前文章/);
   assert.deepEqual(await service.listPosts(), []);
+});
+
+test("an alias failure rolls back the imported draft and every planned alias metadata row", async () => {
+  class FailingAliasStore extends MemoryBlogAssetStore {
+    aliasAttempts = 0;
+    async createDraftAlias(sourceAssetId, input) {
+      this.aliasAttempts += 1;
+      if (this.aliasAttempts === 2) throw new Error("alias write failed");
+      return super.createDraftAlias(sourceAssetId, input);
+    }
+  }
+  const assets = new FailingAliasStore();
+  const { store, service } = createService(new MemoryBlogStore(), assets);
+  const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const sourceAssets = [
+    {
+      id: "55555555-5555-4555-8555-555555555555", postId: original.id, objectKey: `posts/${original.id}/one.png`,
+      originalName: "one.png", safeName: "one.png", contentType: "image/png", sizeBytes: 12, sha256: "one-hash",
+      visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+    },
+    {
+      id: "66666666-6666-4666-8666-666666666666", postId: original.id, objectKey: `posts/${original.id}/two.png`,
+      originalName: "two.png", safeName: "two.png", contentType: "image/png", sizeBytes: 13, sha256: "two-hash",
+      visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+    },
+  ];
+  for (const sourceAsset of sourceAssets) await assets.createDraftAsset(sourceAsset);
+  const saved = await service.saveDraft({
+    ...original,
+    title: "Rollback aliases",
+    summary: "No orphan metadata",
+    sections: original.sections.map((section, index) => index === 0
+      ? { ...section, content: sourceAssets.map((item) => `![image](/media/${item.id}/${item.safeName})`).join("\n") }
+      : section),
+  }, original.draftVersion);
+
+  await assert.rejects(
+    async () => service.createImportedPost(await service.exportPost(saved.id)),
+    /alias write failed/,
+  );
+
+  assert.equal(assets.aliasAttempts, 2);
+  const rolledBackPostId = "00000000-0000-4000-8000-000000000002";
+  assert.equal(await store.getDraft(rolledBackPostId), null);
+  assert.deepEqual(await assets.listByPost(rolledBackPostId), []);
+  assert.equal((await service.listPosts()).length, 1);
+  assert.deepEqual(await assets.getById(sourceAssets[0].id), sourceAssets[0]);
+  assert.deepEqual(await assets.getById(sourceAssets[1].id), sourceAssets[1]);
 });
 
 test("publish rejects invalid drafts and preserves the previous snapshot", async () => {
@@ -451,6 +519,8 @@ test("old paper drafts are migrated on read, survive autosave, and publish", asy
   legacy.sections = legacy.sections.map((section) => section.title === "阅读总结" ? { ...section, standardKey: null, content: "旧文章总结" } : section);
   await store.createDraft(legacy);
 
+  const listed = await service.listPosts();
+  assert.equal(listed[0].sections.find((section) => section.title === "阅读总结")?.standardKey, "reading-summary");
   const loaded = await service.loadPost(legacy.id);
   assert.equal(loaded.sections.find((section) => section.title === "阅读总结")?.standardKey, "reading-summary");
   const saved = await service.saveDraft(loaded, loaded.draftVersion);
@@ -516,7 +586,7 @@ test("saving a reusable section excludes article content and checklist data", as
   });
 
   assert.deepEqual(template, {
-    id: "fixed-id-1",
+    id: "00000000-0000-4000-8000-000000000001",
     postType: "internship",
     title: "可复用模块",
     kind: "markdown",

@@ -12,7 +12,7 @@ import type {
   SectionTemplate,
 } from "./types.ts";
 import { validateDraft, validateForPublish } from "./validation.ts";
-import { derivePostRelations, normalizeMarkdownPost } from "./markdown-sections.ts";
+import { derivePostRelations, normalizeMarkdownPost, rewriteLocalAssetIds } from "./markdown-sections.ts";
 import { extractLocalAssetIds } from "./markdown-sections.ts";
 import type { BlogAssetStore } from "./asset-store.ts";
 
@@ -126,14 +126,41 @@ export function createBlogService(
     return imported;
   }
 
-  async function assertImportedAssets(draft: BlogPostDraft): Promise<void> {
-    if (!assetStore) return;
+  async function prepareImportedAssetAliases(draft: BlogPostDraft): Promise<{
+    draft: BlogPostDraft;
+    aliases: Array<{ sourceAssetId: string; id: string }>;
+  }> {
     const assetIds = [...new Set(draft.sections.flatMap((section) => extractLocalAssetIds(section.content)))];
+    if (!assetIds.length) return { draft, aliases: [] };
+    if (!assetStore) {
+      throw new BlogValidationError(assetIds.map((id) => `图片不存在或不属于当前文章：${id}`));
+    }
     const assets = await Promise.all(assetIds.map((assetId) => assetStore.getById(assetId)));
-    const invalid = assetIds.filter((_, index) => !assets[index] || assets[index]!.visibility !== "published");
+    const invalid = assetIds.filter((_, index) => !assets[index]);
     if (invalid.length) {
       throw new BlogValidationError(invalid.map((id) => `图片不存在或不属于当前文章：${id}`));
     }
+    const aliasesByHash = new Map<string, { sourceAssetId: string; id: string }>();
+    const replacements = new Map<string, string>();
+    for (const [index, assetId] of assetIds.entries()) {
+      const asset = assets[index]!;
+      let alias = aliasesByHash.get(asset.sha256);
+      if (!alias) {
+        alias = { sourceAssetId: assetId, id: ids() };
+        aliasesByHash.set(asset.sha256, alias);
+      }
+      replacements.set(assetId, alias.id);
+    }
+    return {
+      draft: {
+        ...draft,
+        sections: draft.sections.map((section) => ({
+          ...section,
+          content: rewriteLocalAssetIds(section.content, replacements),
+        })),
+      },
+      aliases: [...aliasesByHash.values()],
+    };
   }
 
   return {
@@ -255,12 +282,26 @@ export function createBlogService(
       for (let attempt = 0; attempt < maxSlugCreateAttempts; attempt += 1) {
         const imported = await prepareImport(markdown);
         if (imported.errors.length) return imported;
-        await assertImportedAssets(imported.draft);
+        const prepared = await prepareImportedAssetAliases(imported.draft);
         try {
-          imported.draft = await store.createDraft(normalizeMarkdownPost(imported.draft));
-          return imported;
+          imported.draft = await store.createDraft(normalizeMarkdownPost(prepared.draft));
         } catch (error) {
           if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
+          continue;
+        }
+        try {
+          for (const alias of prepared.aliases) {
+            await assetStore!.createDraftAlias(alias.sourceAssetId, {
+              id: alias.id,
+              postId: imported.draft.id,
+              now: clock(),
+            });
+          }
+          return imported;
+        } catch (error) {
+          await Promise.allSettled(prepared.aliases.map((alias) => assetStore!.deleteMetadata(alias.id)));
+          await store.deleteDraft(imported.draft.id);
+          throw error;
         }
       }
       throw new SlugConflictError();

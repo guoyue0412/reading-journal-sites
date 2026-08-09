@@ -77,6 +77,39 @@ test("mobile editor bar renders every save state and executes pane, add, and pub
   }
 });
 
+test("mobile editor tools expose real import and export actions", async () => {
+  const { EditorMobileBar } = await vite.ssrLoadModule("/components/editor/editor-mobile-bar.tsx");
+  let importCalls = 0;
+  let exportCalls = 0;
+  let renderer;
+
+  try {
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(EditorMobileBar, {
+        pane: "edit",
+        saveState: "saved",
+        disabled: false,
+        onAdd() {},
+        onPaneChange() {},
+        onPublish() {},
+        onImport: () => { importCalls += 1; },
+        onExport: () => { exportCalls += 1; },
+      }));
+    });
+
+    assert.equal(renderer.root.findByType("summary").children.join(""), "更多工具");
+    const importButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "导入 Markdown");
+    const exportButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "导出 Markdown");
+    assert.ok(importButton);
+    assert.ok(exportButton);
+    await act(async () => { importButton.props.onClick(); exportButton.props.onClick(); });
+    assert.equal(importCalls, 1);
+    assert.equal(exportCalls, 1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+  }
+});
+
 test("editor sidebar exposes drawer state and executes selection and creation callbacks", async () => {
   const { EditorSidebar } = await vite.ssrLoadModule("/components/editor/editor-sidebar.tsx");
   const post = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "测试文章" };
@@ -274,5 +307,230 @@ test("Markdown import keeps the current article and shows a commit API error", a
     else globalThis.window = originalWindow;
     if (originalConfirm === undefined) delete globalThis.confirm;
     else globalThis.confirm = originalConfirm;
+  }
+});
+
+test("a failed autosave keeps the old selection when choosing another article", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const first = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "第一篇" };
+  const second = { ...createEmptyDraft("reflections", "post-2", "2026-08-10", []), title: "第二篇" };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const fetchCalls = [];
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+    globalThis.fetch = async (input, init) => { fetchCalls.push([String(input), init]); throw new Error("offline"); };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [first, second], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "第一篇");
+    await act(async () => { title.props.onChange({ target: { value: "第一篇未保存" } }); });
+    const secondButton = renderer.root.findAllByType("button").find((button) => button.findAllByType("span").some((span) => span.children.join("") === "第二篇"));
+    await act(async () => { secondButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/posts/post-1"]);
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("new article creation waits for a successful autosave and never posts an empty draft on network failure", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
+  const created = { ...createEmptyDraft("jobs", "post-created", "2026-08-10", []), title: "错误创建" };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const fetchCalls = [];
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+    globalThis.fetch = async (input, init) => {
+      fetchCalls.push([String(input), init]);
+      if (String(input) === "/api/editor/posts") return { ok: true, json: async () => ({ post: created }) };
+      throw new Error("offline");
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
+    await act(async () => { title.props.onChange({ target: { value: "未保存修改" } }); });
+    const createButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "+ 秋招进展");
+    await act(async () => { createButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/posts/post-1"]);
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("save-as-copy stops on a version conflict without posting a placeholder", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const fetchCalls = [];
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+    globalThis.fetch = async (input, init) => {
+      fetchCalls.push([String(input), init]);
+      if (init?.method === "PATCH") return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
+      return { ok: true, json: async () => ({ post: { ...current, id: "placeholder" } }) };
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
+    await act(async () => { title.props.onChange({ target: { value: "冲突修改" } }); });
+    const publishButton = renderer.root.findByProps({ className: "material-action material-action--primary" });
+    await act(async () => { publishButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+    const copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
+    assert.ok(copyButton);
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+
+    assert.equal(fetchCalls.filter(([url]) => url === "/api/editor/posts").length, 0);
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("a reflection copy keeps the server-reserved slug and persists the complete article", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = {
+    ...createEmptyDraft("reflections", "post-1", "2026-08-09", []),
+    title: "当前文章",
+    summary: "完整摘要",
+    sections: createEmptyDraft("reflections", "post-1", "2026-08-09", []).sections.map((section, index) => index === 0 ? { ...section, content: "完整正文" } : section),
+  };
+  const placeholder = { ...createEmptyDraft("reflections", "post-copy", "2026-08-09", []), slug: "2026-08-09-2" };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const fetchCalls = [];
+  let currentPatchAttempts = 0;
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      const body = init?.body ? JSON.parse(init.body) : {};
+      fetchCalls.push([url, init, body]);
+      if (url === "/api/editor/posts/post-1") {
+        currentPatchAttempts += 1;
+        if (currentPatchAttempts === 1) return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
+        return { ok: true, status: 200, json: async () => ({ post: { ...body.draft, draftVersion: 1 } }) };
+      }
+      if (url === "/api/editor/posts") return { ok: true, status: 200, json: async () => ({ post: placeholder }) };
+      if (url === "/api/editor/posts/post-copy") {
+        if (body.draft.slug !== placeholder.slug) return { ok: false, status: 400, json: async () => ({ error: "reflection slug invalid" }) };
+        return { ok: true, status: 200, json: async () => ({ post: { ...body.draft, draftVersion: 1 } }) };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
+    await act(async () => { title.props.onChange({ target: { value: "冲突中的完整文章" } }); });
+    const publishButton = renderer.root.findByProps({ className: "material-action material-action--primary" });
+    await act(async () => { publishButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+    const copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 850)); });
+
+    const copySave = fetchCalls.find(([url]) => url === "/api/editor/posts/post-copy");
+    assert.ok(copySave);
+    assert.equal(copySave[2].draft.slug, "2026-08-09-2");
+    assert.equal(copySave[2].draft.title, "冲突中的完整文章（副本）");
+    assert.equal(copySave[2].draft.summary, "完整摘要");
+    assert.match(copySave[2].draft.sections[0].content, /完整正文/);
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-copy/export");
+    assert.equal(renderer.root.findByProps({ className: "studio-save-state save-state--saved" }).children.join(""), "已保存");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("import preview never commits or switches when flushing the current draft fails", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
+  const preview = { ...createEmptyDraft("reflections", "preview", "2026-08-09", []), slug: "2026-08-09-2", title: "导入文章" };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage, confirm: globalThis.confirm };
+  const fetchCalls = [];
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.confirm = () => true;
+    globalThis.localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+    globalThis.fetch = async (input, init) => {
+      fetchCalls.push([String(input), init]);
+      if (String(input) === "/api/editor/import") return { ok: true, json: async () => ({ draft: preview, errors: [], warnings: [] }) };
+      throw new Error("offline");
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
+    await act(async () => { title.props.onChange({ target: { value: "未保存导入前修改" } }); });
+    const importInput = renderer.root.findAllByType("input").find((input) => input.props.accept === ".md,text/markdown");
+    await act(async () => {
+      importInput.props.onChange({ target: { files: [{ text: async () => "markdown" }], value: "selected.md" } });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/import", "/api/editor/posts/post-1"]);
+    assert.equal(fetchCalls.some(([, init]) => JSON.parse(init?.body ?? "{}").create === true), false);
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("publish recovers from authentication and network failures with actionable messages", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window };
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.fetch = async () => ({ ok: false, status: 401, json: async () => ({ error: "Unauthorized" }) });
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const publishButton = renderer.root.findByProps({ className: "material-action material-action--primary" });
+    await act(async () => { publishButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+    assert.match(renderer.root.findByProps({ className: "studio-message" }).children.join(""), /重新登录/);
+
+    globalThis.fetch = async () => { throw new Error("offline"); };
+    await act(async () => { publishButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
+    assert.match(renderer.root.findByProps({ className: "studio-message" }).children.join(""), /网络.*发布/);
+    assert.doesNotMatch(renderer.root.findByProps({ className: "studio-message" }).children.join(""), /正在发布/);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
   }
 });

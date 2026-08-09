@@ -30,6 +30,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   const [mobilePane, setMobilePane] = useState<MobilePane>("edit");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const postsToggleRef = useRef<HTMLButtonElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const saveTimer = useRef<number | null>(null);
   const currentRef = useRef(current);
   const activePostId = useRef<string | null>(initialPosts[0]?.id ?? null);
@@ -114,7 +115,10 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
 
   async function selectPost(id: string) {
     if (id === selectedId) return;
-    await flushAutosave();
+    if (currentRef.current) {
+      const saved = await flushAutosave();
+      if (!saved) return;
+    }
     const local = posts.find((post) => post.id === id);
     activePostId.current = id; setSelectedId(id); setCurrent(local ?? null); currentRef.current = local ?? null; setSaveState("idle"); setMessage("");
     try {
@@ -126,10 +130,13 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   async function createPost(type: PostType) {
     setCreating(true); setMessage("");
     try {
+      if (currentRef.current) {
+        const saved = await flushAutosave();
+        if (!saved) return;
+      }
       const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, date: localDate() }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
       if (!response.ok || !payload.post) throw new Error(formatApiError(payload, "新建失败"));
-      await flushAutosave();
       setPosts((value) => replacePost(value, payload.post!)); activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved");
     } catch (error) { setMessage(error instanceof Error ? error.message : "新建失败"); } finally { setCreating(false); }
   }
@@ -170,10 +177,15 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   async function publish() {
     const saved = await flushAutosave(); if (!saved) return;
     setMessage("正在发布……");
-    const response = await fetch(`/api/editor/posts/${saved.id}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
-    const payload = await response.json() as { post?: BlogPostDraft & { publishedAt?: string } } & ApiError;
-    if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "发布失败")); return; }
-    setCurrent(payload.post); currentRef.current = payload.post; setPosts((value) => replacePost(value, payload.post!)); setSaveState("saved"); setMessage(`已发布${payload.post.publishedAt ? ` · ${payload.post.publishedAt}` : ""}`);
+    try {
+      const response = await fetch(`/api/editor/posts/${saved.id}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
+      if (response.status === 401) { setMessage("登录已失效，请重新登录后再发布。"); return; }
+      const payload = await response.json() as { post?: BlogPostDraft & { publishedAt?: string } } & ApiError;
+      if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "发布失败")); return; }
+      setCurrent(payload.post); currentRef.current = payload.post; setPosts((value) => replacePost(value, payload.post!)); setSaveState("saved"); setMessage(`已发布${payload.post.publishedAt ? ` · ${payload.post.publishedAt}` : ""}`);
+    } catch {
+      setMessage("网络异常，发布未完成，请检查连接后重试。");
+    }
   }
 
   async function reloadOnlineDraft() {
@@ -193,12 +205,13 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   }
 
   async function saveAsNewArticle() {
-    if (!current) return;
-    const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: current.type, date: current.date }) });
+    if (!currentRef.current) return;
+    const saved = await flushAutosave();
+    if (!saved) return;
+    const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: saved.type, date: saved.date }) });
     const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
     if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
-    const copy = { ...current, id: payload.post.id, slug: `${current.slug}-copy`, title: `${current.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: current.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
-    await flushAutosave();
+    const copy = { ...saved, id: payload.post.id, slug: payload.post.slug, title: `${saved.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: saved.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
     activePostId.current = copy.id; setSelectedId(copy.id); scheduleAutosave(copy); setMessage("已创建新文章副本，本地恢复副本仍保留。");
   }
 
@@ -229,7 +242,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       <span className="studio-owner">{ownerName}</span>
       <button ref={postsToggleRef} className="studio-posts-toggle" type="button" aria-expanded={sidebarOpen} aria-controls="studio-post-list" onClick={() => setSidebarOpen((value) => !value)}>文章列表</button>
       <span className={`studio-save-state save-state--${saveState}`} aria-live="polite">{({ idle: "待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "版本冲突" })[saveState]}</span>
-      <label className="studio-import material-action">导入 Markdown<input type="file" accept=".md,text/markdown" onChange={(e) => void importMarkdown(e)} /></label>
+      <label className="studio-import material-action">导入 Markdown<input ref={importInputRef} type="file" accept=".md,text/markdown" onChange={(e) => void importMarkdown(e)} /></label>
       {current ? <a className="material-action" href={`/api/editor/posts/${current.id}/export`} download>导出 Markdown</a> : null}
       <button className="material-action material-action--primary" type="button" disabled={!current || saveState === "saving"} onClick={() => void publish()}>发布</button>
     </header>
@@ -242,7 +255,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       <main className="studio-form">{current ? <><p className="eyebrow">{postTypeLabels[current.type]}</p><PostFields post={current} onChange={scheduleAutosave} /><div className="studio-sections"><div className="studio-sections__title"><h2>内容模块</h2><button className="material-action" type="button" onClick={() => setDrawerOpen(true)}>+ 添加模块</button></div>{[...current.sections].sort((a, b) => a.position - b.position).map((section) => <SectionEditor key={section.id} postId={current.id} section={section} onChange={updateSection} onMove={(delta) => moveSection(section.id, delta)} onDuplicate={() => duplicateSection(section.id)} onDelete={() => deleteSection(section.id)} />)}</div></> : <div className="studio-empty"><h2>开始写作</h2><p>从左侧选择文章类型，系统会提供对应的结构化模板。</p></div>}</main>
       <ArticlePreview post={current} />
     </div>
-    <EditorMobileBar pane={mobilePane} saveState={saveState} disabled={!current} onAdd={() => setDrawerOpen(true)} onPaneChange={setMobilePane} onPublish={() => void publish()} />
+    <EditorMobileBar pane={mobilePane} saveState={saveState} disabled={!current} onAdd={() => setDrawerOpen(true)} onPaneChange={setMobilePane} onPublish={() => void publish()} onImport={() => importInputRef.current?.click()} onExport={exportCurrentDraft} />
     <AddSectionDrawer open={drawerOpen} insertionPosition={(current?.sections.length ?? 0) * 10 + 10} templates={typeTemplates} onClose={() => setDrawerOpen(false)} onAdd={addSection} />
   </section>;
 }
