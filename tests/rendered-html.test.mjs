@@ -101,6 +101,16 @@ test("safely falls back for repeated public archive query parameters", async () 
   assert.match(html, /秋招不是一场考试/);
 });
 
+test("normalizes an unsupported scalar archive type to all", async () => {
+  const response = await render("/blog?type=not-a-public-entry-type");
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<option value="all" selected="">全部<\/option>/);
+  assert.match(html, /UniTacVLA/);
+  assert.match(html, /秋招不是一场考试/);
+});
+
 test("server-renders a labeled research-topic heading and recency-ordered Chinese record labels", async () => {
   const html = await (await render("/")).text();
   const recordList = html.match(/<ol class="archive-record-list">([\s\S]*?)<\/ol>/)?.[1] ?? "";
@@ -146,7 +156,19 @@ test("server-renders a title-only Markdown index", async () => {
   assert.equal(response.status, 200);
   assert.match(html, /内容索引/);
   assert.match(html, /论文精读/);
-  assert.match(html, /href="\/blog\/unitacvla-reading"/);
+  assert.match(html, /href="\/post\/unitacvla-reading"/);
+});
+
+test("uses the canonical post route for internal article links", async () => {
+  const [blogHtml, indexHtml] = await Promise.all([
+    render("/blog").then((response) => response.text()),
+    render("/index").then((response) => response.text()),
+  ]);
+
+  for (const html of [blogHtml, indexHtml]) {
+    assert.match(html, /href="\/post\/unitacvla-reading"/);
+    assert.doesNotMatch(html, /href="\/blog\/unitacvla-reading"/);
+  }
 });
 
 test("papers render the bibliography labels backed by existing reading fields", async () => {

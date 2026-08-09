@@ -10,6 +10,45 @@ test("public read falls back before bootstrap", async () => {
   assert.deepEqual(await listPublicEntries(store, fallback), fallback);
 });
 
+test("public read falls back only when a required blog table is missing or the local Cloudflare module is unavailable", async () => {
+  const fallback = [{ slug: "legacy", status: "published" }];
+
+  for (const error of [
+    new Error("D1_ERROR: no such table: blog_state: SQLITE_ERROR"),
+    new Error("table posts does not exist"),
+    Object.assign(new Error("Received protocol 'cloudflare:'"), {
+      code: "ERR_UNSUPPORTED_ESM_URL_SCHEME",
+    }),
+    new Error("Cannot find module 'cloudflare:workers'"),
+  ]) {
+    const store = {
+      hasBootstrapMarker: async () => { throw error; },
+    };
+    assert.deepEqual(await listPublicEntries(store, fallback), fallback, error.message);
+  }
+});
+
+test("public read propagates non-schema D1 errors instead of returning static fallback", async () => {
+  for (const databaseError of [
+    new Error("D1_ERROR: database temporarily unavailable"),
+    new Error("D1_ERROR: not authorized to access database"),
+    new Error("D1_ERROR: database disk image is malformed"),
+  ]) {
+    const store = {
+      hasBootstrapMarker: async () => { throw databaseError; },
+    };
+
+    await assert.rejects(
+      () => listPublicEntries(store, [{ slug: "must-not-leak", status: "published" }]),
+      (error) => {
+        assert.equal(error, databaseError);
+        return true;
+      },
+      databaseError.message,
+    );
+  }
+});
+
 test("public read returns immutable snapshots and excludes later draft edits", async () => {
   const store = new MemoryBlogStore();
   const draft = createEmptyDraft("reflections", "post-public", "2026-07-24", []);

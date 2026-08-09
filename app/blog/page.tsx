@@ -18,7 +18,11 @@ export default async function BlogPage({
 }) {
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q : "";
-  const type = typeof params.type === "string" ? params.type : "all";
+  const requestedType = params.type;
+  const type = typeof requestedType === "string"
+    && (requestedType === "all" || Object.hasOwn(labels, requestedType))
+    ? requestedType
+    : "all";
   const needle = q.trim().toLocaleLowerCase();
   const entries = (await listPublicEntries()).filter(
     (entry) =>
@@ -59,7 +63,7 @@ export default async function BlogPage({
           {entries.map((entry) => (
             <li key={entry.slug}>
               <time dateTime={entry.date}>{entry.date}</time>
-              <Link href={`/blog/${entry.slug}`}>{entry.title}</Link>
+              <Link href={`/post/${entry.slug}`}>{entry.title}</Link>
               <span>{labels[entry.type]}</span>
             </li>
           ))}

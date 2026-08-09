@@ -36,7 +36,7 @@ export default async function IndexPage() {
                   {items.map((entry) => (
                     <li key={entry.slug}>
                       <time dateTime={entry.date}>{entry.date}</time>
-                      <Link href={`/blog/${entry.slug}`}>{entry.title}</Link>
+                      <Link href={`/post/${entry.slug}`}>{entry.title}</Link>
                     </li>
                   ))}
                 </ol>

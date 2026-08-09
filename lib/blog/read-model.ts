@@ -26,7 +26,12 @@ export function snapshotToContentEntry(snapshot: PublishedSnapshot): ContentEntr
 
 function missingSchema(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /no such table|does not exist|D1_ERROR|ERR_UNSUPPORTED_ESM_URL_SCHEME|cloudflare:/i.test(message);
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  const missingBlogTable = /\bno such table:\s*(?:main\.)?(?:blog_state|posts)\b/i.test(message)
+    || /\btable\s+(?:main\.)?(?:blog_state|posts)\s+does not exist\b/i.test(message);
+  const localCloudflareModuleUnavailable = (code === "ERR_UNSUPPORTED_ESM_URL_SCHEME" && /cloudflare:/i.test(message))
+    || /cannot find (?:module|package)\s+['"]cloudflare:workers/i.test(message);
+  return missingBlogTable || localCloudflareModuleUnavailable;
 }
 
 export async function listPublicEntries(store?: BlogStore, fallback: ContentEntry[] = CONTENT_ENTRIES): Promise<ContentEntry[]> {
