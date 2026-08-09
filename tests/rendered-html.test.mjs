@@ -92,6 +92,15 @@ test("marks search as the current desktop and mobile site tool", async () => {
   assert.ok(currentLinks.every((link) => link.includes('href="/search"')));
 });
 
+test("safely falls back for repeated public archive query parameters", async () => {
+  const response = await render("/blog?q=VLA&q=robot&type=jobs&type=papers");
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /UniTacVLA/);
+  assert.match(html, /秋招不是一场考试/);
+});
+
 test("server-renders a labeled research-topic heading and recency-ordered Chinese record labels", async () => {
   const html = await (await render("/")).text();
   const recordList = html.match(/<ol class="archive-record-list">([\s\S]*?)<\/ol>/)?.[1] ?? "";

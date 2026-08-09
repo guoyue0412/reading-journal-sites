@@ -14,9 +14,11 @@ const labels = {
 export default async function BlogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string }>;
+  searchParams: Promise<{ q?: unknown; type?: unknown }>;
 }) {
-  const { q = "", type = "all" } = await searchParams;
+  const params = await searchParams;
+  const q = typeof params.q === "string" ? params.q : "";
+  const type = typeof params.type === "string" ? params.type : "all";
   const needle = q.trim().toLocaleLowerCase();
   const entries = (await listPublicEntries()).filter(
     (entry) =>
