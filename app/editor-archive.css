@@ -47,6 +47,13 @@
   box-shadow: none;
 }
 
+.admin-page .studio-toolbar.material-toolbar {
+  background: var(--archive-paper);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
 .studio-toolbar button,
 .studio-toolbar a,
 .studio-import {
@@ -59,6 +66,13 @@
 
 .admin-page .studio-toolbar .material-action:hover {
   background: var(--archive-paper-soft);
+  box-shadow: none;
+}
+
+.admin-page .studio-toolbar .material-action--primary:hover {
+  border-color: var(--archive-ink);
+  background: var(--archive-ink);
+  color: var(--archive-paper);
   box-shadow: none;
 }
 
@@ -99,6 +113,20 @@
   min-height: 44px;
   border-radius: 4px;
   background: var(--archive-paper);
+  box-shadow: none;
+}
+
+.admin-page .studio-sections__title button {
+  border-color: var(--archive-rule);
+  background: var(--archive-paper);
+  color: var(--archive-ink);
+  box-shadow: none;
+}
+
+.admin-page .studio-sections__title button:hover {
+  border-color: var(--archive-accent);
+  background: var(--archive-paper-soft);
+  color: var(--archive-ink);
   box-shadow: none;
 }
 

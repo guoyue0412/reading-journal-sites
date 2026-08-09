@@ -138,3 +138,37 @@ Review-fix files:
 - `tests/editor-responsive.test.mjs`
 - `tests/editor-components-interaction.test.mjs`
 - `.superpowers/sdd/task-6-report.md`
+
+## Final review-fix follow-up
+
+The final review found three remaining cascade gaps and one missing parent-level creation-path assertion. Tests were extended before presentation code changed.
+
+### Final RED and GREEN
+
+```text
+node --test tests/editor-responsive.test.mjs tests/editor-components-interaction.test.mjs
+RED:   tests 8, pass 6, fail 2
+GREEN: tests 8, pass 8, fail 0
+```
+
+The two genuine RED failures proved that the actual `studio-toolbar material-toolbar` class combination still inherited legacy blur and that the section-title action still inherited its legacy purple treatment. The StructuredEditor creation-path test already passed against the focus-restoring presentation wrapper: it mocked a valid POST response, exercised the real parent `createPost` callback, verified drawer close plus toggle focus, and restored `globalThis.fetch` in `finally`.
+
+The minimal archive-layer fix adds a higher-specificity toolbar blur reset, a dedicated high-contrast primary publish hover triple, and base/hover archive-token resets for the section-title action.
+
+```text
+node --test tests/editor-components-interaction.test.mjs tests/editor-responsive.test.mjs tests/editor-source.test.mjs tests/editor-api-source.test.mjs tests/blog-service.test.mjs tests/markdown-roundtrip.test.mjs tests/blog-assets.test.mjs
+tests 56
+pass 56
+fail 0
+```
+
+### Final verification
+
+- `npm run build` — exit `0`; all Vinext stages completed. The first sandboxed attempt was unable to regenerate `lib/content/generated.ts`; the identical approved rerun passed.
+- `npm run lint` — exit `0`, no findings.
+- `git diff --check` — exit `0`, no findings.
+- `npm test` — build passed; 151 tests ran, 150 passed, 1 failed.
+
+The sole full-suite failure remains the same Task 7-owned `index-heading--ambient` assertion in `tests/react-bits-layout.test.mjs`; Task 6 did not touch that file and added no failure.
+
+The final byte audit against `f4022d1` again reports all eight protected function bodies unchanged with the same SHA-256 prefixes recorded above. This follow-up changes only `app/editor-archive.css`, the responsive contract, the executable interaction test, and this report.

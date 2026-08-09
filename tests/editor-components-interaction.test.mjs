@@ -122,13 +122,20 @@ test("editor sidebar exposes drawer state and executes selection and creation ca
   }
 });
 
-test("structured editor closes the article drawer and restores focus after selection", async () => {
+test("structured editor closes the article drawer and restores focus after selection and creation", async () => {
   const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
   const post = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "测试文章" };
+  const created = { ...createEmptyDraft("jobs", "post-2", "2026-08-10", []), title: "新建文章" };
+  const originalFetch = globalThis.fetch;
+  const fetchCalls = [];
   let focusCalls = 0;
   let renderer;
 
   try {
+    globalThis.fetch = async (input, init) => {
+      fetchCalls.push([String(input), init]);
+      return { ok: true, json: async () => ({ post: created }) };
+    };
     await act(async () => {
       renderer = TestRenderer.create(React.createElement(StructuredEditor, {
         initialPosts: [post],
@@ -152,7 +159,23 @@ test("structured editor closes the article drawer and restores focus after selec
     await act(async () => { postButton.props.onClick(); });
     assert.equal(articleList().props.className, "studio-sidebar");
     assert.equal(focusCalls, 1);
+
+    await act(async () => { toggle.props.onClick(); });
+    assert.equal(articleList().props.className, "studio-sidebar is-open");
+    const createButton = articleList().findAllByType("button").find((button) => button.children.join("") === "+ 秋招进展");
+    assert.ok(createButton);
+    await act(async () => {
+      createButton.props.onClick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(articleList().props.className, "studio-sidebar");
+    assert.equal(focusCalls, 2);
+    assert.equal(fetchCalls.length, 1);
+    assert.equal(fetchCalls[0][0], "/api/editor/posts");
+    assert.equal(fetchCalls[0][1].method, "POST");
   } finally {
     if (renderer) await act(async () => renderer.unmount());
+    if (originalFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = originalFetch;
   }
 });

@@ -26,17 +26,20 @@ test("editor exposes desktop, tablet, and phone presentation controls", async ()
 test("late editor archive rules explicitly neutralize legacy material chrome", async () => {
   const [legacy, css] = await Promise.all([read("app/globals.css"), read("app/editor-archive.css")]);
   assert.match(legacy, /\.admin-header\s*{[^}]*backdrop-filter:\s*blur/s);
+  assert.match(legacy, /\.material-toolbar\s*{[^}]*backdrop-filter:\s*blur[^}]*-webkit-backdrop-filter:\s*blur/s);
   assert.match(legacy, /\.studio-save-state\s*{[^}]*border-radius:\s*999px/s);
   assert.match(legacy, /\.studio-drawer\s*{[^}]*box-shadow:\s*var\(--shadow-float\)[^}]*backdrop-filter:\s*blur/s);
   assert.match(legacy, /\.admin-page \.structured-editor\s*{[^}]*box-shadow:\s*var\(--shadow-soft\)/s);
 
   assert.match(css, /\.admin-page \.admin-header\s*{[^}]*backdrop-filter:\s*none[^}]*-webkit-backdrop-filter:\s*none[^}]*box-shadow:\s*none/s);
+  assert.match(css, /\.admin-page \.studio-toolbar\.material-toolbar\s*{[^}]*background:\s*var\(--archive-paper\)[^}]*backdrop-filter:\s*none[^}]*-webkit-backdrop-filter:\s*none[^}]*box-shadow:\s*none/s);
   assert.match(css, /\.admin-page \.structured-editor\s*{[^}]*background:\s*var\(--archive-paper\)[^}]*box-shadow:\s*none/s);
   assert.match(css, /\.admin-page \.studio-sidebar\s*{[^}]*background:\s*var\(--archive-paper-soft\)[^}]*box-shadow:\s*none/s);
   assert.match(css, /\.admin-page \.studio-preview\s*{[^}]*background:\s*var\(--archive-paper\)[^}]*box-shadow:\s*none/s);
   assert.match(css, /\.admin-page \.studio-drawer\s*{[^}]*border-radius:\s*6px[^}]*background:\s*var\(--archive-paper\)[^}]*box-shadow:\s*none[^}]*backdrop-filter:\s*none[^}]*-webkit-backdrop-filter:\s*none/s);
   assert.match(css, /\.admin-page \.studio-save-state\s*{[^}]*border-radius:\s*4px[^}]*background:\s*transparent/s);
   assert.match(css, /\.admin-page \.studio-toolbar \.material-action:hover\s*{[^}]*box-shadow:\s*none/s);
+  assert.match(css, /\.admin-page \.studio-toolbar \.material-action--primary:hover\s*{[^}]*border-color:\s*var\(--archive-ink\)[^}]*background:\s*var\(--archive-ink\)[^}]*color:\s*var\(--archive-paper\)[^}]*box-shadow:\s*none/s);
   assert.match(css, /\.admin-page \.studio-sidebar button\.is-active\s*{[^}]*background:\s*var\(--archive-paper\)[^}]*box-shadow:\s*inset 3px 0 var\(--archive-accent\)/s);
   assert.match(css, /\.admin-page \.studio-(?:sidebar|section)[^\{]*button[^\{]*\{[^}]*border-radius:\s*4px[^}]*background:\s*var\(--archive-paper\)/s);
   assert.doesNotMatch(css, /linear-gradient|radial-gradient|translateY\(-/);
@@ -44,6 +47,14 @@ test("late editor archive rules explicitly neutralize legacy material chrome", a
   assert.ok(backdropValues.length >= 4);
   assert.deepEqual([...new Set(backdropValues)], ["none"]);
   assert.match(css, /min-height:\s*44px/);
+});
+
+test("archive module-title action overrides the legacy purple material treatment", async () => {
+  const [legacy, css] = await Promise.all([read("app/globals.css"), read("app/editor-archive.css")]);
+  assert.match(legacy, /\.studio-sections__title button\s*{[^}]*border-color:\s*color-mix[^}]*color:\s*#454f99/s);
+  assert.match(legacy, /\.studio-sections__title button:hover\s*{[^}]*background:\s*var\(--accent-soft\)/s);
+  assert.match(css, /\.admin-page \.studio-sections__title button\s*{[^}]*border-color:\s*var\(--archive-rule\)[^}]*background:\s*var\(--archive-paper\)[^}]*color:\s*var\(--archive-ink\)[^}]*box-shadow:\s*none/s);
+  assert.match(css, /\.admin-page \.studio-sections__title button:hover\s*{[^}]*border-color:\s*var\(--archive-accent\)[^}]*background:\s*var\(--archive-paper-soft\)[^}]*color:\s*var\(--archive-ink\)[^}]*box-shadow:\s*none/s);
 });
 
 test("tablet landscape keeps dual panes while portrait switches one pane", async () => {
