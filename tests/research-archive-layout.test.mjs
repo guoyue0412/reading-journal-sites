@@ -60,6 +60,7 @@ test("keeps all archive navigation and entry links as explicit 44px targets", as
 
   for (const selector of [
     ".archive-masthead__identity a",
+    ".archive-section > header a",
     ".archive-topics li a",
     ".archive-reading-list h3 a",
     ".archive-record-list a",
