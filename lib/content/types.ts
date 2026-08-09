@@ -9,6 +9,7 @@ export interface ContentEntry {
   type: ContentType;
   date: string;
   updatedAt?: string;
+  publishedAt?: string;
   readAt?: string;
   summary: string;
   tags: string[];

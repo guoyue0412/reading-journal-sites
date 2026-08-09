@@ -12,6 +12,7 @@ function copyEntries(entries: ContentEntry[]): ContentEntry[] {
 type RecencyEntry = {
   date: string;
   readAt?: string;
+  publishedAt?: string;
   type?: ContentType;
   slug?: string;
 };
@@ -32,6 +33,13 @@ export function sortEntriesByRecency<T extends RecencyEntry>(entries: T[]): T[] 
       const rightSequence = reflectionSlugSequence(right.slug, right.date);
       if (leftSequence !== null && rightSequence !== null) return rightSequence - leftSequence;
     }
+
+    if (left.publishedAt && right.publishedAt) {
+      const publishedRecency = right.publishedAt.localeCompare(left.publishedAt);
+      if (publishedRecency !== 0) return publishedRecency;
+    }
+
+    if (left.slug && right.slug) return right.slug.localeCompare(left.slug);
 
     return 0;
   });

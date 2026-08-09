@@ -95,3 +95,31 @@ test("public read gives shuffled static and D1 reflections the same query order"
     expected,
   );
 });
+
+test("public read gives Memory, D1, and static same-day papers a deterministic order", async () => {
+  function paperDraft(id, slug, createdAt) {
+    return {
+      ...createEmptyDraft("papers", id, "2026-07-24", []),
+      slug,
+      title: slug,
+      createdAt,
+    };
+  }
+  const memoryStore = new MemoryBlogStore();
+  const alpha = await memoryStore.createDraft(paperDraft("post-alpha", "alpha", "2026-07-24T13:00:00.000Z"));
+  const zeta = await memoryStore.createDraft(paperDraft("post-zeta", "zeta", "2026-07-24T12:00:00.000Z"));
+  const alphaSnapshot = await memoryStore.publish(alpha, alpha.draftVersion, "revision-alpha", "2026-07-24T12:00:00.000Z");
+  const zetaSnapshot = await memoryStore.publish(zeta, zeta.draftVersion, "revision-zeta", "2026-07-24T13:00:00.000Z");
+  const shuffledStatic = [alphaSnapshot, zetaSnapshot].map(snapshotToContentEntry);
+  for (const entry of shuffledStatic) delete entry.publishedAt;
+  const d1Store = {
+    hasBootstrapMarker: async () => true,
+    listPublished: async () => [alphaSnapshot, zetaSnapshot],
+  };
+  const expected = ["zeta", "alpha"];
+
+  await memoryStore.markBootstrapped("2026-07-24T14:00:00.000Z");
+  assert.deepEqual((await listPublicEntries(memoryStore, [])).map((entry) => entry.slug), expected);
+  assert.deepEqual((await listPublicEntries(d1Store, [])).map((entry) => entry.slug), expected);
+  assert.deepEqual((await listPublicEntries(new MemoryBlogStore(), shuffledStatic)).map((entry) => entry.slug), expected);
+});
