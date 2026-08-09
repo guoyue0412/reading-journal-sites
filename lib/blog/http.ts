@@ -6,12 +6,16 @@ import {
   type BlogService,
 } from "./service.ts";
 import { SlugConflictError, VersionConflictError } from "./store.ts";
-import type { PostType } from "./types.ts";
+import type { BlogPostDraft, PostType } from "./types.ts";
 
 type OwnerAssertion = () => Promise<unknown>;
 type JsonRecord = Record<string, unknown>;
 const postTypes: readonly PostType[] = ["jobs", "internship", "papers", "reflections"];
 const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relation"] as const;
+const postStatuses = ["draft", "published"] as const;
+const readingMethods = ["skim", "deep", "synthesis"] as const;
+const readingStatuses = ["queued", "in_progress", "synthesizing", "completed", "archived"] as const;
+const applicationStages = ["applied", "written_test", "interview", "offer", "closed"] as const;
 
 export async function createEditorBlogService(): Promise<BlogService> {
   const { D1BlogStore } = await import("./d1-store.ts");
@@ -122,6 +126,51 @@ function requireNullableStringField(
   }
 }
 
+function requireEnumStringField(
+  record: JsonRecord,
+  field: string,
+  values: readonly string[],
+  message: string,
+): string {
+  const value = requireStringField(record, field, message);
+  if (!values.includes(value)) throw new BlogValidationError([message]);
+  return value;
+}
+
+function requirePostMetadata(type: PostType, value: unknown): void {
+  const metadata = requireRecord(value, "草稿元数据必须是对象");
+  if (type === "papers") {
+    requireStringArrayField(metadata, "authors", "论文作者必须是字符串数组");
+    requireStringField(metadata, "venue", "论文来源必须是字符串");
+    requireNonNegativeIntegerField(metadata, "year", "论文年份必须是非负整数");
+    requireStringField(metadata, "paperUrl", "论文链接必须是字符串");
+    requireStringField(metadata, "readAt", "论文阅读日期必须是字符串");
+    const methods = requireStringArrayField(metadata, "readingMethods", "阅读方式必须是字符串数组");
+    if (methods.some((method) => !readingMethods.includes(method as typeof readingMethods[number]))) {
+      throw new BlogValidationError(["阅读方式无效"]);
+    }
+    requireEnumStringField(metadata, "readingStatus", readingStatuses, "阅读状态无效");
+    requireStringArrayField(metadata, "topics", "论文主题必须是字符串数组");
+    return;
+  }
+  if (type === "jobs") {
+    for (const [field, message] of [
+      ["company", "公司必须是字符串"],
+      ["role", "岗位必须是字符串"],
+      ["location", "地点必须是字符串"],
+      ["appliedAt", "投递日期必须是字符串"],
+      ["nextAction", "下一步行动必须是字符串"],
+    ] as const) {
+      requireStringField(metadata, field, message);
+    }
+    requireEnumStringField(metadata, "applicationStage", applicationStages, "秋招阶段无效");
+    return;
+  }
+  if (Object.keys(metadata).length) {
+    throw new BlogValidationError(["该文章类型不接受额外元数据"]);
+  }
+}
+
 export function requireBlogSectionRecord(value: unknown): JsonRecord {
   const section = requireRecord(value, "组件内容必须是对象");
   requireNonEmptyStringField(section, "id", "组件 ID 不能为空");
@@ -156,19 +205,23 @@ export function requireSectionTemplateRecord(value: unknown): JsonRecord {
   return template;
 }
 
-export function requireDraftRecord(value: unknown): JsonRecord {
+export function requireDraftRecord(value: unknown): BlogPostDraft {
   const draft = requireRecord(value, "草稿内容必须是对象");
-  for (const field of ["id", "slug", "type", "title", "date", "summary"]) {
+  for (const field of ["id", "slug", "title", "date", "summary", "createdAt", "updatedAt"]) {
     requireStringField(draft, field, `草稿 ${field} 必须是字符串`);
   }
-  requireRecord(draft.metadata, "草稿元数据必须是对象");
-  requireArrayField(draft, "tags", "草稿标签必须是数组");
-  requireArrayField(draft, "related", "草稿关联必须是数组");
+  const type = requirePostType(draft.type);
+  requireEnumStringField(draft, "status", postStatuses, "文章状态无效");
+  requirePostMetadata(type, draft.metadata);
+  requireStringArrayField(draft, "tags", "草稿标签必须是字符串数组");
+  requireStringArrayField(draft, "related", "草稿关联必须是字符串数组");
   const sections = requireArrayField(draft, "sections", "草稿组件必须是数组");
   for (const sectionValue of sections) {
     requireBlogSectionRecord(sectionValue);
   }
-  return draft;
+  requireNonNegativeIntegerField(draft, "draftVersion", "草稿版本必须是非负整数");
+  requireNullableStringField(draft, "publishedRevisionId", "已发布版本必须是字符串或空值");
+  return draft as unknown as BlogPostDraft;
 }
 
 export function requireExpectedVersion(record: JsonRecord): number {

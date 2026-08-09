@@ -6,6 +6,7 @@ import { createEmptyDraft } from "../lib/blog/default-templates.ts";
 import { validateDraft } from "../lib/blog/validation.ts";
 import { MemoryBlogAssetStore } from "../lib/blog/asset-store.ts";
 import { extractLocalAssetIds } from "../lib/blog/markdown-sections.ts";
+import { withOwnerJson } from "../lib/blog/http.ts";
 
 function createService(store = new MemoryBlogStore(), assetStore) {
   let id = 0;
@@ -18,6 +19,37 @@ function createService(store = new MemoryBlogStore(), assetStore) {
       assetStore,
     ),
   };
+}
+
+class CopyCommitRaceStore extends MemoryBlogStore {
+  armedSource = null;
+
+  arm(sourceId, expectedVersion) {
+    this.armedSource = { sourceId, expectedVersion };
+  }
+
+  async raceSource() {
+    if (!this.armedSource) return;
+    const { sourceId, expectedVersion } = this.armedSource;
+    this.armedSource = null;
+    const current = await super.getDraft(sourceId);
+    await super.saveDraft({ ...current, title: "Racer won before copy commit" }, expectedVersion);
+  }
+
+  async createDraft(draft) {
+    await this.raceSource();
+    return super.createDraft(draft);
+  }
+
+  async createDraftWithAssetAliases(draft, aliases, assetStore) {
+    await this.raceSource();
+    return super.createDraftWithAssetAliases(draft, aliases, assetStore);
+  }
+
+  async createDraftCopy(sourceId, expectedVersion, draft, aliases, assetStore) {
+    await this.raceSource();
+    return super.createDraftCopy(sourceId, expectedVersion, draft, aliases, assetStore);
+  }
 }
 
 test("autosave validates and increments draft version without publishing", async () => {
@@ -140,6 +172,63 @@ test("copying a reflection creates the complete article once at the reserved slu
     VersionConflictError,
   );
   assert.equal((await service.listPosts()).length, 2);
+});
+
+test("copy commit rejects a source-version race without creating an asset-free draft", async () => {
+  const store = new CopyCommitRaceStore();
+  const { service } = createService(store);
+  const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const saved = await service.saveDraft({ ...original, title: "Copy source", summary: "Before race" }, 0);
+  store.arm(saved.id, saved.draftVersion);
+
+  const response = await withOwnerJson(
+    () => service.createPostCopy(saved.id, saved.draftVersion),
+    async () => {},
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), {
+    error: "草稿已在其他设备更新",
+    code: "VERSION_CONFLICT",
+  });
+  assert.equal((await store.getDraft(saved.id))?.draftVersion, saved.draftVersion + 1);
+  assert.equal(await store.getDraft("00000000-0000-4000-8000-000000000002"), null);
+  assert.equal((await store.listDrafts()).length, 1);
+});
+
+test("copy commit rejects a source-version race without creating a draft or asset alias", async () => {
+  const store = new CopyCommitRaceStore();
+  const assets = new MemoryBlogAssetStore();
+  const { service } = createService(store, assets);
+  const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const asset = {
+    id: "88888888-8888-4888-8888-888888888888", postId: original.id, objectKey: `posts/${original.id}/race.png`,
+    originalName: "race.png", safeName: "race.png", contentType: "image/png", sizeBytes: 12, sha256: "race-hash",
+    visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(asset);
+  const saved = await service.saveDraft({
+    ...original,
+    title: "Copy source with asset",
+    summary: "Before asset race",
+    sections: original.sections.map((section, index) => index === 0
+      ? { ...section, content: `![race](/media/${asset.id}/race.png)` }
+      : section),
+  }, 0);
+  store.arm(saved.id, saved.draftVersion);
+
+  await assert.rejects(
+    () => service.createPostCopy(saved.id, saved.draftVersion),
+    VersionConflictError,
+  );
+
+  const targetId = "00000000-0000-4000-8000-000000000002";
+  const targetAliasId = "00000000-0000-4000-8000-000000000007";
+  assert.equal((await store.getDraft(saved.id))?.draftVersion, saved.draftVersion + 1);
+  assert.equal(await store.getDraft(targetId), null);
+  assert.equal(await assets.getById(targetAliasId), null);
+  assert.deepEqual(await assets.getById(asset.id), asset);
+  assert.equal((await store.listDrafts()).length, 1);
 });
 
 test("ordinary post creation retries a slug race with a complete draft", async () => {
@@ -391,8 +480,108 @@ test("publishing promotes an owned draft asset", async () => {
     sections: created.sections.map((section, index) => index === 0 ? { ...section, content: `![figure](/media/${asset.id}/figure.png)` } : section),
   }, created.draftVersion);
 
-  await service.publishPost(saved.id, saved.draftVersion);
+  const published = await service.publishPost(saved.id, saved.draftVersion);
+  assert.equal(published.status, "published");
+  assert.equal(published.draftVersion, saved.draftVersion + 1);
+  assert.equal((await service.loadPost(saved.id)).publishedRevisionId, published.revisionId);
   assert.equal((await assets.getById(asset.id))?.visibility, "published");
+});
+
+test("an asset promotion failure rolls publish back so the same HTTP version can retry", async () => {
+  class FailOnceAtomicPublishAssets extends MemoryBlogAssetStore {
+    failNextPublish = true;
+    commitPublishAtomically(postId, assetIds, now, commit) {
+      if (this.failNextPublish) {
+        this.failNextPublish = false;
+        throw new Error("asset promotion failed");
+      }
+      return super.commitPublishAtomically(postId, assetIds, now, commit);
+    }
+  }
+  const assets = new FailOnceAtomicPublishAssets();
+  const store = new MemoryBlogStore();
+  const { service } = createService(store, assets);
+  const created = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const asset = {
+    id: "99999999-9999-4999-8999-999999999999", postId: created.id, objectKey: `posts/${created.id}/retry.png`,
+    originalName: "retry.png", safeName: "retry.png", contentType: "image/png", sizeBytes: 12, sha256: "retry-hash",
+    visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(asset);
+  const saved = await service.saveDraft({
+    ...created,
+    title: "Retry atomic publish",
+    summary: "Asset failure must not advance the draft",
+    sections: created.sections.map((section, index) => index === 0
+      ? { ...section, content: `![retry](/media/${asset.id}/retry.png)` }
+      : section),
+  }, created.draftVersion);
+
+  const failed = await withOwnerJson(
+    () => service.publishPost(saved.id, saved.draftVersion),
+    async () => {},
+  );
+  assert.equal(failed.status, 500);
+  assert.equal((await service.loadPost(saved.id)).draftVersion, saved.draftVersion);
+  assert.equal((await service.loadPost(saved.id)).status, "draft");
+  assert.equal(await store.getPublishedBySlug(saved.slug), null);
+  assert.equal((await assets.getById(asset.id))?.visibility, "draft");
+
+  const retried = await withOwnerJson(
+    () => service.publishPost(saved.id, saved.draftVersion),
+    async () => {},
+  );
+  assert.equal(retried.status, 200);
+  assert.equal((await service.loadPost(saved.id)).draftVersion, saved.draftVersion + 1);
+  assert.equal((await service.loadPost(saved.id)).status, "published");
+  assert.equal((await assets.getById(asset.id))?.visibility, "published");
+});
+
+test("publish rechecks asset ownership at commit and leaves no half-published revision", async () => {
+  class StaleOwnershipAssetStore extends MemoryBlogAssetStore {
+    pretendPostId = null;
+    firstRead = true;
+    async getById(id) {
+      const asset = await super.getById(id);
+      if (asset && this.firstRead && this.pretendPostId) {
+        this.firstRead = false;
+        return { ...asset, postId: this.pretendPostId };
+      }
+      return asset;
+    }
+  }
+  const assets = new StaleOwnershipAssetStore();
+  const store = new MemoryBlogStore();
+  const { service } = createService(store, assets);
+  const created = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const foreignAsset = {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", postId: "foreign-post", objectKey: "posts/foreign-post/foreign.png",
+    originalName: "foreign.png", safeName: "foreign.png", contentType: "image/png", sizeBytes: 12, sha256: "foreign-hash",
+    visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(foreignAsset);
+  const saved = await service.saveDraft({
+    ...created,
+    title: "Ownership race",
+    summary: "Foreign draft must remain private",
+    sections: created.sections.map((section, index) => index === 0
+      ? { ...section, content: `![foreign](/media/${foreignAsset.id}/foreign.png)` }
+      : section),
+  }, created.draftVersion);
+  assets.pretendPostId = saved.id;
+
+  await assert.rejects(
+    () => service.publishPost(saved.id, saved.draftVersion),
+    (error) => error instanceof BlogValidationError
+      && error.errors.some((message) => message.includes(foreignAsset.id)),
+  );
+
+  const after = await service.loadPost(saved.id);
+  assert.equal(after.status, "draft");
+  assert.equal(after.draftVersion, saved.draftVersion);
+  assert.equal(after.publishedRevisionId, null);
+  assert.equal(await store.getPublishedBySlug(saved.slug), null);
+  assert.deepEqual(await assets.getById(foreignAsset.id), foreignAsset);
 });
 
 test("an exported published asset is cloned as an owned alias while its source stays immutable", async () => {

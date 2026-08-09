@@ -119,6 +119,50 @@ test("publish and autosave race for the same optimistic version", async () => {
   assert.equal((await store.getDraft(draft.id))?.draftVersion, 1);
 });
 
+test("Memory publish guards never promote assets when version, revision, or slug checks fail", async () => {
+  const store = new MemoryBlogStore();
+  const assets = new MemoryBlogAssetStore();
+  const draftInput = createEmptyDraft("reflections", "asset-guarded", "2026-07-24", []);
+  draftInput.slug = "asset-guarded";
+  const draft = await store.createDraft(draftInput);
+  const asset = {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    postId: draft.id,
+    objectKey: `posts/${draft.id}/guarded.png`,
+    originalName: "guarded.png",
+    safeName: "guarded.png",
+    contentType: "image/png",
+    sizeBytes: 12,
+    sha256: "guarded-hash",
+    visibility: "draft",
+    createdAt: "2026-07-24T10:00:00.000Z",
+    updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(asset);
+
+  await assert.rejects(
+    () => store.publishWithAssets(draft, 1, "stale-revision", "2026-07-24T12:00:00.000Z", [asset.id], assets),
+    VersionConflictError,
+  );
+
+  const reservedInput = createEmptyDraft("reflections", "reserved-post", "2026-07-25", []);
+  reservedInput.slug = "reserved-public";
+  const reserved = await store.createDraft(reservedInput);
+  await store.publish(reserved, 0, "taken-revision", "2026-07-24T12:01:00.000Z");
+  await assert.rejects(
+    () => store.publishWithAssets(draft, 0, "taken-revision", "2026-07-24T12:02:00.000Z", [asset.id], assets),
+    /Revision already exists/,
+  );
+  await assert.rejects(
+    () => store.publishWithAssets({ ...draft, slug: "reserved-public" }, 0, "new-revision", "2026-07-24T12:03:00.000Z", [asset.id], assets),
+    SlugConflictError,
+  );
+
+  assert.deepEqual(await assets.getById(asset.id), asset);
+  assert.equal((await store.getDraft(draft.id))?.draftVersion, 0);
+  assert.equal(await store.getPublishedBySlug(draft.slug), null);
+});
+
 test("public slug, date, and ordering remain pinned to immutable revisions", async () => {
   const store = new MemoryBlogStore();
   const olderInput = createEmptyDraft("papers", "p9", "2026-07-20", []);
@@ -269,7 +313,7 @@ test("complete draft and asset aliases commit atomically in Memory and one D1 ba
     readFile(new URL("../drizzle/0001_dark_proudstar.sql", import.meta.url), "utf8"),
   ]);
   const start = sourceCode.indexOf("async createDraftWithAssetAliases(");
-  const end = sourceCode.indexOf("async importDraft(", start);
+  const end = sourceCode.indexOf("async createDraftCopy(", start);
   const atomicSource = sourceCode.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.equal((atomicSource.match(/\.batch\(/g) ?? []).length, 1);
@@ -278,6 +322,38 @@ test("complete draft and asset aliases commit atomically in Memory and one D1 ba
   assert.match(atomicSource, /SELECT object_key FROM blog_assets/);
   assert.match(atomicSource, /mapD1WriteError/);
   assert.match(schema, /`object_key` text NOT NULL/);
+});
+
+test("D1 copy creation guards source id and version in the same atomic batch", async () => {
+  const source = await readFile(new URL("../lib/blog/d1-store.ts", import.meta.url), "utf8");
+  const start = source.indexOf("async createDraftCopy(");
+  const end = source.indexOf("async importDraft(", start);
+  const method = source.slice(start, end);
+
+  assert.ok(start >= 0 && end > start);
+  assert.equal((method.match(/\.batch\(/g) ?? []).length, 1);
+  assert.match(method, /sourceId/);
+  assert.match(method, /expectedVersion/);
+  assert.match(method, /EXISTS \(SELECT 1 FROM posts WHERE id=.*draft_version=/);
+  assert.match(method, /INSERT INTO blog_assets/);
+  assert.match(method, /VersionConflictError/);
+  assert.match(method, /results\[diagnosticIndex\]/);
+});
+
+test("D1 asset publish guards references, promotes owned drafts, and commits in one batch", async () => {
+  const source = await readFile(new URL("../lib/blog/d1-store.ts", import.meta.url), "utf8");
+  const start = source.indexOf("async publishWithAssets(");
+  const end = source.indexOf("async getPublishedBySlug(", start);
+  const method = source.slice(start, end);
+
+  assert.ok(start >= 0 && end > start);
+  assert.equal((method.match(/\.batch\(/g) ?? []).length, 1);
+  assert.match(method, /INSERT INTO post_revisions[\s\S]*blog_assets/);
+  assert.match(method, /UPDATE posts[\s\S]*blog_assets/);
+  assert.match(method, /UPDATE blog_assets SET visibility='published'/);
+  assert.match(method, /post_id=.*OR visibility='published'/);
+  assert.match(method, /invalidAssetIndex/);
+  assert.match(method, /AssetReferenceError/);
 });
 
 test("templates and bootstrap state satisfy the store contract", async () => {

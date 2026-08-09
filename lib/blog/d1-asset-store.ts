@@ -23,6 +23,10 @@ export class D1BlogAssetStore implements BlogAssetStore {
   }
   async getById(id:string) { const r=await this.#db().prepare(`SELECT ${columns} FROM blog_assets WHERE id=?1`).bind(id).first<Row>(); return r?map(r):null; }
   async listByPost(postId:string) { const r=await this.#db().prepare(`SELECT ${columns} FROM blog_assets WHERE post_id=?1 ORDER BY created_at`).bind(postId).all<Row>(); return r.results.map(map); }
+  commitPublishAtomically<T>(postId:string, ids:readonly string[], now:string, commit:()=>T):T {
+    void postId; void ids; void now; void commit;
+    throw new Error("D1 图片发布必须由 D1BlogStore 在同一事务中提交");
+  }
   async markPublished(postId:string, ids:string[], now:string) { if(!ids.length)return; const qs=ids.map(()=>"?").join(","); const owned=await this.#db().prepare(`SELECT COUNT(*) AS n FROM blog_assets WHERE post_id=?1 AND id IN (${qs})`).bind(postId,...ids).first<{n:number}>(); if(Number(owned?.n)!==new Set(ids).size) throw new Error("图片不存在或不属于当前文章"); await this.#db().prepare(`UPDATE blog_assets SET visibility='published',updated_at=?1 WHERE post_id=?2 AND id IN (${qs})`).bind(now,postId,...ids).run(); }
   async deleteMetadata(id:string) { await this.#db().prepare("DELETE FROM blog_assets WHERE id=?1").bind(id).run(); }
 }

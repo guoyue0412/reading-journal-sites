@@ -59,6 +59,24 @@ test("asset stores clone draft aliases without changing the source object metada
   });
   assert.deepEqual(await store.getById(source.id), source);
   await assert.rejects(
+    () => store.createDraftAlias(source.id, {
+      id: source.id,
+      postId: "self-alias-post",
+      now: "2026-07-03T00:00:00.000Z",
+    }),
+    /已存在/,
+  );
+  await assert.rejects(
+    () => store.createDraftAlias(source.id, {
+      id: alias.id,
+      postId: "duplicate-alias-post",
+      now: "2026-07-03T00:00:00.000Z",
+    }),
+    /已存在/,
+  );
+  assert.deepEqual(await store.getById(source.id), source);
+  assert.deepEqual(await store.getById(alias.id), alias);
+  await assert.rejects(
     () => store.createDraftAlias("missing", { id: "alias-missing", postId: "imported-post", now: "2026-07-02T00:00:00.000Z" }),
     /图片不存在/,
   );

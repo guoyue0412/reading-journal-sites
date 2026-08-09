@@ -15,7 +15,11 @@ import {
   type BlogStore,
 } from "./store.ts";
 import { mapD1WriteError } from "./d1-errors.ts";
-import type { BlogAssetStore, DraftAssetAliasInput } from "./asset-store.ts";
+import {
+  AssetReferenceError,
+  type BlogAssetStore,
+  type DraftAssetAliasInput,
+} from "./asset-store.ts";
 
 const BOOTSTRAP_MARKER = "blog_bootstrapped";
 
@@ -81,12 +85,20 @@ interface SaveDiagnosticRow {
   slug_reserved: number;
 }
 
+interface InvalidAssetRow {
+  id: string;
+}
+
 function parseJson<T>(value: string): T {
   return JSON.parse(value) as T;
 }
 
 function resultRows<T>(result: { results?: unknown[] }): T[] {
   return (result.results ?? []) as T[];
+}
+
+function numberedPlaceholders(start: number, count: number): string {
+  return Array.from({ length: count }, (_, index) => `?${start + index}`).join(", ");
 }
 
 function rowToSection(row: SectionRow): BlogSection {
@@ -294,6 +306,74 @@ export class D1BlogStore implements BlogStore {
     return structuredClone(draft);
   }
 
+  async createDraftCopy(
+    sourceId: string,
+    expectedVersion: number,
+    draft: BlogPostDraft,
+    aliases: readonly DraftAssetAliasInput[],
+    assetStore?: BlogAssetStore,
+  ): Promise<BlogPostDraft> {
+    void assetStore;
+    if (aliases.some((alias) => alias.postId !== draft.id)) {
+      throw new Error("图片别名所属文章不一致");
+    }
+    const d1 = this.#database();
+    const writeToken = crypto.randomUUID();
+    const statements = [
+      d1.prepare(
+        "INSERT INTO posts (id, slug, type, title, date, summary, tags_json, related_json, metadata_json, status, draft_version, published_revision_id, published_slug, last_write_token, created_at, updated_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL, ?13, ?14, ?15 WHERE NOT EXISTS (SELECT 1 FROM posts WHERE published_slug=?2) AND EXISTS (SELECT 1 FROM posts WHERE id=?16 AND draft_version=?17)",
+      ).bind(
+        draft.id,
+        draft.slug,
+        draft.type,
+        draft.title,
+        draft.date,
+        draft.summary,
+        JSON.stringify(draft.tags),
+        JSON.stringify(draft.related),
+        JSON.stringify(draft.metadata),
+        draft.status,
+        draft.draftVersion,
+        draft.publishedRevisionId,
+        writeToken,
+        draft.createdAt,
+        draft.updatedAt,
+        sourceId,
+        expectedVersion,
+      ),
+      ...draft.sections.map((section) => sectionInsert(d1, section, draft.id, writeToken)),
+      ...draft.related.map((targetSlug, index) => relationInsert(
+        d1,
+        draft.id,
+        targetSlug,
+        index,
+        writeToken,
+      )),
+      ...aliases.map((alias) => d1.prepare(
+        "INSERT INTO blog_assets (id, post_id, object_key, original_name, safe_name, content_type, size_bytes, sha256, visibility, created_at, updated_at) SELECT ?1, ?2, (SELECT object_key FROM blog_assets WHERE id=?4), (SELECT original_name FROM blog_assets WHERE id=?4), (SELECT safe_name FROM blog_assets WHERE id=?4), (SELECT content_type FROM blog_assets WHERE id=?4), (SELECT size_bytes FROM blog_assets WHERE id=?4), (SELECT sha256 FROM blog_assets WHERE id=?4), 'draft', ?3, ?3 WHERE EXISTS (SELECT 1 FROM posts WHERE id=?2 AND last_write_token=?5)",
+      ).bind(alias.id, alias.postId, alias.now, alias.sourceAssetId, writeToken)),
+    ];
+    const diagnosticIndex = statements.length;
+    statements.push(d1.prepare(
+      "SELECT draft_version, EXISTS (SELECT 1 FROM posts WHERE published_slug=?2) AS slug_reserved FROM posts WHERE id=?1",
+    ).bind(sourceId, draft.slug));
+
+    let results: D1ResultLike[];
+    try {
+      results = await d1.batch(statements);
+    } catch (error) {
+      throw mapD1WriteError(error);
+    }
+    if (results[0].meta.changes !== 1) {
+      const diagnostic = resultRows<SaveDiagnosticRow>(results[diagnosticIndex])[0];
+      if (!diagnostic || diagnostic.draft_version !== expectedVersion) {
+        throw new VersionConflictError();
+      }
+      throw new SlugConflictError();
+    }
+    return structuredClone(draft);
+  }
+
   async importDraft(draft: BlogPostDraft): Promise<BlogPostDraft> {
     const existing = (await this.listDrafts()).find((post) => post.slug === draft.slug);
     if (existing) return existing;
@@ -428,6 +508,98 @@ export class D1BlogStore implements BlogStore {
     ]);
     if (results[0].meta.changes !== 1 || results[1].meta.changes !== 1) {
       const diagnostic = resultRows<SaveDiagnosticRow>(results[2])[0];
+      if (diagnostic?.draft_version === expectedVersion && diagnostic.slug_reserved) {
+        throw new SlugConflictError();
+      }
+      throw new VersionConflictError();
+    }
+    return structuredClone(snapshot);
+  }
+
+  async publishWithAssets(
+    draft: BlogPostDraft,
+    expectedVersion: number,
+    revisionId: string,
+    publishedAt: string,
+    referencedAssetIds: readonly string[],
+    assetStore: BlogAssetStore,
+  ): Promise<PublishedSnapshot> {
+    void assetStore;
+    const assetIds = [...new Set(referencedAssetIds)];
+    if (!assetIds.length) {
+      return this.publish(draft, expectedVersion, revisionId, publishedAt);
+    }
+    const nextVersion = expectedVersion + 1;
+    const snapshot: PublishedSnapshot = structuredClone({
+      ...draft,
+      status: "published" as const,
+      draftVersion: nextVersion,
+      publishedRevisionId: revisionId,
+      revisionId,
+      publishedAt,
+    });
+    const d1 = this.#database();
+
+    const revisionAssetPlaceholders = numberedPlaceholders(8, assetIds.length);
+    const revisionAssetCount = 8 + assetIds.length;
+    const updateAssetPlaceholders = numberedPlaceholders(7, assetIds.length);
+    const updateAssetCount = 7 + assetIds.length;
+    const promotionAssetPlaceholders = numberedPlaceholders(4, assetIds.length);
+    const promotionVersion = 4 + assetIds.length;
+    const invalidValues = assetIds.map((_, index) => `(?${index + 1})`).join(", ");
+    const invalidPostId = assetIds.length + 1;
+
+    const statements = [
+      d1.prepare(
+        `INSERT INTO post_revisions (id, post_id, revision_number, slug, date, snapshot_json, published_at) SELECT ?1, ?2, COALESCE((SELECT MAX(revision_number) FROM post_revisions WHERE post_id=?2), 0) + 1, ?3, ?4, ?5, ?6 WHERE EXISTS (SELECT 1 FROM posts WHERE id=?2 AND draft_version=?7) AND NOT EXISTS (SELECT 1 FROM posts AS reserved WHERE reserved.id<>?2 AND (reserved.slug=?3 OR reserved.published_slug=?3)) AND (SELECT COUNT(*) FROM blog_assets WHERE id IN (${revisionAssetPlaceholders}) AND (post_id=?2 OR visibility='published'))=?${revisionAssetCount}`,
+      ).bind(
+        revisionId,
+        draft.id,
+        draft.slug,
+        draft.date,
+        JSON.stringify(snapshot),
+        publishedAt,
+        expectedVersion,
+        ...assetIds,
+        assetIds.length,
+      ),
+      d1.prepare(
+        `UPDATE posts SET published_revision_id=?1, published_slug=?2, status='published', draft_version=?3, updated_at=?4 WHERE id=?5 AND draft_version=?6 AND NOT EXISTS (SELECT 1 FROM posts AS reserved WHERE reserved.id<>?5 AND (reserved.slug=?2 OR reserved.published_slug=?2)) AND EXISTS (SELECT 1 FROM post_revisions WHERE id=?1 AND post_id=?5 AND slug=?2) AND (SELECT COUNT(*) FROM blog_assets WHERE id IN (${updateAssetPlaceholders}) AND (post_id=?5 OR visibility='published'))=?${updateAssetCount}`,
+      ).bind(
+        revisionId,
+        draft.slug,
+        nextVersion,
+        publishedAt,
+        draft.id,
+        expectedVersion,
+        ...assetIds,
+        assetIds.length,
+      ),
+      d1.prepare(
+        `UPDATE blog_assets SET visibility='published', updated_at=?1 WHERE post_id=?2 AND id IN (${promotionAssetPlaceholders}) AND visibility='draft' AND EXISTS (SELECT 1 FROM posts WHERE id=?2 AND published_revision_id=?3 AND draft_version=?${promotionVersion})`,
+      ).bind(publishedAt, draft.id, revisionId, ...assetIds, nextVersion),
+      d1.prepare(
+        "SELECT draft_version, EXISTS (SELECT 1 FROM posts AS reserved WHERE reserved.id<>?1 AND (reserved.slug=?2 OR reserved.published_slug=?2)) AS slug_reserved FROM posts WHERE id=?1",
+      ).bind(draft.id, draft.slug),
+      d1.prepare(
+        `WITH referenced(id) AS (VALUES ${invalidValues}) SELECT referenced.id FROM referenced LEFT JOIN blog_assets ON blog_assets.id=referenced.id WHERE blog_assets.id IS NULL OR (blog_assets.post_id<>?${invalidPostId} AND blog_assets.visibility<>'published')`,
+      ).bind(...assetIds, draft.id),
+    ];
+    const diagnosticIndex = 3;
+    const invalidAssetIndex = 4;
+
+    let results: D1ResultLike[];
+    try {
+      results = await d1.batch(statements);
+    } catch (error) {
+      throw mapD1WriteError(error);
+    }
+    if (results[0].meta.changes !== 1 || results[1].meta.changes !== 1) {
+      const invalidAssets = resultRows<InvalidAssetRow>(results[invalidAssetIndex]);
+      if (invalidAssets.length) {
+        throw new AssetReferenceError(invalidAssets.map((asset) => asset.id));
+      }
+      const diagnostic = resultRows<SaveDiagnosticRow>(results[diagnosticIndex])[0];
       if (diagnostic?.draft_version === expectedVersion && diagnostic.slug_reserved) {
         throw new SlugConflictError();
       }

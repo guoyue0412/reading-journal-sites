@@ -29,6 +29,13 @@ export interface BlogStore {
     aliases: readonly DraftAssetAliasInput[],
     assetStore: BlogAssetStore,
   ): Promise<BlogPostDraft>;
+  createDraftCopy(
+    sourceId: string,
+    expectedVersion: number,
+    draft: BlogPostDraft,
+    aliases: readonly DraftAssetAliasInput[],
+    assetStore?: BlogAssetStore,
+  ): Promise<BlogPostDraft>;
   importDraft(draft: BlogPostDraft): Promise<BlogPostDraft>;
   saveDraft(draft: BlogPostDraft, expectedVersion: number): Promise<BlogPostDraft>;
   deleteDraft(id: string): Promise<void>;
@@ -37,6 +44,14 @@ export interface BlogStore {
     expectedVersion: number,
     revisionId: string,
     publishedAt: string,
+  ): Promise<PublishedSnapshot>;
+  publishWithAssets(
+    draft: BlogPostDraft,
+    expectedVersion: number,
+    revisionId: string,
+    publishedAt: string,
+    referencedAssetIds: readonly string[],
+    assetStore: BlogAssetStore,
   ): Promise<PublishedSnapshot>;
   getPublishedBySlug(slug: string): Promise<PublishedSnapshot | null>;
   listPublished(): Promise<PublishedSnapshot[]>;
@@ -102,6 +117,22 @@ export class MemoryBlogStore implements BlogStore {
       throw error;
     }
     return clone(stored);
+  }
+
+  async createDraftCopy(
+    sourceId: string,
+    expectedVersion: number,
+    draft: BlogPostDraft,
+    aliases: readonly DraftAssetAliasInput[],
+    assetStore?: BlogAssetStore,
+  ): Promise<BlogPostDraft> {
+    const source = this.#drafts.get(sourceId);
+    if (!source || source.draftVersion !== expectedVersion) {
+      throw new VersionConflictError();
+    }
+    if (!aliases.length) return this.createDraft(draft);
+    if (!assetStore) throw new Error("图片存储未配置");
+    return this.createDraftWithAssetAliases(draft, aliases, assetStore);
   }
 
   async importDraft(draft: BlogPostDraft): Promise<BlogPostDraft> {
@@ -172,6 +203,64 @@ export class MemoryBlogStore implements BlogStore {
       publishedRevisionId: revisionId,
     }));
     return clone(snapshot);
+  }
+
+  async publishWithAssets(
+    draft: BlogPostDraft,
+    expectedVersion: number,
+    revisionId: string,
+    publishedAt: string,
+    referencedAssetIds: readonly string[],
+    assetStore: BlogAssetStore,
+  ): Promise<PublishedSnapshot> {
+    const current = this.#drafts.get(draft.id);
+    if (!current || current.draftVersion !== expectedVersion) {
+      throw new VersionConflictError();
+    }
+    this.#assertSlugAvailable(draft.slug, draft.id);
+    if (this.#revisions.has(revisionId)) {
+      throw new Error(`Revision already exists: ${revisionId}`);
+    }
+
+    const nextVersion = expectedVersion + 1;
+    const snapshot = clone({
+      ...draft,
+      status: "published" as const,
+      draftVersion: nextVersion,
+      publishedRevisionId: revisionId,
+      createdAt: current.createdAt,
+      revisionId,
+      publishedAt,
+    });
+    const previousPublishedSlug = this.#publishedSlugs.get(current.id);
+    let postCommitted = false;
+    try {
+      return assetStore.commitPublishAtomically(
+        current.id,
+        referencedAssetIds,
+        publishedAt,
+        () => {
+          this.#revisions.set(revisionId, snapshot);
+          this.#publishedSlugs.set(current.id, snapshot.slug);
+          this.#drafts.set(current.id, clone({
+            ...current,
+            status: "published",
+            draftVersion: nextVersion,
+            publishedRevisionId: revisionId,
+          }));
+          postCommitted = true;
+          return clone(snapshot);
+        },
+      );
+    } catch (error) {
+      if (postCommitted) {
+        this.#revisions.delete(revisionId);
+        this.#drafts.set(current.id, current);
+        if (previousPublishedSlug === undefined) this.#publishedSlugs.delete(current.id);
+        else this.#publishedSlugs.set(current.id, previousPublishedSlug);
+      }
+      throw error;
+    }
   }
 
   async getPublishedBySlug(slug: string): Promise<PublishedSnapshot | null> {

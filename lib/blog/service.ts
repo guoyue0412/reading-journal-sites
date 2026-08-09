@@ -14,7 +14,7 @@ import type {
 import { validateDraft, validateForPublish } from "./validation.ts";
 import { derivePostRelations, normalizeMarkdownPost, rewriteLocalAssetIds } from "./markdown-sections.ts";
 import { extractLocalAssetIds } from "./markdown-sections.ts";
-import type { BlogAssetStore } from "./asset-store.ts";
+import { AssetReferenceError, type BlogAssetStore } from "./asset-store.ts";
 
 const postTypes: readonly PostType[] = ["jobs", "internship", "papers", "reflections"];
 const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relation"] as const;
@@ -223,8 +223,20 @@ export function createBlogService(
         const errors = validateDraft(draft);
         if (errors.length) throw new BlogValidationError(errors);
         const prepared = await prepareImportedAssetAliases(draft);
+        const normalized = normalizeMarkdownPost(prepared.draft);
+        const aliases = prepared.aliases.map((alias) => ({
+          ...alias,
+          postId: normalized.id,
+          now,
+        }));
         try {
-          return await createCompleteDraft(normalizeMarkdownPost(prepared.draft), prepared.aliases);
+          return await store.createDraftCopy(
+            source.id,
+            expectedVersion,
+            normalized,
+            aliases,
+            assetStore,
+          );
         } catch (error) {
           if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
         }
@@ -270,7 +282,9 @@ export function createBlogService(
       const errors = validateForPublish(draft);
       if (errors.length) throw new BlogValidationError(errors);
       const assetIds = [...new Set(draft.sections.flatMap((section) => extractLocalAssetIds(section.content)))];
-      let ownedDraftAssetIds: string[] = [];
+      if (assetIds.length && !assetStore) {
+        throw new BlogValidationError(assetIds.map((assetId) => `图片不存在或不属于当前文章：${assetId}`));
+      }
       if (assetStore) {
         const assets = await Promise.all(assetIds.map((assetId) => assetStore.getById(assetId)));
         const invalid = assetIds.filter((_, index) => {
@@ -280,15 +294,29 @@ export function createBlogService(
         if (invalid.length) {
           throw new BlogValidationError(invalid.map((id) => `图片不存在或不属于当前文章：${id}`));
         }
-        ownedDraftAssetIds = assetIds.filter((_, index) => {
-          const asset = assets[index];
-          return asset?.postId === draft.id && asset.visibility === "draft";
-        });
       }
       const publishedAt = clock();
-      const snapshot = await store.publish(draft, expectedVersion, ids(), publishedAt);
-      if (assetStore) await assetStore.markPublished(draft.id, ownedDraftAssetIds, publishedAt);
-      return snapshot;
+      const revisionId = ids();
+      try {
+        if (assetIds.length) {
+          return await store.publishWithAssets(
+            draft,
+            expectedVersion,
+            revisionId,
+            publishedAt,
+            assetIds,
+            assetStore!,
+          );
+        }
+        return await store.publish(draft, expectedVersion, revisionId, publishedAt);
+      } catch (error) {
+        if (error instanceof AssetReferenceError) {
+          throw new BlogValidationError(
+            error.assetIds.map((assetId) => `图片不存在或不属于当前文章：${assetId}`),
+          );
+        }
+        throw error;
+      }
     },
 
     listTemplates(type) {

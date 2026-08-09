@@ -4,11 +4,9 @@ import {
   requireDraftRecord,
   readJsonRecord,
   requireExpectedVersion,
-  requireStringField,
   withOwnerJson,
 } from "@/lib/blog/http.ts";
 import { BlogValidationError } from "@/lib/blog/service.ts";
-import type { BlogPostDraft } from "@/lib/blog/types.ts";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -28,13 +26,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { id } = await params;
     const payload = await readJsonRecord(request);
     const draft = requireDraftRecord(payload.draft);
-    const draftId = requireStringField(draft, "id", "文章 ID 不能为空");
     const expectedVersion = requireExpectedVersion(payload);
-    if (draftId !== id) {
+    if (draft.id !== id) {
       throw new BlogValidationError(["文章 ID 不一致"]);
     }
     const service = await getService();
-    return { post: await service.saveDraft(draft as BlogPostDraft, expectedVersion) };
+    return { post: await service.saveDraft(draft, expectedVersion) };
   }, owner);
 }
 

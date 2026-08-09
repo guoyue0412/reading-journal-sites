@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createEmptyDraft } from "../lib/blog/default-templates.ts";
 import {
   readJsonRecord,
   requireDraftRecord,
@@ -121,6 +122,43 @@ test("draft guards reject partial records before they can reach persistence", as
     requireDraftRecord({ id: "post-1" });
     return { ok: true };
   });
+});
+
+test("draft guards reject malformed nested payloads with 400 before persistence", async () => {
+  const paper = createEmptyDraft("papers", "paper-guard", "2026-07-24", []);
+  const job = createEmptyDraft("jobs", "job-guard", "2026-07-24", []);
+  const malformed = [
+    ["tag elements", { ...paper, tags: [{ label: "unsafe" }] }],
+    ["related elements", { ...paper, related: [7] }],
+    ["paper authors", { ...paper, metadata: { ...paper.metadata, authors: "Guo Yue" } }],
+    ["paper year", { ...paper, metadata: { ...paper.metadata, year: "2026" } }],
+    ["paper reading methods", { ...paper, metadata: { ...paper.metadata, readingMethods: ["deep", 1] } }],
+    ["paper reading status", { ...paper, metadata: { ...paper.metadata, readingStatus: "finished" } }],
+    ["job stage", { ...job, metadata: { ...job.metadata, applicationStage: "waiting" } }],
+    ["section items", { ...paper, sections: paper.sections.map((section, index) => index === 0 ? { ...section, items: [{}] } : section) }],
+    ["section relations", { ...paper, sections: paper.sections.map((section, index) => index === 0 ? { ...section, relationSlugs: [3] } : section) }],
+    ["status", { ...paper, status: 1 }],
+    ["draft version", { ...paper, draftVersion: "0" }],
+    ["published revision", { ...paper, publishedRevisionId: 9 }],
+    ["timestamps", { ...paper, updatedAt: null }],
+  ];
+
+  for (const [label, draft] of malformed) {
+    let persistenceCalls = 0;
+    const response = await withOwnerJson(async () => {
+      const guarded = requireDraftRecord(draft);
+      persistenceCalls += 1;
+      return { post: guarded };
+    }, authorized);
+    assert.equal(response.status, 400, label);
+    assert.equal(persistenceCalls, 0, label);
+    const body = await response.json();
+    assert.equal(body.error, "内容校验失败", label);
+    assert.ok(body.fields.length > 0, label);
+  }
+
+  assert.doesNotThrow(() => requireDraftRecord(paper));
+  assert.doesNotThrow(() => requireDraftRecord(job));
 });
 
 test("template updates reject a postType that differs from the queried scope", async () => {

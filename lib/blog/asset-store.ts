@@ -21,6 +21,16 @@ export interface DraftAssetAliasInput {
   now: string;
 }
 
+export class AssetReferenceError extends Error {
+  readonly assetIds: readonly string[];
+
+  constructor(assetIds: readonly string[]) {
+    super("图片不存在或不属于当前文章");
+    this.name = "AssetReferenceError";
+    this.assetIds = assetIds;
+  }
+}
+
 export interface BlogAssetStore {
   findByPostAndHash(postId: string, sha256: string): Promise<BlogAsset | null>;
   createDraftAsset(asset: BlogAsset): Promise<BlogAsset>;
@@ -28,6 +38,12 @@ export interface BlogAssetStore {
   createDraftAliases(inputs: readonly DraftAssetAliasInput[]): Promise<BlogAsset[]>;
   getById(id: string): Promise<BlogAsset | null>;
   listByPost(postId: string): Promise<BlogAsset[]>;
+  commitPublishAtomically<T>(
+    postId: string,
+    referencedAssetIds: readonly string[],
+    now: string,
+    commit: () => T,
+  ): T;
   markPublished(postId: string, assetIds: string[], now: string): Promise<void>;
   deleteMetadata(id: string): Promise<void>;
 }
@@ -53,6 +69,7 @@ export class MemoryBlogAssetStore implements BlogAssetStore {
     const next = new Map(this.#assets);
     const aliases: BlogAsset[] = [];
     for (const input of inputs) {
+      if (next.has(input.id)) throw new Error("图片 ID 已存在");
       const source = next.get(input.sourceAssetId);
       if (!source) throw new Error("图片不存在");
       if ([...next.values()].some((asset) => asset.postId === input.postId && asset.sha256 === source.sha256)) {
@@ -78,6 +95,30 @@ export class MemoryBlogAssetStore implements BlogAssetStore {
   }
   async listByPost(postId: string) {
     return [...this.#assets.values()].filter((asset) => asset.postId === postId).map(clone);
+  }
+  commitPublishAtomically<T>(
+    postId: string,
+    referencedAssetIds: readonly string[],
+    now: string,
+    commit: () => T,
+  ): T {
+    const assetIds = [...new Set(referencedAssetIds)];
+    const invalid = assetIds.filter((id) => {
+      const asset = this.#assets.get(id);
+      return !asset || (asset.postId !== postId && asset.visibility !== "published");
+    });
+    if (invalid.length) throw new AssetReferenceError(invalid);
+
+    const next = new Map(this.#assets);
+    for (const id of assetIds) {
+      const asset = next.get(id)!;
+      if (asset.postId === postId && asset.visibility === "draft") {
+        next.set(id, { ...asset, visibility: "published", updatedAt: now });
+      }
+    }
+    const result = commit();
+    this.#assets = next;
+    return result;
   }
   async markPublished(postId: string, assetIds: string[], now: string) {
     for (const id of assetIds) {
