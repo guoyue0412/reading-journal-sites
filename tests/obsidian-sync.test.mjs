@@ -51,12 +51,22 @@ test("syncs isolated Obsidian categories, wikilinks and attachments without dele
   assert.equal(await readFile(path.join(publicRoot, "obsidian-assets", "paper-a-figure.png"), "utf8"), "image-bytes");
 
   const generatedPath = path.join(root, "generated.ts");
+  const legacyGeneratedPath = path.join(root, "legacy-generated.ts");
+  const repositoryLegacyPath = new URL("../lib/content/legacy-generated.ts", import.meta.url);
+  const repositoryLegacyBefore = await readFile(repositoryLegacyPath);
   await execFileAsync(process.execPath, [
-    "scripts/generate-content-index.mjs", "--content-root", contentRoot, "--output", generatedPath,
+    "scripts/generate-content-index.mjs", "--content-root", contentRoot,
+    "--output", generatedPath, "--legacy-output", legacyGeneratedPath,
   ], { cwd: new URL("../", import.meta.url) });
   const generated = await readFile(generatedPath, "utf8");
+  assert.deepEqual(await readFile(repositoryLegacyPath), repositoryLegacyBefore);
+  let legacyGenerated;
+  await assert.doesNotReject(async () => {
+    legacyGenerated = await readFile(legacyGeneratedPath, "utf8");
+  }, "writes legacy output to the temporary fixture path");
   assert.match(generated, /"readingMethods": \[\s*"deep"/);
   assert.doesNotMatch(generated, /"slug": "job-log"/);
+  assert.match(legacyGenerated, /"slug": "job-log"/);
 });
 
 test("fails clearly when a note has no frontmatter or an attachment is missing", async (t) => {
