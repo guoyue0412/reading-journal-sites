@@ -32,3 +32,17 @@ test("defines the approved OKLCH palette and excludes decorative effects", async
   assert.doesNotMatch(css, /linear-gradient|radial-gradient|backdrop-filter|filter:\s*blur/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
+
+test("research archive data exposes questions, contributions, and verifiable internal evidence", async () => {
+  const { researchProfile, researchProjects, researchTopics } = await import("../lib/research/archive.ts");
+
+  assert.match(researchProfile.field, /具身智能/);
+  assert.ok(researchProfile.currentQuestion.length > 20);
+  assert.equal(researchProjects.length, 3);
+  for (const project of researchProjects) {
+    assert.ok(project.id && project.title && project.question && project.contribution);
+    assert.ok(project.evidence.length > 0);
+    assert.ok(project.evidence.every((item) => item.href.startsWith("/")));
+  }
+  assert.deepEqual(researchTopics.map((topic) => topic.label), ["VLA", "世界模型", "动作与状态表征", "灵巧操作", "仿真与泛化"]);
+});
