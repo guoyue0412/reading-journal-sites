@@ -76,3 +76,65 @@ The sole full-suite failure remains the planned obsolete assertion in `tests/rea
 - Real pointer, keyboard, and viewport screenshot validation remains assigned to the later acceptance task; Task 6 covers source contracts, persistence regressions, lint, and production build.
 - Existing Node `module.register()` deprecation, proxy-detection, React test-renderer deprecation, and Vinext route-classification warnings remain non-failing and unchanged.
 - Existing modified Task 1 and Task 3 reports remain untouched and unstaged.
+
+## Review-fix follow-up
+
+Independent review identified four coupled presentation gaps: late archive rules did not beat legacy material specificity, the tablet drawer remained keyboard/pointer reachable while visually off-screen, 1024px landscape incorrectly collapsed to one pane, and responsive controls lacked executable component evidence.
+
+### Review RED
+
+After adding cross-file cascade checks and React component behavior tests:
+
+```text
+node --test tests/editor-responsive.test.mjs tests/editor-components-interaction.test.mjs
+tests 7
+pass 2
+fail 5
+```
+
+The two passes covered the existing mobile-bar and sidebar callbacks. The five expected failures covered absent high-specificity resets, missing 1060px/portrait rules, missing closed-sidebar interaction blocking, missing disclosure positioning, and missing focus restoration. The first StructuredEditor test attempt exposed a test-only Vite alias/cache setup error; adding the repository alias and a `/tmp` cache produced the genuine `focusCalls === 0` RED before production code changed.
+
+A final focused assertion also demonstrated that delayed `visibility` left the closed drawer exposed during transition (`0/1`); removing the visibility transition made closing immediate.
+
+### Review GREEN
+
+```text
+node --test tests/editor-responsive.test.mjs tests/editor-components-interaction.test.mjs
+tests 7
+pass 7
+fail 0
+
+node --test tests/editor-components-interaction.test.mjs tests/editor-responsive.test.mjs tests/editor-source.test.mjs tests/editor-api-source.test.mjs tests/blog-service.test.mjs tests/markdown-roundtrip.test.mjs tests/blog-assets.test.mjs
+tests 55
+pass 55
+fail 0
+```
+
+The interaction suite uses React 19, `react-test-renderer`, and Vite SSR to verify all five save labels, disabled states, pane/add/publish callbacks, sidebar identity/open state/select/create callbacks, and StructuredEditor close-plus-focus behavior.
+
+### Review changes
+
+- Added explicit archive-specificity resets for admin header blur/shadow, editor/sidebar/preview legacy colors and shadows, drawer glass/radius/float shadow, save-state pill radius, toolbar hover shadow, active-sidebar styling, and semitransparent 10px legacy controls.
+- At `<=1060px`, the article sidebar becomes a drawer while edit and preview remain a two-column workspace. Closed state uses immediate `visibility: hidden` and `pointer-events: none`; `is-open` restores both.
+- At `<=1024px` portrait, or `<=800px`, `mobilePane` controls the single visible pane. Therefore 1024px landscape retains simultaneous edit and preview while 1024px portrait switches panes. The 1060px threshold removes the previous 1025–1052px gap.
+- Selecting or creating an article closes the drawer and returns focus to the article-list toggle through presentation wrappers only.
+- The native module menu now establishes its own positioning context and aligns its menu at `right: 0`.
+
+### Review verification
+
+- `npm run build` — exit `0`, all Vinext stages completed.
+- `npm run lint` — exit `0`, no findings.
+- `npm test` — build passed; 150 tests ran, 149 passed, 1 failed.
+- `git diff --check` — exit `0`, no findings.
+
+The only full-suite failure is still the Task 7-owned `tests/react-bits-layout.test.mjs` ambient assertion; the review fix added no failure. Existing deprecation, proxy, and route-classification warnings remain non-failing.
+
+The byte audit against `f4022d1` again matched all eight protected bodies and the same SHA-256 prefixes recorded above. `StructuredEditor` changed only by adding the article-toggle ref, focus-restoring presentation wrapper, and presentation callback wiring.
+
+Review-fix files:
+
+- `app/editor-archive.css`
+- `components/editor/structured-editor.tsx`
+- `tests/editor-responsive.test.mjs`
+- `tests/editor-components-interaction.test.mjs`
+- `.superpowers/sdd/task-6-report.md`
