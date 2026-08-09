@@ -88,11 +88,15 @@ test("publish errors show the backend error and field details", async () => {
   assert.match(source, /fields/);
 });
 
-test("saving an article copy preserves structured component identities", async () => {
+test("saving an article copy uses one canonical server-side creation", async () => {
   const source = await readFile(editorUrl, "utf8");
-  assert.doesNotMatch(source, /sections:\s*current\.sections\.map\(\(section\)\s*=>\s*\(\{[^}]*standardKey:\s*null/);
-  assert.match(source, /slug:\s*payload\.post\.slug/);
-  assert.doesNotMatch(source, /slug:\s*`\$\{saved\.slug\}-copy`/);
+  const copy = source.slice(source.indexOf("async function saveAsNewArticle"), source.indexOf("async function importMarkdown"));
+  assert.match(copy, /`\/api\/editor\/posts\/\$\{saved\.id\}\/copy`/);
+  assert.match(copy, /JSON\.stringify\(\{ expectedVersion: saved\.draftVersion \}\)/);
+  assert.match(copy, /setCurrent\(payload\.post\)/);
+  assert.doesNotMatch(copy, /fetch\("\/api\/editor\/posts"/);
+  assert.doesNotMatch(copy, /scheduleAutosave\(/);
+  assert.doesNotMatch(copy, /crypto\.randomUUID\(/);
 });
 
 test("writing studio exposes semantic save feedback and material action hooks", async () => {

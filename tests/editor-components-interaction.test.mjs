@@ -418,7 +418,13 @@ test("a reflection copy keeps the server-reserved slug and persists the complete
     summary: "完整摘要",
     sections: createEmptyDraft("reflections", "post-1", "2026-08-09", []).sections.map((section, index) => index === 0 ? { ...section, content: "完整正文" } : section),
   };
-  const placeholder = { ...createEmptyDraft("reflections", "post-copy", "2026-08-09", []), slug: "2026-08-09-2" };
+  const copy = {
+    ...current,
+    id: "post-copy",
+    slug: "2026-08-09-2",
+    title: "冲突中的完整文章（副本）",
+    sections: current.sections.map((section, index) => ({ ...section, id: `post-copy-section-${index}` })),
+  };
   const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
   const fetchCalls = [];
   let currentPatchAttempts = 0;
@@ -436,10 +442,8 @@ test("a reflection copy keeps the server-reserved slug and persists the complete
         if (currentPatchAttempts === 1) return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
         return { ok: true, status: 200, json: async () => ({ post: { ...body.draft, draftVersion: 1 } }) };
       }
-      if (url === "/api/editor/posts") return { ok: true, status: 200, json: async () => ({ post: placeholder }) };
-      if (url === "/api/editor/posts/post-copy") {
-        if (body.draft.slug !== placeholder.slug) return { ok: false, status: 400, json: async () => ({ error: "reflection slug invalid" }) };
-        return { ok: true, status: 200, json: async () => ({ post: { ...body.draft, draftVersion: 1 } }) };
+      if (url === "/api/editor/posts/post-1/copy") {
+        return { ok: true, status: 200, json: async () => ({ post: { ...copy, title: "冲突中的完整文章（副本）" } }) };
       }
       throw new Error(`Unexpected request: ${url}`);
     };
@@ -449,16 +453,16 @@ test("a reflection copy keeps the server-reserved slug and persists the complete
     const publishButton = renderer.root.findByProps({ className: "material-action material-action--primary" });
     await act(async () => { publishButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
     const copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
-    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 850)); });
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 20)); });
 
-    const copySave = fetchCalls.find(([url]) => url === "/api/editor/posts/post-copy");
-    assert.ok(copySave);
-    assert.equal(copySave[2].draft.slug, "2026-08-09-2");
-    assert.equal(copySave[2].draft.title, "冲突中的完整文章（副本）");
-    assert.equal(copySave[2].draft.summary, "完整摘要");
-    assert.match(copySave[2].draft.sections[0].content, /完整正文/);
+    const copyCreate = fetchCalls.find(([url]) => url === "/api/editor/posts/post-1/copy");
+    assert.ok(copyCreate);
+    assert.deepEqual(copyCreate[2], { expectedVersion: 1 });
+    assert.equal(fetchCalls.some(([url]) => url === "/api/editor/posts" || url === "/api/editor/posts/post-copy"), false);
     const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
     assert.equal(exportLink.props.href, "/api/editor/posts/post-copy/export");
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "冲突中的完整文章（副本）"));
+    assert.ok(renderer.root.findAllByType("textarea").some((input) => input.props.value === "完整摘要"));
     assert.equal(renderer.root.findByProps({ className: "studio-save-state save-state--saved" }).children.join(""), "已保存");
   } finally {
     if (renderer) await act(async () => renderer.unmount());

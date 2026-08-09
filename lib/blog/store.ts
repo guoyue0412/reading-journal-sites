@@ -4,6 +4,7 @@ import type {
   PublishedSnapshot,
   SectionTemplate,
 } from "./types.ts";
+import type { BlogAssetStore, DraftAssetAliasInput } from "./asset-store.ts";
 
 export class VersionConflictError extends Error {
   constructor() {
@@ -23,6 +24,11 @@ export interface BlogStore {
   listDrafts(): Promise<BlogPostDraft[]>;
   getDraft(id: string): Promise<BlogPostDraft | null>;
   createDraft(draft: BlogPostDraft): Promise<BlogPostDraft>;
+  createDraftWithAssetAliases(
+    draft: BlogPostDraft,
+    aliases: readonly DraftAssetAliasInput[],
+    assetStore: BlogAssetStore,
+  ): Promise<BlogPostDraft>;
   importDraft(draft: BlogPostDraft): Promise<BlogPostDraft>;
   saveDraft(draft: BlogPostDraft, expectedVersion: number): Promise<BlogPostDraft>;
   deleteDraft(id: string): Promise<void>;
@@ -72,6 +78,29 @@ export class MemoryBlogStore implements BlogStore {
     }
     const stored = clone(draft);
     this.#drafts.set(stored.id, stored);
+    return clone(stored);
+  }
+
+  async createDraftWithAssetAliases(
+    draft: BlogPostDraft,
+    aliases: readonly DraftAssetAliasInput[],
+    assetStore: BlogAssetStore,
+  ): Promise<BlogPostDraft> {
+    this.#assertSlugAvailable(draft.slug, draft.id);
+    if (this.#drafts.has(draft.id)) {
+      throw new Error(`Draft already exists: ${draft.id}`);
+    }
+    if (aliases.some((alias) => alias.postId !== draft.id)) {
+      throw new Error("图片别名所属文章不一致");
+    }
+    const stored = clone(draft);
+    this.#drafts.set(stored.id, stored);
+    try {
+      await assetStore.createDraftAliases(aliases);
+    } catch (error) {
+      this.#drafts.delete(stored.id);
+      throw error;
+    }
     return clone(stored);
   }
 

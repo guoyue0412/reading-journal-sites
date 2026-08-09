@@ -15,6 +15,7 @@ import {
   type BlogStore,
 } from "./store.ts";
 import { mapD1WriteError } from "./d1-errors.ts";
+import type { BlogAssetStore, DraftAssetAliasInput } from "./asset-store.ts";
 
 const BOOTSTRAP_MARKER = "blog_bootstrapped";
 
@@ -223,6 +224,62 @@ export class D1BlogStore implements BlogStore {
         index,
         writeToken,
       )),
+    ];
+
+    let results: D1ResultLike[];
+    try {
+      results = await d1.batch(statements);
+    } catch (error) {
+      throw mapD1WriteError(error);
+    }
+    if (results[0].meta.changes !== 1) {
+      throw new SlugConflictError();
+    }
+    return structuredClone(draft);
+  }
+
+  async createDraftWithAssetAliases(
+    draft: BlogPostDraft,
+    aliases: readonly DraftAssetAliasInput[],
+    assetStore: BlogAssetStore,
+  ): Promise<BlogPostDraft> {
+    void assetStore;
+    if (aliases.some((alias) => alias.postId !== draft.id)) {
+      throw new Error("图片别名所属文章不一致");
+    }
+    const d1 = this.#database();
+    const writeToken = crypto.randomUUID();
+    const statements = [
+      d1.prepare(
+        "INSERT INTO posts (id, slug, type, title, date, summary, tags_json, related_json, metadata_json, status, draft_version, published_revision_id, published_slug, last_write_token, created_at, updated_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, NULL, ?13, ?14, ?15 WHERE NOT EXISTS (SELECT 1 FROM posts WHERE published_slug=?2)",
+      ).bind(
+        draft.id,
+        draft.slug,
+        draft.type,
+        draft.title,
+        draft.date,
+        draft.summary,
+        JSON.stringify(draft.tags),
+        JSON.stringify(draft.related),
+        JSON.stringify(draft.metadata),
+        draft.status,
+        draft.draftVersion,
+        draft.publishedRevisionId,
+        writeToken,
+        draft.createdAt,
+        draft.updatedAt,
+      ),
+      ...draft.sections.map((section) => sectionInsert(d1, section, draft.id, writeToken)),
+      ...draft.related.map((targetSlug, index) => relationInsert(
+        d1,
+        draft.id,
+        targetSlug,
+        index,
+        writeToken,
+      )),
+      ...aliases.map((alias) => d1.prepare(
+        "INSERT INTO blog_assets (id, post_id, object_key, original_name, safe_name, content_type, size_bytes, sha256, visibility, created_at, updated_at) SELECT ?1, ?2, (SELECT object_key FROM blog_assets WHERE id=?4), (SELECT original_name FROM blog_assets WHERE id=?4), (SELECT safe_name FROM blog_assets WHERE id=?4), (SELECT content_type FROM blog_assets WHERE id=?4), (SELECT size_bytes FROM blog_assets WHERE id=?4), (SELECT sha256 FROM blog_assets WHERE id=?4), 'draft', ?3, ?3 WHERE EXISTS (SELECT 1 FROM posts WHERE id=?2 AND last_write_token=?5)",
+      ).bind(alias.id, alias.postId, alias.now, alias.sourceAssetId, writeToken)),
     ];
 
     let results: D1ResultLike[];

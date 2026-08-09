@@ -7,6 +7,7 @@ import {
   SlugConflictError,
   VersionConflictError,
 } from "../lib/blog/store.ts";
+import { MemoryBlogAssetStore } from "../lib/blog/asset-store.ts";
 
 test("saving requires the expected draft version", async () => {
   const store = new MemoryBlogStore();
@@ -216,6 +217,67 @@ test("D1 save returns canonical rows read inside its mutation batch", async () =
   assert.match(saveDraftSource, /canonicalSectionsIndex\s*=\s*statements\.length/);
   assert.match(saveDraftSource, /results\[canonicalPostIndex\]/);
   assert.match(saveDraftSource, /results\[canonicalSectionsIndex\]/);
+});
+
+test("complete draft and asset aliases commit atomically in Memory and one D1 batch", async () => {
+  const store = new MemoryBlogStore();
+  const assets = new MemoryBlogAssetStore();
+  const source = {
+    id: "11111111-1111-4111-8111-111111111111",
+    postId: "source-post",
+    objectKey: "posts/source-post/figure.png",
+    originalName: "figure.png",
+    safeName: "figure.png",
+    contentType: "image/png",
+    sizeBytes: 12,
+    sha256: "atomic-hash",
+    visibility: "draft",
+    createdAt: "2026-07-24T10:00:00.000Z",
+    updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(source);
+  const draft = createEmptyDraft("reflections", "atomic-import", "2026-07-25", []);
+  const alias = {
+    sourceAssetId: source.id,
+    id: "22222222-2222-4222-8222-222222222222",
+    postId: draft.id,
+    now: "2026-07-25T10:00:00.000Z",
+  };
+
+  await store.createDraftWithAssetAliases(draft, [alias], assets);
+  assert.equal((await store.getDraft(draft.id))?.id, draft.id);
+  assert.equal((await assets.getById(alias.id))?.postId, draft.id);
+
+  const missingDraft = createEmptyDraft("reflections", "atomic-missing", "2026-07-26", []);
+  const firstRolledBackAliasId = "33333333-3333-4333-8333-333333333333";
+  const missingAliasId = "44444444-4444-4444-8444-444444444444";
+  const sourceBeforeFailure = await assets.getById(source.id);
+  await assert.rejects(
+    () => store.createDraftWithAssetAliases(missingDraft, [
+      { ...alias, id: firstRolledBackAliasId, postId: missingDraft.id },
+      { ...alias, sourceAssetId: "missing", id: missingAliasId, postId: missingDraft.id },
+    ], assets),
+    /图片不存在/,
+  );
+  assert.equal(await store.getDraft(missingDraft.id), null);
+  assert.equal(await assets.getById(firstRolledBackAliasId), null);
+  assert.equal(await assets.getById(missingAliasId), null);
+  assert.deepEqual(await assets.getById(source.id), sourceBeforeFailure);
+
+  const [sourceCode, schema] = await Promise.all([
+    readFile(new URL("../lib/blog/d1-store.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_dark_proudstar.sql", import.meta.url), "utf8"),
+  ]);
+  const start = sourceCode.indexOf("async createDraftWithAssetAliases(");
+  const end = sourceCode.indexOf("async importDraft(", start);
+  const atomicSource = sourceCode.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.equal((atomicSource.match(/\.batch\(/g) ?? []).length, 1);
+  assert.match(atomicSource, /INSERT INTO blog_assets/);
+  assert.match(atomicSource, /last_write_token/);
+  assert.match(atomicSource, /SELECT object_key FROM blog_assets/);
+  assert.match(atomicSource, /mapD1WriteError/);
+  assert.match(schema, /`object_key` text NOT NULL/);
 });
 
 test("templates and bootstrap state satisfy the store contract", async () => {

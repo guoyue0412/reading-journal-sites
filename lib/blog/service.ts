@@ -75,6 +75,7 @@ export class BlogNotFoundError extends Error {
 
 export interface BlogService {
   createPost(input: { type: PostType; date: string }): Promise<BlogPostDraft>;
+  createPostCopy(id: string, expectedVersion: number): Promise<BlogPostDraft>;
   listPosts(): Promise<BlogPostDraft[]>;
   loadPost(id: string): Promise<BlogPostDraft>;
   saveDraft(draft: BlogPostDraft, expectedVersion: number): Promise<BlogPostDraft>;
@@ -163,6 +164,20 @@ export function createBlogService(
     };
   }
 
+  async function createCompleteDraft(
+    draft: BlogPostDraft,
+    aliases: Array<{ sourceAssetId: string; id: string }>,
+  ): Promise<BlogPostDraft> {
+    if (!aliases.length) return store.createDraft(draft);
+    if (!assetStore) throw new Error("图片存储未配置");
+    const now = clock();
+    return store.createDraftWithAssetAliases(
+      draft,
+      aliases.map((alias) => ({ ...alias, postId: draft.id, now })),
+      assetStore,
+    );
+  }
+
   return {
     async createPost(input) {
       const errors = validateCreatePostInput(input);
@@ -179,6 +194,37 @@ export function createBlogService(
         });
         try {
           return await store.createDraft(draft);
+        } catch (error) {
+          if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
+        }
+      }
+      throw new SlugConflictError();
+    },
+
+    async createPostCopy(id, expectedVersion) {
+      const source = await loadPost(id);
+      if (source.draftVersion !== expectedVersion) throw new VersionConflictError();
+      const now = clock();
+      const baseSlug = source.type === "reflections" ? source.date : `${source.type}-${source.date}`;
+      const baseCopy = normalizeMarkdownPost({
+        ...source,
+        id: ids(),
+        slug: baseSlug,
+        title: `${source.title}（副本）`,
+        status: "draft",
+        draftVersion: 0,
+        publishedRevisionId: null,
+        createdAt: now,
+        updatedAt: now,
+        sections: source.sections.map((section) => ({ ...section, id: ids() })),
+      });
+      for (let attempt = 0; attempt < maxSlugCreateAttempts; attempt += 1) {
+        const draft = { ...baseCopy, slug: await nextAvailableSlug(baseSlug) };
+        const errors = validateDraft(draft);
+        if (errors.length) throw new BlogValidationError(errors);
+        const prepared = await prepareImportedAssetAliases(draft);
+        try {
+          return await createCompleteDraft(normalizeMarkdownPost(prepared.draft), prepared.aliases);
         } catch (error) {
           if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
         }
@@ -284,25 +330,12 @@ export function createBlogService(
         if (imported.errors.length) return imported;
         const prepared = await prepareImportedAssetAliases(imported.draft);
         try {
-          imported.draft = await store.createDraft(normalizeMarkdownPost(prepared.draft));
+          imported.draft = await createCompleteDraft(normalizeMarkdownPost(prepared.draft), prepared.aliases);
         } catch (error) {
           if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
           continue;
         }
-        try {
-          for (const alias of prepared.aliases) {
-            await assetStore!.createDraftAlias(alias.sourceAssetId, {
-              id: alias.id,
-              postId: imported.draft.id,
-              now: clock(),
-            });
-          }
-          return imported;
-        } catch (error) {
-          await Promise.allSettled(prepared.aliases.map((alias) => assetStore!.deleteMetadata(alias.id)));
-          await store.deleteDraft(imported.draft.id);
-          throw error;
-        }
+        return imported;
       }
       throw new SlugConflictError();
     },

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createBlogService, BlogNotFoundError, BlogValidationError } from "../lib/blog/service.ts";
-import { MemoryBlogStore, SlugConflictError } from "../lib/blog/store.ts";
+import { MemoryBlogStore, SlugConflictError, VersionConflictError } from "../lib/blog/store.ts";
 import { createEmptyDraft } from "../lib/blog/default-templates.ts";
 import { validateDraft } from "../lib/blog/validation.ts";
 import { MemoryBlogAssetStore } from "../lib/blog/asset-store.ts";
@@ -92,6 +92,54 @@ test("createPost gives repeated same-day article types distinct addresses", asyn
   assert.equal(first.slug, "internship-2026-07-24");
   assert.equal(second.slug, "internship-2026-07-24-2");
   assert.deepEqual(validateDraft(second), []);
+});
+
+test("copying a reflection creates the complete article once at the reserved slug", async () => {
+  const assets = new MemoryBlogAssetStore();
+  const { service } = createService(new MemoryBlogStore(), assets);
+  const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const asset = {
+    id: "77777777-7777-4777-8777-777777777777", postId: original.id, objectKey: `posts/${original.id}/copy.png`,
+    originalName: "copy.png", safeName: "copy.png", contentType: "image/png", sizeBytes: 12, sha256: "copy-hash",
+    visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(asset);
+  const saved = await service.saveDraft({
+    ...original,
+    title: "完整反思",
+    summary: "完整摘要",
+    tags: ["copy"],
+    related: ["known-note"],
+    sections: original.sections.map((section, index) => index === 0
+      ? { ...section, content: `完整正文与 $E=mc^2$\n\n![figure](/media/${asset.id}/copy.png)` }
+      : section),
+  }, original.draftVersion);
+
+  const copy = await service.createPostCopy(saved.id, saved.draftVersion);
+  const posts = await service.listPosts();
+  const copiedAssetIds = extractLocalAssetIds(copy.sections[0].content);
+
+  assert.equal(copy.slug, "2026-07-24-2");
+  assert.equal(copy.title, "完整反思（副本）");
+  assert.equal(copy.summary, saved.summary);
+  assert.deepEqual(copy.tags, saved.tags);
+  assert.deepEqual(copy.related, saved.related);
+  assert.match(copy.sections[0].content, /完整正文与 \$E=mc\^2\$/);
+  assert.notEqual(copy.sections[0].id, saved.sections[0].id);
+  assert.equal(copy.draftVersion, 0);
+  assert.equal(copy.status, "draft");
+  assert.equal(posts.filter((post) => post.id === copy.id).length, 1);
+  assert.equal(posts.some((post) => post.id === copy.id && post.title === ""), false);
+  assert.equal(copiedAssetIds.length, 1);
+  assert.notEqual(copiedAssetIds[0], asset.id);
+  assert.equal((await assets.getById(copiedAssetIds[0]))?.postId, copy.id);
+  assert.deepEqual(await assets.getById(asset.id), asset);
+
+  await assert.rejects(
+    () => service.createPostCopy(saved.id, saved.draftVersion - 1),
+    VersionConflictError,
+  );
+  assert.equal((await service.listPosts()).length, 2);
 });
 
 test("ordinary post creation retries a slug race with a complete draft", async () => {
@@ -444,17 +492,31 @@ status: draft
   assert.deepEqual(await service.listPosts(), []);
 });
 
-test("an alias failure rolls back the imported draft and every planned alias metadata row", async () => {
-  class FailingAliasStore extends MemoryBlogAssetStore {
+test("an atomic alias failure cannot leave a draft or orphan metadata even when cleanup would fail", async () => {
+  class LegacyFailingAliasStore extends MemoryBlogAssetStore {
     aliasAttempts = 0;
     async createDraftAlias(sourceAssetId, input) {
       this.aliasAttempts += 1;
       if (this.aliasAttempts === 2) throw new Error("alias write failed");
       return super.createDraftAlias(sourceAssetId, input);
     }
+    async deleteMetadata() {
+      throw new Error("alias cleanup failed");
+    }
   }
-  const assets = new FailingAliasStore();
-  const { store, service } = createService(new MemoryBlogStore(), assets);
+  class AtomicRejectingStore extends MemoryBlogStore {
+    atomicAttempts = 0;
+    async createDraftWithAssetAliases() {
+      this.atomicAttempts += 1;
+      throw new Error("atomic alias write failed");
+    }
+    async deleteDraft() {
+      throw new Error("draft cleanup failed");
+    }
+  }
+  const assets = new LegacyFailingAliasStore();
+  const store = new AtomicRejectingStore();
+  const { service } = createService(store, assets);
   const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
   const sourceAssets = [
     {
@@ -480,10 +542,11 @@ test("an alias failure rolls back the imported draft and every planned alias met
 
   await assert.rejects(
     async () => service.createImportedPost(await service.exportPost(saved.id)),
-    /alias write failed/,
+    /atomic alias write failed/,
   );
 
-  assert.equal(assets.aliasAttempts, 2);
+  assert.equal(store.atomicAttempts, 1);
+  assert.equal(assets.aliasAttempts, 0);
   const rolledBackPostId = "00000000-0000-4000-8000-000000000002";
   assert.equal(await store.getDraft(rolledBackPostId), null);
   assert.deepEqual(await assets.listByPost(rolledBackPostId), []);

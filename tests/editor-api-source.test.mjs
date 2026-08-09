@@ -13,10 +13,12 @@ import {
   readOptionalBooleanField,
   withOwnerJson,
 } from "../lib/blog/http.ts";
+import { VersionConflictError } from "../lib/blog/store.ts";
 
 const routes = [
   "../app/api/editor/posts/route.ts",
   "../app/api/editor/posts/[id]/route.ts",
+  "../app/api/editor/posts/[id]/copy/route.ts",
   "../app/api/editor/posts/[id]/publish/route.ts",
   "../app/api/editor/posts/[id]/export/route.ts",
   "../app/api/editor/import/route.ts",
@@ -100,6 +102,18 @@ test("import route separates preview from atomic creation", async () => {
   const source = await readFile(new URL("../app/api/editor/import/route.ts", import.meta.url), "utf8");
   assert.match(source, /readOptionalBooleanField\(payload,\s*"create"/);
   assert.match(source, /create\s*\?\s*service\.createImportedPost\(markdown\)\s*:\s*service\.previewImport\(markdown\)/);
+});
+
+test("copy route validates a version and delegates one complete server-side creation", async () => {
+  const source = await readFile(new URL("../app/api/editor/posts/[id]/copy/route.ts", import.meta.url), "utf8");
+  assert.match(source, /assertBlogOwner\(\)/);
+  assert.match(source, /requireExpectedVersion\(payload\)/);
+  assert.match(source, /service\.createPostCopy\(id,\s*expectedVersion\)/);
+  assert.doesNotMatch(source, /createPost\(|saveDraft\(/);
+
+  const conflict = await withOwnerJson(async () => { throw new VersionConflictError(); }, authorized);
+  assert.equal(conflict.status, 409);
+  assert.deepEqual(await conflict.json(), { error: "草稿已在其他设备更新", code: "VERSION_CONFLICT" });
 });
 
 test("draft guards reject partial records before they can reach persistence", async () => {

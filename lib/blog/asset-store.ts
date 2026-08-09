@@ -14,10 +14,18 @@ export interface BlogAsset {
   updatedAt: string;
 }
 
+export interface DraftAssetAliasInput {
+  sourceAssetId: string;
+  id: string;
+  postId: string;
+  now: string;
+}
+
 export interface BlogAssetStore {
   findByPostAndHash(postId: string, sha256: string): Promise<BlogAsset | null>;
   createDraftAsset(asset: BlogAsset): Promise<BlogAsset>;
-  createDraftAlias(sourceAssetId: string, input: { id: string; postId: string; now: string }): Promise<BlogAsset>;
+  createDraftAlias(sourceAssetId: string, input: Omit<DraftAssetAliasInput, "sourceAssetId">): Promise<BlogAsset>;
+  createDraftAliases(inputs: readonly DraftAssetAliasInput[]): Promise<BlogAsset[]>;
   getById(id: string): Promise<BlogAsset | null>;
   listByPost(postId: string): Promise<BlogAsset[]>;
   markPublished(postId: string, assetIds: string[], now: string): Promise<void>;
@@ -27,7 +35,7 @@ export interface BlogAssetStore {
 const clone = <T>(value: T): T => structuredClone(value);
 
 export class MemoryBlogAssetStore implements BlogAssetStore {
-  readonly #assets = new Map<string, BlogAsset>();
+  #assets = new Map<string, BlogAsset>();
 
   async findByPostAndHash(postId: string, sha256: string) {
     const asset = [...this.#assets.values()].find((item) => item.postId === postId && item.sha256 === sha256);
@@ -38,17 +46,31 @@ export class MemoryBlogAssetStore implements BlogAssetStore {
     this.#assets.set(asset.id, clone(asset));
     return clone(asset);
   }
-  async createDraftAlias(sourceAssetId: string, input: { id: string; postId: string; now: string }) {
-    const source = this.#assets.get(sourceAssetId);
-    if (!source) throw new Error("图片不存在");
-    return this.createDraftAsset({
-      ...source,
-      id: input.id,
-      postId: input.postId,
-      visibility: "draft",
-      createdAt: input.now,
-      updatedAt: input.now,
-    });
+  async createDraftAlias(sourceAssetId: string, input: Omit<DraftAssetAliasInput, "sourceAssetId">) {
+    return (await this.createDraftAliases([{ sourceAssetId, ...input }]))[0];
+  }
+  async createDraftAliases(inputs: readonly DraftAssetAliasInput[]) {
+    const next = new Map(this.#assets);
+    const aliases: BlogAsset[] = [];
+    for (const input of inputs) {
+      const source = next.get(input.sourceAssetId);
+      if (!source) throw new Error("图片不存在");
+      if ([...next.values()].some((asset) => asset.postId === input.postId && asset.sha256 === source.sha256)) {
+        throw new Error("重复图片");
+      }
+      const alias = {
+        ...source,
+        id: input.id,
+        postId: input.postId,
+        visibility: "draft" as const,
+        createdAt: input.now,
+        updatedAt: input.now,
+      };
+      next.set(alias.id, alias);
+      aliases.push(alias);
+    }
+    this.#assets = next;
+    return aliases.map(clone);
   }
   async getById(id: string) {
     const asset = this.#assets.get(id);

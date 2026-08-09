@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { BlogAsset, BlogAssetStore } from "./asset-store.ts";
+import type { BlogAsset, BlogAssetStore, DraftAssetAliasInput } from "./asset-store.ts";
 
 type Row = { id:string; post_id:string; object_key:string; original_name:string; safe_name:string; content_type:string; size_bytes:number; sha256:string; visibility:"draft"|"published"; created_at:string; updated_at:string };
 const map = (r: Row): BlogAsset => ({ id:r.id, postId:r.post_id, objectKey:r.object_key, originalName:r.original_name, safeName:r.safe_name, contentType:r.content_type, sizeBytes:r.size_bytes, sha256:r.sha256, visibility:r.visibility, createdAt:r.created_at, updatedAt:r.updated_at });
@@ -9,12 +9,17 @@ export class D1BlogAssetStore implements BlogAssetStore {
   #db() { return (env as unknown as { DB:D1Database }).DB; }
   async findByPostAndHash(postId:string, sha256:string) { const r=await this.#db().prepare(`SELECT ${columns} FROM blog_assets WHERE post_id=?1 AND sha256=?2`).bind(postId,sha256).first<Row>(); return r?map(r):null; }
   async createDraftAsset(a:BlogAsset) { await this.#db().prepare("INSERT INTO blog_assets (id,post_id,object_key,original_name,safe_name,content_type,size_bytes,sha256,visibility,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)").bind(a.id,a.postId,a.objectKey,a.originalName,a.safeName,a.contentType,a.sizeBytes,a.sha256,a.visibility,a.createdAt,a.updatedAt).run(); return structuredClone(a); }
-  async createDraftAlias(sourceAssetId:string,input:{id:string;postId:string;now:string}) {
-    const result=await this.#db().prepare("INSERT INTO blog_assets (id,post_id,object_key,original_name,safe_name,content_type,size_bytes,sha256,visibility,created_at,updated_at) SELECT ?1,?2,object_key,original_name,safe_name,content_type,size_bytes,sha256,'draft',?3,?3 FROM blog_assets WHERE id=?4").bind(input.id,input.postId,input.now,sourceAssetId).run();
-    if(result.meta.changes!==1)throw new Error("图片不存在");
-    const alias=await this.getById(input.id);
-    if(!alias)throw new Error("图片别名创建失败");
-    return alias;
+  async createDraftAlias(sourceAssetId:string,input:Omit<DraftAssetAliasInput,"sourceAssetId">) {
+    return (await this.createDraftAliases([{sourceAssetId,...input}]))[0];
+  }
+  async createDraftAliases(inputs:readonly DraftAssetAliasInput[]) {
+    if(!inputs.length)return [];
+    const d1=this.#db();
+    const results=await d1.batch(inputs.map((input)=>d1.prepare("INSERT INTO blog_assets (id,post_id,object_key,original_name,safe_name,content_type,size_bytes,sha256,visibility,created_at,updated_at) VALUES (?1,?2,(SELECT object_key FROM blog_assets WHERE id=?4),(SELECT original_name FROM blog_assets WHERE id=?4),(SELECT safe_name FROM blog_assets WHERE id=?4),(SELECT content_type FROM blog_assets WHERE id=?4),(SELECT size_bytes FROM blog_assets WHERE id=?4),(SELECT sha256 FROM blog_assets WHERE id=?4),'draft',?3,?3)").bind(input.id,input.postId,input.now,input.sourceAssetId)));
+    if(results.some((result)=>result.meta.changes!==1))throw new Error("图片不存在");
+    const aliases=await Promise.all(inputs.map((input)=>this.getById(input.id)));
+    if(aliases.some((alias)=>!alias))throw new Error("图片别名创建失败");
+    return aliases as BlogAsset[];
   }
   async getById(id:string) { const r=await this.#db().prepare(`SELECT ${columns} FROM blog_assets WHERE id=?1`).bind(id).first<Row>(); return r?map(r):null; }
   async listByPost(postId:string) { const r=await this.#db().prepare(`SELECT ${columns} FROM blog_assets WHERE post_id=?1 ORDER BY created_at`).bind(postId).all<Row>(); return r.results.map(map); }

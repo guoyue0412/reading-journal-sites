@@ -208,11 +208,16 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     if (!currentRef.current) return;
     const saved = await flushAutosave();
     if (!saved) return;
-    const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: saved.type, date: saved.date }) });
-    const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
-    if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
-    const copy = { ...saved, id: payload.post.id, slug: payload.post.slug, title: `${saved.title}（副本）`, draftVersion: payload.post.draftVersion, publishedRevisionId: null, status: "draft" as const, createdAt: payload.post.createdAt, sections: saved.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
-    activePostId.current = copy.id; setSelectedId(copy.id); scheduleAutosave(copy); setMessage("已创建新文章副本，本地恢复副本仍保留。");
+    try {
+      const response = await fetch(`/api/editor/posts/${saved.id}/copy`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
+      const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
+      if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
+      activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post;
+      setPosts((value) => replacePost(value, payload.post!)); savedRevision.current = editRevision.current; setSaveState("saved");
+      setMessage("已创建新文章副本，本地恢复副本仍保留。");
+    } catch {
+      setMessage("网络异常，未创建文章副本，请检查连接后重试。");
+    }
   }
 
   async function importMarkdown(event: ChangeEvent<HTMLInputElement>) {
