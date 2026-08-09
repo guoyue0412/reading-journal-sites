@@ -5,6 +5,7 @@
   --archive-muted: oklch(49% 0.018 255);
   --archive-rule: oklch(84% 0.015 85);
   --archive-accent: oklch(43% 0.12 28);
+  --archive-success: oklch(43% 0.09 145);
   --archive-focus: oklch(57% 0.16 28);
   --archive-display: "Newsreader Variable", "Noto Serif SC", "Songti SC", serif;
   --archive-sans: "IBM Plex Sans Variable", "Noto Sans SC", "PingFang SC", sans-serif;
@@ -450,6 +451,11 @@ body {
   font-family: var(--archive-display);
   font-size: 17px;
   line-height: 1.8;
+}
+
+.research-page .reading-body::before {
+  content: none;
+  background: none;
 }
 
 .markdown-body table,

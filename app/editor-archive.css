@@ -31,6 +31,7 @@
 .admin-page button:not(:disabled):hover,
 .admin-page input:not(:disabled):hover,
 .admin-page select:not(:disabled):hover,
+.admin-page textarea:not(:disabled):hover,
 .admin-page summary:hover,
 .admin-page a:hover {
   border-color: var(--archive-accent);
@@ -247,7 +248,7 @@
 .studio-recovery { background: oklch(94% .035 80); }
 
 .save-state--saving { color: var(--archive-muted); }
-.save-state--saved { color: oklch(43% .09 145); }
+.save-state--saved { color: var(--archive-success); }
 .save-state--failed { color: var(--archive-accent); }
 .save-state--conflict { color: var(--archive-accent); }
 .markdown-editor__error { color: var(--archive-accent); }
