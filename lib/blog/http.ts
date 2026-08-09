@@ -52,6 +52,17 @@ export function requireStringField(
   return value;
 }
 
+export function readOptionalBooleanField(
+  record: JsonRecord,
+  field: string,
+  message: string,
+): boolean {
+  const value = record[field];
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new BlogValidationError([message]);
+  return value;
+}
+
 function requireNonEmptyStringField(
   record: JsonRecord,
   field: string,

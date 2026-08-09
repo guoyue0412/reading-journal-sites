@@ -179,3 +179,100 @@ test("structured editor closes the article drawer and restores focus after selec
     else globalThis.fetch = originalFetch;
   }
 });
+
+test("Markdown import commits the full draft atomically after confirmation", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
+  const preview = { ...createEmptyDraft("reflections", "preview-2", "2026-08-09", []), slug: "2026-08-09-2", title: "导入文章" };
+  const committed = { ...preview, id: "imported-3", slug: "2026-08-09-3", sections: preview.sections.map((section, index) => ({ ...section, id: `imported-3-section-${index}` })) };
+  const markdown = "---\ntitle: 导入文章\nslug: 2026-08-09\ntype: reflections\ndate: 2026-08-09\nsummary: 完整导入\ntags: []\nrelated: []\nstatus: draft\n---\n\n## 反思\n\n正文";
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  const originalConfirm = globalThis.confirm;
+  const fetchCalls = [];
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.confirm = () => true;
+    globalThis.fetch = async (input, init) => {
+      fetchCalls.push([String(input), init]);
+      const payload = fetchCalls.length === 1
+        ? { draft: preview, errors: [], warnings: [] }
+        : { draft: committed, errors: [], warnings: [] };
+      return { ok: true, json: async () => payload };
+    };
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(StructuredEditor, {
+        initialPosts: [current],
+        initialTemplates: [],
+        ownerName: "Guo Yue",
+      }));
+    });
+
+    const importInput = renderer.root.findAllByType("input").find((input) => input.props.accept === ".md,text/markdown");
+    assert.ok(importInput);
+    await act(async () => {
+      importInput.props.onChange({ target: { files: [{ text: async () => markdown }], value: "selected.md" } });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/import", "/api/editor/import"]);
+    assert.deepEqual(JSON.parse(fetchCalls[1][1].body), { markdown, create: true });
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/imported-3/export");
+    assert.equal(renderer.root.findByProps({ className: "studio-save-state save-state--saved" }).children.join(""), "已保存");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    if (originalFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalConfirm === undefined) delete globalThis.confirm;
+    else globalThis.confirm = originalConfirm;
+  }
+});
+
+test("Markdown import keeps the current article and shows a commit API error", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
+  const preview = { ...createEmptyDraft("reflections", "preview-2", "2026-08-09", []), slug: "2026-08-09-2", title: "导入文章" };
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  const originalConfirm = globalThis.confirm;
+  const fetchCalls = [];
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.confirm = () => true;
+    globalThis.fetch = async (input, init) => {
+      fetchCalls.push([String(input), init]);
+      if (fetchCalls.length === 1) return { ok: true, json: async () => ({ draft: preview, errors: [], warnings: [] }) };
+      return { ok: false, json: async () => ({ error: "文章地址竞争，请重试", code: "SLUG_CONFLICT" }) };
+    };
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(StructuredEditor, {
+        initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue",
+      }));
+    });
+    const importInput = renderer.root.findAllByType("input").find((input) => input.props.accept === ".md,text/markdown");
+    await act(async () => {
+      importInput.props.onChange({ target: { files: [{ text: async () => "markdown" }], value: "selected.md" } });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/import", "/api/editor/import"]);
+    assert.match(renderer.root.findByProps({ className: "studio-message" }).children.join(""), /文章地址竞争，请重试/);
+    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    if (originalFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = originalFetch;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalConfirm === undefined) delete globalThis.confirm;
+    else globalThis.confirm = originalConfirm;
+  }
+});

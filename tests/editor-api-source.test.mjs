@@ -10,6 +10,7 @@ import {
   requirePostType,
   requireScopedTemplatePostType,
   requireStringField,
+  readOptionalBooleanField,
   withOwnerJson,
 } from "../lib/blog/http.ts";
 
@@ -82,6 +83,23 @@ test("expectedVersion accepts only non-negative integers and validation response
       return { ok: true };
     });
   }
+});
+
+test("optional import commit flags accept only booleans", async () => {
+  assert.equal(readOptionalBooleanField({}, "create", "导入创建标记必须是布尔值"), false);
+  assert.equal(readOptionalBooleanField({ create: true }, "create", "导入创建标记必须是布尔值"), true);
+  for (const create of [null, 1, "true", []]) {
+    await validationResponse(async () => {
+      readOptionalBooleanField({ create }, "create", "导入创建标记必须是布尔值");
+      return { ok: true };
+    });
+  }
+});
+
+test("import route separates preview from atomic creation", async () => {
+  const source = await readFile(new URL("../app/api/editor/import/route.ts", import.meta.url), "utf8");
+  assert.match(source, /readOptionalBooleanField\(payload,\s*"create"/);
+  assert.match(source, /create\s*\?\s*service\.createImportedPost\(markdown\)\s*:\s*service\.previewImport\(markdown\)/);
 });
 
 test("draft guards reject partial records before they can reach persistence", async () => {

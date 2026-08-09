@@ -4,7 +4,7 @@ import {
   importPostMarkdown,
   type ImportResult,
 } from "./markdown.ts";
-import { VersionConflictError, type BlogStore } from "./store.ts";
+import { SlugConflictError, VersionConflictError, type BlogStore } from "./store.ts";
 import type {
   BlogPostDraft,
   BlogSection,
@@ -18,6 +18,7 @@ import type { BlogAssetStore } from "./asset-store.ts";
 
 const postTypes: readonly PostType[] = ["jobs", "internship", "papers", "reflections"];
 const sectionKinds = ["long_text", "short_text", "checklist", "markdown", "relation"] as const;
+const maxSlugCreateAttempts = 3;
 
 function isPostType(value: unknown): value is PostType {
   return typeof value === "string" && postTypes.includes(value as PostType);
@@ -84,6 +85,7 @@ export interface BlogService {
   saveSectionAsTemplate(postType: PostType, section: BlogSection): Promise<SectionTemplate>;
   disableTemplate(id: string): Promise<void>;
   previewImport(markdown: string): Promise<ImportResult>;
+  createImportedPost(markdown: string): Promise<ImportResult>;
   exportPost(id: string): Promise<string>;
 }
 
@@ -112,15 +114,49 @@ export function createBlogService(
     return candidate;
   }
 
+  async function prepareImport(markdown: string): Promise<ImportResult> {
+    const imported = importPostMarkdown(markdown, { id: ids(), now: clock() });
+    if (!imported.errors.length) {
+      const baseSlug = imported.draft.type === "reflections"
+        ? imported.draft.date
+        : imported.draft.slug;
+      imported.draft.slug = await nextAvailableSlug(baseSlug);
+    }
+    imported.errors = validateDraft(imported.draft);
+    return imported;
+  }
+
+  async function assertImportedAssets(draft: BlogPostDraft): Promise<void> {
+    if (!assetStore) return;
+    const assetIds = [...new Set(draft.sections.flatMap((section) => extractLocalAssetIds(section.content)))];
+    const assets = await Promise.all(assetIds.map((assetId) => assetStore.getById(assetId)));
+    const invalid = assetIds.filter((_, index) => !assets[index] || assets[index]!.visibility !== "published");
+    if (invalid.length) {
+      throw new BlogValidationError(invalid.map((id) => `图片不存在或不属于当前文章：${id}`));
+    }
+  }
+
   return {
     async createPost(input) {
       const errors = validateCreatePostInput(input);
       if (errors.length) throw new BlogValidationError(errors);
       const templates = await store.listTemplates(input.type);
-      const draft = createEmptyDraft(input.type, ids(), input.date, templates);
-      draft.slug = await nextAvailableSlug(draft.slug);
+      const baseDraft = createEmptyDraft(input.type, ids(), input.date, templates);
       const now = clock();
-      return store.createDraft(normalizeMarkdownPost({ ...draft, createdAt: now, updatedAt: now }));
+      for (let attempt = 0; attempt < maxSlugCreateAttempts; attempt += 1) {
+        const draft = normalizeMarkdownPost({
+          ...baseDraft,
+          slug: await nextAvailableSlug(baseDraft.slug),
+          createdAt: now,
+          updatedAt: now,
+        });
+        try {
+          return await store.createDraft(draft);
+        } catch (error) {
+          if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
+        }
+      }
+      throw new SlugConflictError();
     },
 
     async listPosts() {
@@ -160,15 +196,25 @@ export function createBlogService(
       }
       const errors = validateForPublish(draft);
       if (errors.length) throw new BlogValidationError(errors);
-      const assetIds=[...new Set(draft.sections.flatMap((section)=>extractLocalAssetIds(section.content)))];
-      if(assetStore){
-        const assets=await Promise.all(assetIds.map((assetId)=>assetStore.getById(assetId)));
-        const invalid=assetIds.filter((assetId,index)=>!assets[index]||assets[index]!.postId!==draft.id);
-        if(invalid.length)throw new BlogValidationError(invalid.map((id)=>`图片不存在或不属于当前文章：${id}`));
+      const assetIds = [...new Set(draft.sections.flatMap((section) => extractLocalAssetIds(section.content)))];
+      let ownedDraftAssetIds: string[] = [];
+      if (assetStore) {
+        const assets = await Promise.all(assetIds.map((assetId) => assetStore.getById(assetId)));
+        const invalid = assetIds.filter((_, index) => {
+          const asset = assets[index];
+          return !asset || (asset.postId !== draft.id && asset.visibility !== "published");
+        });
+        if (invalid.length) {
+          throw new BlogValidationError(invalid.map((id) => `图片不存在或不属于当前文章：${id}`));
+        }
+        ownedDraftAssetIds = assetIds.filter((_, index) => {
+          const asset = assets[index];
+          return asset?.postId === draft.id && asset.visibility === "draft";
+        });
       }
-      const publishedAt=clock();
-      const snapshot=await store.publish(draft, expectedVersion, ids(), publishedAt);
-      if(assetStore)await assetStore.markPublished(draft.id,assetIds,publishedAt);
+      const publishedAt = clock();
+      const snapshot = await store.publish(draft, expectedVersion, ids(), publishedAt);
+      if (assetStore) await assetStore.markPublished(draft.id, ownedDraftAssetIds, publishedAt);
       return snapshot;
     },
 
@@ -202,9 +248,22 @@ export function createBlogService(
     },
 
     async previewImport(markdown) {
-      const imported = importPostMarkdown(markdown, { id: ids(), now: clock() });
-      if (!imported.errors.length) imported.draft.slug = await nextAvailableSlug(imported.draft.slug);
-      return imported;
+      return prepareImport(markdown);
+    },
+
+    async createImportedPost(markdown) {
+      for (let attempt = 0; attempt < maxSlugCreateAttempts; attempt += 1) {
+        const imported = await prepareImport(markdown);
+        if (imported.errors.length) return imported;
+        await assertImportedAssets(imported.draft);
+        try {
+          imported.draft = await store.createDraft(normalizeMarkdownPost(imported.draft));
+          return imported;
+        } catch (error) {
+          if (!(error instanceof SlugConflictError) || attempt === maxSlugCreateAttempts - 1) throw error;
+        }
+      }
+      throw new SlugConflictError();
     },
 
     async exportPost(id) {

@@ -1,6 +1,7 @@
 import { assertBlogOwner } from "@/app/chatgpt-auth.ts";
 import {
   createEditorBlogService,
+  readOptionalBooleanField,
   readJsonRecord,
   requireStringField,
   withOwnerJson,
@@ -13,7 +14,8 @@ export async function POST(request: Request) {
   return withOwnerJson(async () => {
     const payload = await readJsonRecord(request);
     const markdown = requireStringField(payload, "markdown", "Markdown 内容必须是字符串");
+    const create = readOptionalBooleanField(payload, "create", "导入创建标记必须是布尔值");
     const service = await getService();
-    return service.previewImport(markdown);
+    return create ? service.createImportedPost(markdown) : service.previewImport(markdown);
   }, owner);
 }

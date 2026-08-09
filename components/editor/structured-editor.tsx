@@ -204,18 +204,23 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
 
   async function importMarkdown(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-    const response = await fetch("/api/editor/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown: await file.text() }) });
+    const markdown = await file.text();
+    const response = await fetch("/api/editor/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown }) });
     const payload = await response.json() as { draft?: BlogPostDraft; errors?: string[]; warnings?: string[] } & ApiError;
     if (!response.ok || !payload.draft) { setMessage(formatApiError(payload, "导入失败")); return; }
     if (payload.errors?.length) { setMessage(`导入校验：${payload.errors.join("；")}`); return; }
     const warning = payload.warnings?.length ? `\n警告：${payload.warnings.join("；")}` : "";
     if (!window.confirm(`导入内容将创建为新草稿，是否继续？${warning}`)) return;
-    const createResponse = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: payload.draft.type, date: payload.draft.date }) });
-    const created = await createResponse.json() as { post?: BlogPostDraft } & ApiError;
-    if (!createResponse.ok || !created.post) { setMessage(formatApiError(created, "创建导入草稿失败")); return; }
-    const merged = { ...payload.draft, id: created.post.id, draftVersion: created.post.draftVersion, createdAt: created.post.createdAt, sections: payload.draft.sections.map((section) => ({ ...section, id: crypto.randomUUID() })) };
-    await flushAutosave();
-    activePostId.current = merged.id; setSelectedId(merged.id); scheduleAutosave(merged);
+    if (currentRef.current) {
+      const saved = await flushAutosave();
+      if (!saved) return;
+    }
+    const createResponse = await fetch("/api/editor/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown, create: true }) });
+    const created = await createResponse.json() as { draft?: BlogPostDraft; errors?: string[]; warnings?: string[] } & ApiError;
+    if (!createResponse.ok || !created.draft) { setMessage(formatApiError(created, "创建导入草稿失败")); return; }
+    if (created.errors?.length) { setMessage(`导入校验：${created.errors.join("；")}`); return; }
+    activePostId.current = created.draft.id; setSelectedId(created.draft.id); setCurrent(created.draft); currentRef.current = created.draft;
+    setPosts((value) => replacePost(value, created.draft!)); savedRevision.current = editRevision.current; setSaveState("saved"); setMessage("已导入为新草稿。");
   }
 
   const typeTemplates = current ? templates.filter((template) => template.postType === current.type && template.enabled) : [];
