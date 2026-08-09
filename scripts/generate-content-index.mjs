@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isReflectionSlugForDate, reflectionSlugSequence } from "../lib/content/reflection-slug.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modules = ["jobs", "internship", "papers", "reflections"];
@@ -90,6 +91,7 @@ function validateEntry(entry, moduleName, filePath) {
     requireString(entry, field, filePath);
   }
   validateDate(entry, "date", filePath);
+  if (entry.updated_at !== undefined) validateDate(entry, "updated_at", filePath);
   if (entry.read_at !== undefined) validateDate(entry, "read_at", filePath);
   requireStringArray(entry, "tags", filePath);
   requireStringArray(entry, "related", filePath);
@@ -100,8 +102,8 @@ function validateEntry(entry, moduleName, filePath) {
   if (!["draft", "published"].includes(entry.status)) {
     invalid(filePath, "status", "must be draft or published");
   }
-  if (entry.type === "reflections" && entry.slug !== entry.date) {
-    invalid(filePath, "slug", "must match the reflection date");
+  if (entry.type === "reflections" && !isReflectionSlugForDate(entry.slug, entry.date)) {
+    invalid(filePath, "slug", "must match the reflection date or use a date-N suffix where N is at least 2");
   }
 
   if (entry.type === "papers") {
@@ -156,6 +158,7 @@ function validateEntry(entry, moduleName, filePath) {
 
 function runtimeEntry(entry) {
   const {
+    updated_at: updatedAt,
     read_at: readAt,
     paper_url: paperUrl,
     reading_status: readingStatus,
@@ -167,6 +170,7 @@ function runtimeEntry(entry) {
   } = entry;
   return {
     ...common,
+    ...(updatedAt === undefined ? {} : { updatedAt }),
     ...(readAt === undefined ? {} : { readAt }),
     ...(paperUrl === undefined ? {} : { paperUrl }),
     ...(readingStatus === undefined ? {} : { readingStatus }),
@@ -196,7 +200,10 @@ async function collectEntries() {
       moduleEntries.push(source);
     }
     if (moduleName === "reflections") {
-      moduleEntries.sort((left, right) => right.entry.date.localeCompare(left.entry.date));
+      moduleEntries.sort((left, right) =>
+        right.entry.date.localeCompare(left.entry.date)
+        || (reflectionSlugSequence(right.entry.slug, right.entry.date) ?? 1) - (reflectionSlugSequence(left.entry.slug, left.entry.date) ?? 1)
+      );
     }
     entries.push(...moduleEntries);
   }

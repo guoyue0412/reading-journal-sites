@@ -24,7 +24,7 @@ export default async function Home() {
 
   return <ResearchShell>
     <section className="archive-hero">
-      <div><p className="archive-kicker">{researchProfile.field}</p><h1>{researchProfile.name}<span>{researchProfile.latinName}</span></h1><p>{researchProfile.statement}</p><nav aria-label="首页主要入口"><Link href="/projects">查看研究项目</Link><Link href="/papers">阅读论文笔记</Link></nav></div>
+      <div><p className="archive-kicker">{researchProfile.field}</p><h1>{researchProfile.name}<span>{researchProfile.latinName}</span></h1><p>{researchProfile.statement}</p><nav aria-label="研究者资料">{researchProfile.links.map((item) => item.href.startsWith("http") ? <a href={item.href} rel="me" key={item.href}>{item.label}</a> : <Link href={item.href} key={item.href}>{item.label}</Link>)}</nav></div>
       <aside aria-labelledby="current-question"><p className="archive-kicker">CURRENT QUESTION</p><h2 id="current-question">当前研究问题</h2><p>{researchProfile.currentQuestion}</p><time dateTime="2026-08-09">更新于 2026.08.09</time></aside>
     </section>
     <section className="archive-section" aria-labelledby="selected-projects"><header><p className="archive-kicker">SELECTED WORK</p><h2 id="selected-projects">精选研究项目</h2><Link href="/projects">完整项目档案 →</Link></header><ResearchProjectList projects={researchProjects} compact /></section>

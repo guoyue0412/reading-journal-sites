@@ -47,7 +47,7 @@ const entries = [
   },
 ];
 
-test("paper index clears all seven controlled filters and restores the complete result set", async () => {
+test("paper index multi-selects reading methods and clears every controlled filter", async () => {
   const vite = await createServer({
     appType: "custom",
     configFile: false,
@@ -65,23 +65,35 @@ test("paper index clears all seven controlled filters and restores the complete 
     });
 
     const root = renderer.root;
-    const input = root.findByType("input");
+    const searchInput = root.findAllByType("input").find((input) => input.props.type === "search");
+    const methodInputs = root.findAllByType("input").filter((input) => input.props.type === "checkbox");
     const selects = root.findAllByType("select");
-    assert.equal(selects.length, 6);
+    assert.ok(searchInput);
+    assert.equal(methodInputs.length, 3);
+    assert.equal(selects.length, 5);
 
     await act(async () => {
-      input.props.onChange({ target: { value: "Robotics" } });
-      selects[0].props.onChange({ target: { value: "deep" } });
-      selects[1].props.onChange({ target: { value: "completed" } });
-      selects[2].props.onChange({ target: { value: "robotics" } });
-      selects[3].props.onChange({ target: { value: "2025" } });
-      selects[4].props.onChange({ target: { value: "ICRA" } });
-      selects[5].props.onChange({ target: { value: "oldest" } });
+      methodInputs.find((input) => input.props.value === "deep").props.onChange();
+      methodInputs.find((input) => input.props.value === "synthesis").props.onChange();
     });
 
-    assert.equal(root.findByType("input").props.value, "Robotics");
+    assert.deepEqual(
+      root.findAllByType("input").filter((input) => input.props.type === "checkbox" && input.props.checked).map((input) => input.props.value),
+      ["deep", "synthesis"],
+    );
+
+    await act(async () => {
+      searchInput.props.onChange({ target: { value: "Robotics" } });
+      selects[0].props.onChange({ target: { value: "completed" } });
+      selects[1].props.onChange({ target: { value: "robotics" } });
+      selects[2].props.onChange({ target: { value: "2025" } });
+      selects[3].props.onChange({ target: { value: "ICRA" } });
+      selects[4].props.onChange({ target: { value: "oldest" } });
+    });
+
+    assert.equal(root.findAllByType("input").find((input) => input.props.type === "search").props.value, "Robotics");
     assert.deepEqual(root.findAllByType("select").map((control) => control.props.value), [
-      "deep", "completed", "robotics", "2025", "ICRA", "oldest",
+      "completed", "robotics", "2025", "ICRA", "oldest",
     ]);
     assert.equal(root.findByProps({ className: "paper-bibliography" }).children.length, 1);
     const clearButton = root.findAllByType("button").find((button) => button.children.join("") === "清除筛选");
@@ -91,9 +103,9 @@ test("paper index clears all seven controlled filters and restores the complete 
       clearButton.props.onClick();
     });
 
-    assert.equal(root.findByType("input").props.value, DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.query);
+    assert.equal(root.findAllByType("input").find((input) => input.props.type === "search").props.value, DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.query);
+    assert.equal(root.findAllByType("input").filter((input) => input.props.type === "checkbox" && input.props.checked).length, 0);
     assert.deepEqual(root.findAllByType("select").map((control) => control.props.value), [
-      DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingMethod,
       DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingStatus,
       DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.topic,
       DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.year,

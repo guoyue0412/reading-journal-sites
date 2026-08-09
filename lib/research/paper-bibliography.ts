@@ -4,7 +4,7 @@ export type PaperBibliographyOrder = "newest" | "oldest";
 
 export type PaperBibliographyFilters = {
   query: string;
-  readingMethod: ReadingMethod | "";
+  readingMethods: readonly ReadingMethod[];
   readingStatus: ReadingStatus | "";
   topic: string;
   year: string;
@@ -14,7 +14,7 @@ export type PaperBibliographyFilters = {
 
 export const DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS: Readonly<PaperBibliographyFilters> = Object.freeze({
   query: "",
-  readingMethod: "",
+  readingMethods: Object.freeze([]),
   readingStatus: "",
   topic: "",
   year: "",
@@ -30,7 +30,7 @@ export function hasPaperBibliographyFilters(filters: Partial<PaperBibliographyFi
   const resolved = resolveFilters(filters);
   return Boolean(
     resolved.query ||
-    resolved.readingMethod ||
+    resolved.readingMethods.length ||
     resolved.readingStatus ||
     resolved.topic ||
     resolved.year ||
@@ -53,7 +53,7 @@ export function filterAndSortPaperEntries(
     (!resolved.year || String(entry.year) === resolved.year) &&
     (!resolved.venue || entry.venue === resolved.venue) &&
     (!resolved.readingStatus || entry.readingStatus === resolved.readingStatus) &&
-    (!resolved.readingMethod || entry.readingMethods?.includes(resolved.readingMethod))
+    (!resolved.readingMethods.length || entry.readingMethods?.some((method) => resolved.readingMethods.includes(method)))
   ).sort((left, right) => {
     const comparison = (left.readAt ?? left.date).localeCompare(right.readAt ?? right.date);
     return resolved.order === "newest" ? -comparison : comparison;

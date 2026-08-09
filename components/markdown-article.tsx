@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { PaperMethodBadges, readingStatusLabels } from "./paper-method-badges";
 import type { ContentEntry } from "../lib/content/types";
+import type { ReflectionNavigation } from "../lib/content/query";
 
 const typeLabels: Record<ContentEntry["type"], string> = {
   jobs: "秋招记录",
@@ -43,9 +44,11 @@ function markdownHeadings(body: string) {
 export function MarkdownArticle({
   entry,
   relatedEntries,
+  reflectionNavigation,
 }: {
   entry: ContentEntry;
   relatedEntries: ContentEntry[];
+  reflectionNavigation?: ReflectionNavigation;
 }) {
   const headings = markdownHeadings(entry.body);
   return (
@@ -62,6 +65,7 @@ export function MarkdownArticle({
             <dt>日期</dt>
             <dd>{entry.readAt ?? entry.date}</dd>
           </div>
+          {entry.updatedAt ? <div><dt>更新时间</dt><dd><time dateTime={entry.updatedAt}>{entry.updatedAt.slice(0, 10)}</time></dd></div> : null}
           {entry.authors?.length ? (
             <div>
               <dt>作者</dt>
@@ -127,13 +131,25 @@ export function MarkdownArticle({
         </div>
       </div>
 
+      {entry.type === "reflections" && reflectionNavigation ? (
+        <section className="reflection-article-navigation" aria-labelledby="reflection-navigation-title">
+          <p className="archive-kicker">DAILY THREAD</p>
+          <h2 id="reflection-navigation-title">随笔索引</h2>
+          <nav aria-label="上一篇与下一篇">
+            <div><span>上一篇</span>{reflectionNavigation.previous ? <Link href={`/post/${reflectionNavigation.previous.slug}`}>{reflectionNavigation.previous.title}</Link> : <em>已经是最早一篇</em>}</div>
+            <div><span>下一篇</span>{reflectionNavigation.next ? <Link href={`/post/${reflectionNavigation.next.slug}`}>{reflectionNavigation.next.title}</Link> : <em>已经是最新一篇</em>}</div>
+          </nav>
+          <div className="reflection-article-navigation__same-day"><h3>同日关联</h3>{reflectionNavigation.sameDay.length ? reflectionNavigation.sameDay.map((related) => <Link href={`/post/${related.slug}`} key={related.slug}>{related.title}</Link>) : <p>同日无其他随笔</p>}</div>
+        </section>
+      ) : null}
+
       {relatedEntries.length ? (
         <aside className="article-related" aria-label="相关文章与日记">
           <p className="archive-kicker">CONNECTIONS</p>
           <h2>相关文章与日记</h2>
           <div className="article-related-list">
             {relatedEntries.map((related) => (
-              <Link href={`/blog/${related.slug}`} key={related.slug}>
+              <Link href={`/post/${related.slug}`} key={related.slug}>
                 <span>{typeLabels[related.type]}</span>
                 {related.title}
               </Link>

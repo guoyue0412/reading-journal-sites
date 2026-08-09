@@ -72,6 +72,18 @@ test("server-renders the research archive homepage in the approved order", async
   assert.doesNotMatch(html, /CONTENT PULSE|overview-progress|文章管理/);
 });
 
+test("marks only the true current public navigation destination", async () => {
+  for (const [pathname, href] of [["/", "/"], ["/projects", "/projects"], ["/papers", "/papers"], ["/blog", "/blog"], ["/about", "/about"]]) {
+    const html = await (await render(pathname)).text();
+    const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>/g)].map((match) => match[0]);
+    assert.equal(currentLinks.length, 2, pathname);
+    assert.ok(currentLinks.every((link) => link.includes(`href="${href}"`)), pathname);
+  }
+
+  const articleHtml = await (await render("/post/unitacvla-reading")).text();
+  assert.equal((articleHtml.match(/aria-current="page"/g) ?? []).length, 0);
+});
+
 test("server-renders a labeled research-topic heading and recency-ordered Chinese record labels", async () => {
   const html = await (await render("/")).text();
   const recordList = html.match(/<ol class="archive-record-list">([\s\S]*?)<\/ol>/)?.[1] ?? "";
@@ -167,7 +179,7 @@ test("server-renders a paper article with LaTeX metadata and a related reflectio
   assert.match(html, /UniTacVLA Team/);
   assert.match(html, /arXiv/);
   assert.match(html, /2026/);
-  assert.match(html, /href="\/blog\/2026-07-22"/);
+  assert.match(html, /href="\/post\/2026-07-22"/);
   assert.match(html, /关于长期主义，我最近改变的三个看法/);
   assert.match(html, /<table>/);
   assert.match(html, /<pre><code/);
@@ -177,6 +189,20 @@ test("server-renders a paper article with LaTeX metadata and a related reflectio
   assert.match(html, /已完成/);
   assert.match(html, /ON THIS PAGE/);
   assert.match(html, /href="#section-细读记录"/);
+});
+
+test("reflection articles expose previous, next, and same-day navigation states", async () => {
+  const [newer, older] = await Promise.all([
+    render("/post/2026-07-22").then((response) => response.text()),
+    render("/post/2026-07-21").then((response) => response.text()),
+  ]);
+
+  assert.match(newer, /上一篇/);
+  assert.match(newer, /href="\/post\/2026-07-21"/);
+  assert.match(older, /下一篇/);
+  assert.match(older, /href="\/post\/2026-07-22"/);
+  assert.match(newer, /同日关联/);
+  assert.match(newer, /同日无其他随笔/);
 });
 
 test("server-renders recruiting metadata on a岗位 article", async () => {

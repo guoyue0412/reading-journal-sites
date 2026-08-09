@@ -1,11 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-
-const navigation = [["/", "研究"], ["/projects", "项目"], ["/papers", "论文"], ["/blog", "记录"], ["/about", "关于"]] as const;
-
-function NavigationLinks() {
-  return <>{navigation.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}</>;
-}
+import { ResearchNavigation } from "./research-navigation";
 
 export function ResearchShell({ children }: { children: ReactNode }) {
   return <div className="research-page">
@@ -14,11 +9,11 @@ export function ResearchShell({ children }: { children: ReactNode }) {
         <Link href="/" aria-label="郭跃研究档案馆首页"><strong>郭跃</strong><span>GUO YUE</span></Link>
         <p>EMBODIED AI · RESEARCH ARCHIVE</p>
       </div>
-      <nav className="archive-desktop-nav" aria-label="公开导航"><NavigationLinks /></nav>
+      <ResearchNavigation className="archive-desktop-nav" ariaLabel="公开导航" />
       <nav className="archive-tools" aria-label="站点工具"><Link href="/search">搜索</Link><Link href="/editor">编辑</Link></nav>
       <details className="archive-mobile-nav">
         <summary>菜单</summary>
-        <nav aria-label="移动端公开导航"><NavigationLinks /><Link href="/search">搜索</Link><Link href="/editor">编辑</Link></nav>
+        <ResearchNavigation ariaLabel="移动端公开导航" includeTools />
       </details>
     </header>
     <main>{children}</main>

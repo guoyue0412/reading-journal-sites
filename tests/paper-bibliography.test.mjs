@@ -89,25 +89,29 @@ test("paper bibliography query searches title, summary, authors, venue, and topi
   assert.deepEqual(filterAndSortPaperEntries(entries, { query: "neurips" }).map((entry) => entry.slug), ["vision-beta"]);
 });
 
-test("paper bibliography combines reading method and single execution status filters", async () => {
+test("paper bibliography combines multi-select reading methods and single execution status", async () => {
   const { filterAndSortPaperEntries } = await loadSubject();
 
   assert.deepEqual(filterAndSortPaperEntries(entries, {
-    readingMethod: "deep",
+    readingMethods: ["skim", "deep"],
     readingStatus: "completed",
   }).map((entry) => entry.slug), ["robotics-alpha"]);
   assert.deepEqual(filterAndSortPaperEntries(entries, {
-    readingMethod: "synthesis",
+    readingMethods: ["synthesis"],
     readingStatus: "synthesizing",
   }).map((entry) => entry.slug), ["vision-beta"]);
+  assert.deepEqual(filterAndSortPaperEntries(entries, {
+    readingMethods: ["deep"],
+    readingStatus: "synthesizing",
+  }), []);
 });
 
-test("paper bibliography filters by reading method alone", async () => {
+test("paper bibliography treats selected reading methods as one inclusive facet", async () => {
   const { filterAndSortPaperEntries } = await loadSubject();
 
   assert.deepEqual(
-    filterAndSortPaperEntries(entries, { readingMethod: "deep" }).map((entry) => entry.slug),
-    ["robotics-alpha", "control-gamma"],
+    filterAndSortPaperEntries(entries, { readingMethods: ["deep", "synthesis"] }).map((entry) => entry.slug),
+    ["robotics-alpha", "vision-beta", "control-gamma"],
   );
 });
 
@@ -166,7 +170,7 @@ test("paper bibliography exposes a reusable clear/default state and treats oldes
 
   assert.deepEqual(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS, {
     query: "",
-    readingMethod: "",
+    readingMethods: [],
     readingStatus: "",
     topic: "",
     year: "",
@@ -177,4 +181,5 @@ test("paper bibliography exposes a reusable clear/default state and treats oldes
   assert.equal(hasPaperBibliographyFilters(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS), false);
   assert.equal(hasPaperBibliographyFilters({ order: "oldest" }), true);
   assert.equal(hasPaperBibliographyFilters({ query: "robot" }), true);
+  assert.equal(hasPaperBibliographyFilters({ readingMethods: ["deep"] }), true);
 });

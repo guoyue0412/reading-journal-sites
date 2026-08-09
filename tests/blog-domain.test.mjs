@@ -24,10 +24,14 @@ test("active paper methods must match standard sections", () => {
 
 test("reflection slug must be its date or a versioned same-day import", () => {
   const draft = createEmptyDraft("reflections", "post-2", "2026-07-24", []);
-  draft.slug = "2026-07-24-2";
-  assert.doesNotMatch(validateDraft(draft).join("\n"), /每日感悟的 slug/);
-  draft.slug = "wrong";
-  assert.match(validateDraft(draft).join("\n"), /slug/);
+  for (const slug of ["2026-07-24", "2026-07-24-2", "2026-07-24-11"]) {
+    draft.slug = slug;
+    assert.doesNotMatch(validateDraft(draft).join("\n"), /每日感悟的 slug/, slug);
+  }
+  for (const slug of ["wrong", "2026-07-24-1", "2026-07-24-02", "2026-07-24-2-2"]) {
+    draft.slug = slug;
+    assert.match(validateDraft(draft).join("\n"), /slug/, slug);
+  }
 });
 
 test("default templates cover all four post types", () => {

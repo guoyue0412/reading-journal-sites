@@ -174,15 +174,18 @@ test("progress components expose text-labelled methods and both overview groups"
   assert.match(badges, /尚未选择阅读方式/);
 });
 
-test("paper bibliography supports query, method, status, topic, year, venue, and date order", async () => {
+test("paper bibliography supports query, multi-select methods, single status, topic, year, venue, and date order", async () => {
   const source = await readFile(new URL("../components/paper-index.tsx", import.meta.url), "utf8");
   const badges = await readFile(new URL("../components/paper-method-badges.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("../app/research-archive.css", import.meta.url), "utf8");
 
-  for (const state of ["query", "readingMethod", "readingStatus", "topic", "year", "venue", "order"]) {
+  for (const state of ["query", "readingMethods", "readingStatus", "topic", "year", "venue", "order"]) {
     assert.match(source, new RegExp(`\\[${state},\\s*set${state[0].toUpperCase()}${state.slice(1)}\\]`));
   }
   assert.match(source, /type="search"/);
+  assert.match(source, /type="checkbox"/);
+  assert.match(source, /checked=\{readingMethods\.includes\(value\)\}/);
+  assert.match(source, /<select value=\{readingStatus\}/);
   assert.match(source, /filterAndSortPaperEntries\(entries, filters\)/);
   assert.match(source, /hasPaperBibliographyFilters\(filters\)/);
   assert.match(source, /paper-bibliography/);

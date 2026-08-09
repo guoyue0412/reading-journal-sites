@@ -21,4 +21,5 @@ test("public read returns immutable snapshots and excludes later draft edits", a
   await store.markBootstrapped("2026-07-24T12:00:00.000Z");
   const entries = await listPublicEntries(store, []);
   assert.equal(entries[0].title, "Published");
+  assert.equal(entries[0].updatedAt, "2026-07-24T00:00:00.000Z");
 });

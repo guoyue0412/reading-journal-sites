@@ -4,6 +4,7 @@ import type {
   SectionKind,
 } from "./types.ts";
 import { READING_SUMMARY, isReadingSummarySection } from "./section-constants.ts";
+import { isReflectionSlugForDate } from "../content/reflection-slug.mjs";
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 const slugPattern = /^[a-z0-9\u4e00-\u9fff]+(?:-[a-z0-9\u4e00-\u9fff]+)*$/;
@@ -37,8 +38,7 @@ export function validateDraft(post: BlogPostDraft): string[] {
   if (!includes(postTypes, post.type)) errors.push("文章类型无效");
   if (!isIsoDate(post.date)) errors.push("日期必须是有效的 YYYY-MM-DD");
   if (!slugPattern.test(post.slug)) errors.push("slug 只能包含中文、小写字母、数字和单个连字符");
-  const reflectionSlug = new RegExp(`^${post.date}-(?:[2-9]|[1-9]\\d+)$`);
-  if (post.type === "reflections" && post.slug !== post.date && !reflectionSlug.test(post.slug)) {
+  if (post.type === "reflections" && !isReflectionSlugForDate(post.slug, post.date)) {
     errors.push("每日感悟的 slug 必须等于日期或使用同日版本后缀");
   }
   if (post.status !== "draft" && post.status !== "published") errors.push("文章状态无效");

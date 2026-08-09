@@ -8,6 +8,7 @@ export interface ContentEntry {
   slug: string;
   type: ContentType;
   date: string;
+  updatedAt?: string;
   readAt?: string;
   summary: string;
   tags: string[];

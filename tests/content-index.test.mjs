@@ -56,6 +56,7 @@ async function runIsolatedGenerator(files) {
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "guoyue-content-"));
   const contentRoot = path.join(temporaryRoot, "content");
   const outputPath = path.join(temporaryRoot, "generated.ts");
+  const legacyOutputPath = path.join(temporaryRoot, "legacy-generated.ts");
 
   for (const moduleName of ["jobs", "internship", "papers", "reflections"]) {
     await mkdir(path.join(contentRoot, moduleName), { recursive: true });
@@ -75,6 +76,8 @@ async function runIsolatedGenerator(files) {
         contentRoot,
         "--output",
         outputPath,
+        "--legacy-output",
+        legacyOutputPath,
       ],
       { cwd: new URL("../", import.meta.url) },
     );
@@ -123,6 +126,46 @@ test("generates four isolated modules with cross references and newest-first ref
   );
 });
 
+test("accepts multiple same-day reflections and orders later version suffixes first", async () => {
+  const fields = {
+    ...validCommon,
+    type: "reflections",
+    date: "2026-07-20",
+  };
+  const { entries } = await runIsolatedGenerator({
+    "reflections/2026-07-20.md": markdown({ ...fields, slug: "2026-07-20" }),
+    "reflections/2026-07-20-2.md": markdown({ ...fields, slug: "2026-07-20-2" }),
+  });
+
+  assert.deepEqual(entries.map((entry) => entry.slug), ["2026-07-20-2", "2026-07-20"]);
+});
+
+test("rejects malformed same-day reflection suffixes", async () => {
+  for (const slug of ["2026-07-20-1", "2026-07-20-02", "2026-07-20-2-2"]) {
+    const failure = await generatorFailure({
+      "reflections/invalid.md": markdown({
+        ...validCommon,
+        slug,
+        type: "reflections",
+        date: "2026-07-20",
+      }),
+    });
+    assert.match(failure, /invalid\.md.*slug/i, slug);
+  }
+});
+
+test("web validation and static generation import the same reflection slug rule", async () => {
+  const [validation, generator] = await Promise.all([
+    readFile(new URL("../lib/blog/validation.ts", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/generate-content-index.mjs", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(validation, /from ["']\.\.\/content\/reflection-slug\.mjs["']/);
+  assert.match(generator, /from ["']\.\.\/lib\/content\/reflection-slug\.mjs["']/);
+  assert.match(validation, /isReflectionSlugForDate/);
+  assert.match(generator, /isReflectionSlugForDate/);
+});
+
 test("normalizes documented snake_case paper frontmatter for runtime consumers", async () => {
   const { entries } = await runIsolatedGenerator({
     "papers/paper.md": markdown(validPaper),
@@ -137,6 +180,27 @@ test("normalizes documented snake_case paper frontmatter for runtime consumers",
   assert.equal("paper_url" in paper, false);
   assert.equal("reading_status" in paper, false);
   assert.equal("reading_methods" in paper, false);
+});
+
+test("maps an explicit static update date without fabricating one when absent", async () => {
+  const { entries } = await runIsolatedGenerator({
+    "internship/updated.md": markdown({
+      ...validCommon,
+      slug: "updated-entry",
+      type: "internship",
+      updated_at: "2026-07-22",
+    }),
+    "internship/original.md": markdown({
+      ...validCommon,
+      slug: "original-entry",
+      type: "internship",
+    }),
+  });
+  const updated = entries.find((entry) => entry.slug === "updated-entry");
+  const original = entries.find((entry) => entry.slug === "original-entry");
+
+  assert.equal(updated.updatedAt, "2026-07-22");
+  assert.equal("updatedAt" in original, false);
 });
 
 test("models paper reading methods independently from its single execution status", async () => {
@@ -374,6 +438,21 @@ test("prioritizes explicit relationships and returns isolated copies", () => {
       (entry) => !entry.tags.includes("mutated-outside-query"),
     ),
   );
+});
+
+test("reflection navigation separates chronological neighbors from same-day entries", async () => {
+  const { getReflectionNavigation } = await import("../lib/content/query.ts");
+  const reflections = [
+    { ...validCommon, slug: "2026-07-19", type: "reflections", date: "2026-07-19", tags: [], related: [], body: "" },
+    { ...validCommon, slug: "2026-07-20", type: "reflections", date: "2026-07-20", tags: [], related: [], body: "" },
+    { ...validCommon, slug: "2026-07-20-2", type: "reflections", date: "2026-07-20", tags: [], related: [], body: "" },
+    { ...validCommon, slug: "2026-07-21", type: "reflections", date: "2026-07-21", tags: [], related: [], body: "" },
+  ];
+
+  const navigation = getReflectionNavigation("2026-07-20", reflections);
+  assert.equal(navigation.previous?.slug, "2026-07-19");
+  assert.equal(navigation.next?.slug, "2026-07-21");
+  assert.deepEqual(navigation.sameDay.map((entry) => entry.slug), ["2026-07-20-2"]);
 });
 
 test("summarizes every paper status and recruiting stage without omitting zero counts", async () => {

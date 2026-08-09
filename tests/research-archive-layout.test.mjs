@@ -75,25 +75,57 @@ test("defines the approved OKLCH palette and excludes decorative effects", async
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
 
-test("research archive data exposes questions, contributions, and verifiable internal evidence", async () => {
+test("research archive data exposes truthful profile links and evidence states", async () => {
   const { researchProfile, researchProjects, researchTopics } = await import("../lib/research/archive.ts");
+  const { CONTENT_ENTRIES } = await import("../lib/content/generated.ts");
 
   assert.match(researchProfile.field, /具身智能/);
   assert.ok(researchProfile.currentQuestion.length > 20);
+  assert.deepEqual(researchProfile.links, [
+    { label: "GitHub", href: "https://github.com/guoyue0412" },
+    { label: "简历", href: "/about#resume" },
+    { label: "联系", href: "/about#contact" },
+  ]);
   assert.equal(researchProjects.length, 3);
   for (const project of researchProjects) {
     assert.ok(project.id && project.title && project.question && project.contribution);
     assert.ok(project.evidence.length > 0);
-    assert.ok(project.evidence.every((item) => item.href.startsWith("/")));
   }
+  const linkedEvidence = researchProjects.flatMap((project) => project.evidence).filter((item) => "href" in item);
+  const pendingEvidence = researchProjects.flatMap((project) => project.evidence).filter((item) => "note" in item);
+  assert.deepEqual(linkedEvidence.map((item) => item.href), ["/post/unitacvla-reading"]);
+  assert.ok(linkedEvidence.every((item) => CONTENT_ENTRIES.some((entry) => item.href === `/post/${entry.slug}`)));
+  assert.equal(pendingEvidence.length, 2);
+  assert.ok(pendingEvidence.every((item) => /阶段档案/.test(item.label) && /暂无公开证据/.test(item.note)));
   assert.deepEqual(researchTopics.map((topic) => topic.label), ["VLA", "世界模型", "动作与状态表征", "灵巧操作", "仿真与泛化"]);
 });
 
+test("homepage and about page expose GitHub, resume, and contact without invented details", async () => {
+  const [home, about] = await Promise.all([read("app/page.tsx"), read("app/about/page.tsx")]);
+
+  assert.match(home, /researchProfile\.links\.map/);
+  assert.match(about, /id="resume"/);
+  assert.match(about, /id="contact"/);
+  assert.match(about, /https:\/\/github\.com\/guoyue0412/);
+  assert.doesNotMatch(about, /mailto:|@(?:gmail|outlook|qq|163)\./i);
+});
+
+test("project evidence statuses are grouped without pretending to be navigation", async () => {
+  const projectList = await read("components/research-project-list.tsx");
+
+  assert.match(projectList, /<div className="archive-projects__evidence"/);
+  assert.doesNotMatch(projectList, /<nav aria-label=\{`\$\{project\.title\}研究证据`\}>/);
+});
+
 test("masthead has desktop and native mobile navigation without glass chrome", async () => {
-  const [shell, css] = await Promise.all([read("components/research-shell.tsx"), read("app/research-archive.css")]);
+  const [shell, navigation, css] = await Promise.all([read("components/research-shell.tsx"), read("components/research-navigation.tsx"), read("app/research-archive.css")]);
   assert.match(shell, /<details className="archive-mobile-nav"/);
   assert.match(shell, /href="\/editor"/);
+  assert.match(navigation, /"use client"/);
+  assert.match(navigation, /usePathname/);
+  assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(css, /\.archive-masthead/);
+  assert.match(css, /a\[aria-current="page"\]/);
   assert.doesNotMatch(css, /backdrop-filter|border-radius:\s*999px/);
 });
 
@@ -147,6 +179,30 @@ test("paper connection links retain a 44px target in the archive layer", async (
   const css = await read("app/research-archive.css");
 
   assert.match(css, /\.research-page \.paper-index-connections a\s*\{[^}]*min-height:\s*44px/s);
+});
+
+test("paper methods are touch-sized multi-select controls while status stays single-select", async () => {
+  const [source, css] = await Promise.all([read("components/paper-index.tsx"), read("app/research-archive.css")]);
+
+  assert.match(source, /<fieldset className="paper-method-filter"/);
+  assert.match(source, /type="checkbox"/);
+  assert.match(source, /checked=\{readingMethods\.includes\(value\)\}/);
+  assert.match(source, /<select value=\{readingStatus\}/);
+  assert.match(css, /\.paper-method-filter label\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.paper-method-filter input\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/s);
+});
+
+test("article presentation exposes real update metadata and reflection navigation", async () => {
+  const article = await read("components/markdown-article.tsx");
+
+  assert.match(article, /entry\.updatedAt/);
+  assert.match(article, /<dt>更新时间<\/dt>/);
+  assert.match(article, /className="reflection-article-navigation"/);
+  assert.match(article, /上一篇/);
+  assert.match(article, /下一篇/);
+  assert.match(article, /同日关联/);
+  assert.match(article, /href=\{`\/post\/\$\{related\.slug\}`\}/);
+  assert.doesNotMatch(article, /href=\{`\/blog\/\$\{related\.slug\}`\}/);
 });
 
 test("new presentation files do not reintroduce the retired visual language", async () => {

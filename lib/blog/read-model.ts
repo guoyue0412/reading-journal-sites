@@ -11,7 +11,7 @@ function sectionBody(snapshot: PublishedSnapshot): string {
 }
 
 export function snapshotToContentEntry(snapshot: PublishedSnapshot): ContentEntry {
-  const common: ContentEntry = { title: snapshot.title, slug: snapshot.slug, type: snapshot.type, date: snapshot.date, summary: snapshot.summary, tags: snapshot.tags, related: snapshot.related, status: "published", body: sectionBody(snapshot) };
+  const common: ContentEntry = { title: snapshot.title, slug: snapshot.slug, type: snapshot.type, date: snapshot.date, updatedAt: snapshot.updatedAt, summary: snapshot.summary, tags: snapshot.tags, related: snapshot.related, status: "published", body: sectionBody(snapshot) };
   if (snapshot.type === "papers") {
     const value = snapshot.metadata as PaperMetadata;
     return { ...common, readAt: value.readAt, authors: value.authors, venue: value.venue, year: value.year, paperUrl: value.paperUrl, readingMethods: value.readingMethods, readingStatus: value.readingStatus, topics: value.topics };

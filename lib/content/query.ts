@@ -1,5 +1,6 @@
 import { CONTENT_ENTRIES } from "./generated.ts";
 import type { ApplicationStage, ContentEntry, ContentType, ReadingStatus } from "./types.ts";
+import { reflectionSlugSequence } from "./reflection-slug.mjs";
 
 const readingStatuses: ReadingStatus[] = ["queued", "in_progress", "synthesizing", "completed", "archived"];
 const applicationStages: ApplicationStage[] = ["applied", "written_test", "interview", "offer", "closed"];
@@ -99,4 +100,27 @@ export function getRelatedEntries(slug: string, entries: ContentEntry[] = CONTEN
   );
 
   return copyEntries([...explicit, ...sharedMetadata, ...sameDate]);
+}
+
+export type ReflectionNavigation = {
+  previous: ContentEntry | null;
+  next: ContentEntry | null;
+  sameDay: ContentEntry[];
+};
+
+export function getReflectionNavigation(slug: string, entries: ContentEntry[] = CONTENT_ENTRIES): ReflectionNavigation {
+  const source = entries.find((entry) => entry.slug === slug && entry.type === "reflections");
+  if (!source) return { previous: null, next: null, sameDay: [] };
+
+  const reflections = entries.filter((entry) => entry.type === "reflections" && entry.slug !== slug);
+  const previous = sortEntriesByRecency(reflections.filter((entry) => entry.date < source.date))[0] ?? null;
+  const newer = sortEntriesByRecency(reflections.filter((entry) => entry.date > source.date));
+  const next = newer.at(-1) ?? null;
+  const sameDay = reflections
+    .filter((entry) => entry.date === source.date)
+    .sort((left, right) =>
+      (reflectionSlugSequence(right.slug, right.date) ?? 1) - (reflectionSlugSequence(left.slug, left.date) ?? 1)
+    );
+
+  return structuredClone({ previous, next, sameDay });
 }

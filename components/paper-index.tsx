@@ -25,14 +25,14 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
   const [year, setYear] = useState("");
   const [venue, setVenue] = useState("");
   const [readingStatus, setReadingStatus] = useState("");
-  const [readingMethod, setReadingMethod] = useState("");
+  const [readingMethods, setReadingMethods] = useState<ReadingMethod[]>([]);
   const [order, setOrder] = useState<"newest" | "oldest">("newest");
   const topics = unique(entries.flatMap((entry) => entry.topics ?? []));
   const years = unique(entries.map((entry) => entry.year));
   const venues = unique(entries.map((entry) => entry.venue));
   const filters = {
     query,
-    readingMethod: readingMethod as ReadingMethod | "",
+    readingMethods,
     readingStatus: readingStatus as ReadingStatus | "",
     topic,
     year,
@@ -48,7 +48,7 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
     setYear(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.year);
     setVenue(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.venue);
     setReadingStatus(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingStatus);
-    setReadingMethod(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingMethod);
+    setReadingMethods([...DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingMethods]);
     setOrder(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.order);
   }
 
@@ -56,7 +56,7 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
     <>
       <div className="paper-filters" aria-label="论文筛选">
         <label>关键词<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <label>阅读方式<select value={readingMethod} onChange={(event) => setReadingMethod(event.target.value)}><option value="">全部方式</option>{methods.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        <fieldset className="paper-method-filter"><legend>阅读方式</legend><div>{methods.map(([value, label]) => <label key={value}><input type="checkbox" value={value} checked={readingMethods.includes(value)} onChange={() => setReadingMethods((current) => current.includes(value) ? current.filter((method) => method !== value) : [...current, value])} />{label}</label>)}</div></fieldset>
         <label>执行状态<select value={readingStatus} onChange={(event) => setReadingStatus(event.target.value)}><option value="">全部状态</option>{statuses.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label>主题<select value={topic} onChange={(event) => setTopic(event.target.value)}><option value="">全部主题</option>{topics.map((value) => <option key={value}>{value}</option>)}</select></label>
         <label>年份<select value={year} onChange={(event) => setYear(event.target.value)}><option value="">全部年份</option>{years.map((value) => <option key={value}>{value}</option>)}</select></label>
