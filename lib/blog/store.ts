@@ -131,8 +131,23 @@ export class MemoryBlogStore implements BlogStore {
       throw new VersionConflictError();
     }
     if (!aliases.length) return this.createDraft(draft);
-    if (!assetStore) throw new Error("图片存储未配置");
-    return this.createDraftWithAssetAliases(draft, aliases, assetStore);
+    if (!assetStore?.commitDraftAliasesAtomically) throw new Error("图片存储不支持原子别名提交");
+    if (aliases.some((alias) => alias.postId !== draft.id)) {
+      throw new Error("图片别名所属文章不一致");
+    }
+    return assetStore.commitDraftAliasesAtomically(aliases, () => {
+      const finalSource = this.#drafts.get(sourceId);
+      if (!finalSource || finalSource.draftVersion !== expectedVersion) {
+        throw new VersionConflictError();
+      }
+      this.#assertSlugAvailable(draft.slug, draft.id);
+      if (this.#drafts.has(draft.id)) {
+        throw new Error(`Draft already exists: ${draft.id}`);
+      }
+      const stored = clone(draft);
+      this.#drafts.set(stored.id, stored);
+      return clone(stored);
+    });
   }
 
   async importDraft(draft: BlogPostDraft): Promise<BlogPostDraft> {

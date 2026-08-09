@@ -252,6 +252,9 @@ export function createBlogService(
 
     async saveDraft(draft, expectedVersion) {
       const stored = await loadPost(draft.id);
+      if (draft.type !== stored.type) {
+        throw new BlogValidationError(["文章类型不能修改"]);
+      }
       const canonical = normalizeMarkdownPost({
         ...draft,
         id: stored.id,

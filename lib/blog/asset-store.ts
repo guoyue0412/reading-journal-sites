@@ -36,6 +36,10 @@ export interface BlogAssetStore {
   createDraftAsset(asset: BlogAsset): Promise<BlogAsset>;
   createDraftAlias(sourceAssetId: string, input: Omit<DraftAssetAliasInput, "sourceAssetId">): Promise<BlogAsset>;
   createDraftAliases(inputs: readonly DraftAssetAliasInput[]): Promise<BlogAsset[]>;
+  commitDraftAliasesAtomically?<T>(
+    inputs: readonly DraftAssetAliasInput[],
+    commit: (aliases: readonly BlogAsset[]) => T,
+  ): Promise<T>;
   getById(id: string): Promise<BlogAsset | null>;
   listByPost(postId: string): Promise<BlogAsset[]>;
   commitPublishAtomically<T>(
@@ -66,6 +70,12 @@ export class MemoryBlogAssetStore implements BlogAssetStore {
     return (await this.createDraftAliases([{ sourceAssetId, ...input }]))[0];
   }
   async createDraftAliases(inputs: readonly DraftAssetAliasInput[]) {
+    return this.commitDraftAliasesAtomically(inputs, (aliases) => aliases.map(clone));
+  }
+  async commitDraftAliasesAtomically<T>(
+    inputs: readonly DraftAssetAliasInput[],
+    commit: (aliases: readonly BlogAsset[]) => T,
+  ): Promise<T> {
     const next = new Map(this.#assets);
     const aliases: BlogAsset[] = [];
     for (const input of inputs) {
@@ -86,8 +96,9 @@ export class MemoryBlogAssetStore implements BlogAssetStore {
       next.set(alias.id, alias);
       aliases.push(alias);
     }
+    const result = commit(aliases.map(clone));
     this.#assets = next;
-    return aliases.map(clone);
+    return result;
   }
   async getById(id: string) {
     const asset = this.#assets.get(id);

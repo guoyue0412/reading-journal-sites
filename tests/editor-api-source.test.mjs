@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createEmptyDraft } from "../lib/blog/default-templates.ts";
+import { createBlogService } from "../lib/blog/service.ts";
+import { MemoryBlogStore } from "../lib/blog/store.ts";
 import {
   readJsonRecord,
   requireDraftRecord,
@@ -159,6 +161,45 @@ test("draft guards reject malformed nested payloads with 400 before persistence"
 
   assert.doesNotThrow(() => requireDraftRecord(paper));
   assert.doesNotThrow(() => requireDraftRecord(job));
+});
+
+test("HTTP save rejects a valid forged paper payload for an authoritative reflection", async () => {
+  let id = 0;
+  const store = new MemoryBlogStore();
+  const service = createBlogService(
+    store,
+    () => "2026-07-24T12:00:00.000Z",
+    () => `00000000-0000-4000-8000-${String(++id).padStart(12, "0")}`,
+  );
+  const reflection = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const forgedPaper = {
+    ...reflection,
+    type: "papers",
+    metadata: {
+      authors: ["Guo Yue"],
+      venue: "arXiv",
+      year: 2026,
+      paperUrl: "https://arxiv.org/abs/2607.00001",
+      readAt: "2026-07-24",
+      readingMethods: ["deep"],
+      readingStatus: "in_progress",
+      topics: ["robotics"],
+    },
+  };
+
+  const response = await withOwnerJson(async () => {
+    const draft = requireDraftRecord(forgedPaper);
+    return { post: await service.saveDraft(draft, reflection.draftVersion) };
+  }, authorized);
+
+  assert.equal(response.status, 400);
+  const body = await response.json();
+  assert.equal(body.error, "内容校验失败");
+  assert.ok(body.fields.some((message) => message.includes("文章类型")));
+  const unchanged = await store.getDraft(reflection.id);
+  assert.equal(unchanged?.type, "reflections");
+  assert.deepEqual(unchanged?.metadata, {});
+  assert.equal(unchanged?.draftVersion, reflection.draftVersion);
 });
 
 test("template updates reject a postType that differs from the queried scope", async () => {

@@ -93,12 +93,42 @@ test("autosave validates the authoritative stored type before writing", async ()
         topics: [],
       },
     }, created.draftVersion),
-    /每日感悟的 slug/,
+    /文章类型不能修改/,
   );
   const stored = await service.loadPost(created.id);
   assert.equal(stored.type, "reflections");
   assert.equal(stored.slug, "2026-07-24");
   assert.equal(stored.draftVersion, 0);
+});
+
+test("saving rejects a client type that differs from the authoritative stored type", async () => {
+  const { service } = createService();
+  const reflection = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const forgedPaper = {
+    ...reflection,
+    type: "papers",
+    metadata: {
+      authors: ["Guo Yue"],
+      venue: "arXiv",
+      year: 2026,
+      paperUrl: "https://arxiv.org/abs/2607.00001",
+      readAt: "2026-07-24",
+      readingMethods: ["deep"],
+      readingStatus: "in_progress",
+      topics: ["robotics"],
+    },
+  };
+
+  await assert.rejects(
+    () => service.saveDraft(forgedPaper, reflection.draftVersion),
+    (error) => error instanceof BlogValidationError
+      && error.errors.some((message) => message.includes("文章类型")),
+  );
+
+  const unchanged = await service.loadPost(reflection.id);
+  assert.equal(unchanged.type, "reflections");
+  assert.deepEqual(unchanged.metadata, {});
+  assert.equal(unchanged.draftVersion, reflection.draftVersion);
 });
 
 test("createPost rejects invalid runtime type and dates without writing", async () => {
@@ -229,6 +259,66 @@ test("copy commit rejects a source-version race without creating a draft or asse
   assert.equal(await assets.getById(targetAliasId), null);
   assert.deepEqual(await assets.getById(asset.id), asset);
   assert.equal((await store.listDrafts()).length, 1);
+});
+
+test("copy rechecks the source after the asset-alias await window before committing either record", async () => {
+  class AliasAwaitRaceAssetStore extends MemoryBlogAssetStore {
+    race = null;
+    raced = false;
+
+    async runRace() {
+      if (this.raced || !this.race) return;
+      this.raced = true;
+      await this.race();
+    }
+
+    async createDraftAliases(inputs) {
+      await this.runRace();
+      return super.createDraftAliases(inputs);
+    }
+
+    async commitDraftAliasesAtomically(inputs, commit) {
+      await this.runRace();
+      return super.commitDraftAliasesAtomically(inputs, commit);
+    }
+  }
+
+  const store = new MemoryBlogStore();
+  const assets = new AliasAwaitRaceAssetStore();
+  const { service } = createService(store, assets);
+  const original = await service.createPost({ type: "reflections", date: "2026-07-24" });
+  const asset = {
+    id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", postId: original.id, objectKey: `posts/${original.id}/await.png`,
+    originalName: "await.png", safeName: "await.png", contentType: "image/png", sizeBytes: 12, sha256: "await-hash",
+    visibility: "draft", createdAt: "2026-07-24T10:00:00.000Z", updatedAt: "2026-07-24T10:00:00.000Z",
+  };
+  await assets.createDraftAsset(asset);
+  const saved = await service.saveDraft({
+    ...original,
+    title: "Await-window source",
+    summary: "Final CAS must win",
+    sections: original.sections.map((section, index) => index === 0
+      ? { ...section, content: `![await](/media/${asset.id}/await.png)` }
+      : section),
+  }, original.draftVersion);
+  assets.race = async () => {
+    const current = await store.getDraft(saved.id);
+    await store.saveDraft({ ...current, title: "Concurrent save in alias window" }, saved.draftVersion);
+  };
+
+  await assert.rejects(
+    () => service.createPostCopy(saved.id, saved.draftVersion),
+    VersionConflictError,
+  );
+
+  const targetId = "00000000-0000-4000-8000-000000000002";
+  const targetAliasId = "00000000-0000-4000-8000-000000000007";
+  const sourceAfterRace = await store.getDraft(saved.id);
+  assert.equal(sourceAfterRace?.draftVersion, saved.draftVersion + 1);
+  assert.equal(sourceAfterRace?.title, "Concurrent save in alias window");
+  assert.equal(await store.getDraft(targetId), null);
+  assert.equal(await assets.getById(targetAliasId), null);
+  assert.deepEqual(await assets.getById(asset.id), asset);
 });
 
 test("ordinary post creation retries a slug race with a complete draft", async () => {
