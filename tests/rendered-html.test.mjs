@@ -57,37 +57,26 @@ test("derives absolute Open Graph and X image URLs from the incoming host", asyn
   );
 });
 
-test("server-renders the research homepage without starter markers", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
-  assert.match(html, /Guo Yue/);
-  assert.match(html, /Embodied AI/);
-  assert.match(html, /LingBot-VA/);
-  assert.match(html, /Research projects/);
-  assert.match(html, /Recent writing/);
-  assert.match(html, /Full index/);
-  assert.match(html, /CONTENT PULSE/);
-  assert.match(html, /论文精读/);
-  assert.match(html, /近 30 天发布/);
-  assert.doesNotMatch(
-    html,
-    /codex-preview|SkeletonPreview|react-loading-skeleton/i,
-  );
-});
-
-test("homepage presents research projects and recent writing without admin controls", async () => {
+test("server-renders the research archive homepage in the approved order", async () => {
   const response = await render("/");
   const html = await response.text();
 
   assert.equal(response.status, 200);
+  for (const text of ["郭跃", "当前研究问题", "精选研究项目", "研究主题", "最近论文阅读", "研究之外的记录"]) {
+    assert.match(html, new RegExp(text));
+  }
+  const positions = ["当前研究问题", "精选研究项目", "研究主题", "最近论文阅读", "研究之外的记录"].map((text) => html.indexOf(text));
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
   assert.match(html, /href="\/projects"/);
-  assert.match(html, /href="\/blog"/);
-  assert.match(html, /EgoEngine/);
-  assert.match(html, /GenWAM/);
-  assert.doesNotMatch(html, /文章管理/);
+  assert.match(html, /href="\/editor"/);
+  assert.doesNotMatch(html, /CONTENT PULSE|overview-progress|文章管理/);
+});
+
+test("homepage project entries expose questions, contributions, and evidence links", async () => {
+  const html = await (await render("/")).text();
+  for (const text of ["LingBot-VA", "EgoEngine", "GenWAM", "研究问题", "研究贡献", "研究证据"]) {
+    assert.match(html, new RegExp(text));
+  }
 });
 
 test("keeps all four legacy content indexes reachable", async () => {

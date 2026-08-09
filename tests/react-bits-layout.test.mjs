@@ -17,8 +17,8 @@ test("uses a research home while retaining article reading surfaces", async () =
   const [home, index, papers, article, css] = await Promise.all([
     read("app/page.tsx"), read("components/content-index.tsx"), read("components/paper-index.tsx"), read("components/markdown-article.tsx"), read("app/globals.css"),
   ]);
-  assert.match(home, /research-hero/);
-  assert.match(home, /LingBot-VA/);
+  assert.match(home, /archive-hero/);
+  assert.match(home, /<ResearchProjectList projects={researchProjects} compact \/>/);
   assert.match(index, /index-heading--ambient/);
   assert.match(papers, /panel-controls/);
   assert.match(article, /article-header--ambient/);

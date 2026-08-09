@@ -1,32 +1,27 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-const navigation = [
-  ["/", "首页"],
-  ["/index", "索引"],
-  ["/blog", "博客"],
-  ["/papers", "论文"],
-  ["/projects", "项目"],
-  ["/about", "关于"],
-] as const;
+const navigation = [["/", "研究"], ["/projects", "项目"], ["/papers", "论文"], ["/blog", "记录"], ["/about", "关于"]] as const;
+
+function NavigationLinks() {
+  return <>{navigation.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}</>;
+}
 
 export function ResearchShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="research-page">
-      <header className="research-header">
-        <Link className="research-brand" href="/" aria-label="Guo Yue Research 首页">
-          Guo Yue <span>Research</span>
-        </Link>
-        <nav className="research-nav" aria-label="公开导航">
-          {navigation.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}
-        </nav>
-        <div className="research-tools">
-          <Link href="/search" aria-label="搜索">搜索</Link>
-          <Link href="/admin" aria-label="站点后台">账户</Link>
-        </div>
-      </header>
-      <main>{children}</main>
-      <footer className="research-footer">Guo Yue · Embodied AI, World Models, Robot Learning</footer>
-    </div>
-  );
+  return <div className="research-page">
+    <header className="archive-masthead">
+      <div className="archive-masthead__identity">
+        <Link href="/" aria-label="郭跃研究档案馆首页"><strong>郭跃</strong><span>GUO YUE</span></Link>
+        <p>EMBODIED AI · RESEARCH ARCHIVE</p>
+      </div>
+      <nav className="archive-desktop-nav" aria-label="公开导航"><NavigationLinks /></nav>
+      <nav className="archive-tools" aria-label="站点工具"><Link href="/search">搜索</Link><Link href="/editor">编辑</Link></nav>
+      <details className="archive-mobile-nav">
+        <summary>菜单</summary>
+        <nav aria-label="移动端公开导航"><NavigationLinks /><Link href="/search">搜索</Link><Link href="/editor">编辑</Link></nav>
+      </details>
+    </header>
+    <main>{children}</main>
+    <footer className="archive-footer"><p>继续研究，也继续记录。</p><span>郭跃 · Guo Yue</span></footer>
+  </div>;
 }

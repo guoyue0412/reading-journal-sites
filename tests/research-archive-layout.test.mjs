@@ -46,3 +46,11 @@ test("research archive data exposes questions, contributions, and verifiable int
   }
   assert.deepEqual(researchTopics.map((topic) => topic.label), ["VLA", "世界模型", "动作与状态表征", "灵巧操作", "仿真与泛化"]);
 });
+
+test("masthead has desktop and native mobile navigation without glass chrome", async () => {
+  const [shell, css] = await Promise.all([read("components/research-shell.tsx"), read("app/research-archive.css")]);
+  assert.match(shell, /<details className="archive-mobile-nav"/);
+  assert.match(shell, /href="\/editor"/);
+  assert.match(css, /\.archive-masthead/);
+  assert.doesNotMatch(css, /backdrop-filter|border-radius:\s*999px/);
+});
