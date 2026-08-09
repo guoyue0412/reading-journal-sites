@@ -17,6 +17,46 @@ const formatApiError = (payload: ApiError, fallback: string) => {
   const detail = payload.fields?.filter(Boolean).join("；");
   return [payload.error || payload.message, detail].filter(Boolean).join("：") || fallback;
 };
+const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string");
+const isNullableString = (value: unknown) => value === null || typeof value === "string";
+const recoverySectionKinds = new Set(["long_text", "short_text", "checklist", "markdown", "relation"]);
+
+function isCompleteRecoveryDraft(value: unknown, active: BlogPostDraft): value is BlogPostDraft {
+  if (!isRecord(value) || value.id !== active.id || value.type !== active.type) return false;
+  if (!["id", "slug", "type", "title", "date", "summary", "status", "createdAt", "updatedAt"].every((key) => typeof value[key] === "string")) return false;
+  if (value.status !== "draft" && value.status !== "published") return false;
+  if (!Number.isInteger(value.draftVersion) || (value.draftVersion as number) < 0 || !isNullableString(value.publishedRevisionId)) return false;
+  if (!isStringArray(value.tags) || !isStringArray(value.related) || !isRecord(value.metadata) || !Array.isArray(value.sections)) return false;
+  if (!value.sections.every((item) => isRecord(item)
+    && typeof item.id === "string"
+    && typeof item.title === "string"
+    && typeof item.kind === "string"
+    && recoverySectionKinds.has(item.kind)
+    && typeof item.content === "string"
+    && isStringArray(item.items)
+    && isStringArray(item.relationSlugs)
+    && Number.isInteger(item.position)
+    && (item.position as number) >= 0
+    && isNullableString(item.templateId)
+    && isNullableString(item.standardKey))) return false;
+  if (active.type === "papers") {
+    const metadata = value.metadata;
+    return isStringArray(metadata.authors)
+      && typeof metadata.venue === "string"
+      && Number.isInteger(metadata.year)
+      && typeof metadata.paperUrl === "string"
+      && typeof metadata.readAt === "string"
+      && isStringArray(metadata.readingMethods)
+      && typeof metadata.readingStatus === "string"
+      && isStringArray(metadata.topics);
+  }
+  if (active.type === "jobs") {
+    const metadata = value.metadata;
+    return ["company", "role", "location", "applicationStage", "appliedAt", "nextAction"].every((key) => typeof metadata[key] === "string");
+  }
+  return true;
+}
 
 export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: Props) {
   const [posts, setPosts] = useState(initialPosts);
@@ -39,6 +79,10 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   const savedRevision = useRef(0);
   const queuedSave = useRef<BlogPostDraft | null>(null);
   const savePromise = useRef<Promise<BlogPostDraft | null> | null>(null);
+  const publishingPost = useRef<{ postId: string; editRevision: number } | null>(null);
+  const publishPromise = useRef<Promise<void> | null>(null);
+  const recoveryChecked = useRef(new Set<string>());
+  const acceptedRecoveries = useRef(new Set<string>());
 
   const closeSidebarAndRestoreFocus = () => {
     setSidebarOpen(false);
@@ -51,6 +95,31 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     try { localStorage.setItem(emergencyKey(post.id), JSON.stringify(post)); } catch { setMessage("浏览器恢复副本保存失败，请及时导出 Markdown。"); }
   }
   function clearEmergencyDraft(id: string) { try { localStorage.removeItem(emergencyKey(id)); } catch { /* D1 remains authoritative. */ } }
+
+  function offerEmergencyRecovery(post: BlogPostDraft) {
+    if (recoveryChecked.current.has(post.id)) {
+      if (acceptedRecoveries.current.has(post.id) && currentRef.current?.id === post.id && savedRevision.current !== editRevision.current) armAutosave(post.id);
+      return;
+    }
+    recoveryChecked.current.add(post.id);
+    try {
+      const raw = localStorage.getItem(emergencyKey(post.id));
+      if (!raw) return;
+      const recovery: unknown = JSON.parse(raw);
+      if (!isCompleteRecoveryDraft(recovery, post)) return;
+      if (window.confirm("发现这个文章的未保存恢复副本，是否恢复？")) {
+        acceptedRecoveries.current.add(post.id);
+        scheduleAutosave(recovery);
+      }
+    } catch { /* Ignore malformed or inaccessible recovery data. */ }
+  }
+
+  useEffect(() => {
+    const initial = currentRef.current;
+    if (initial) offerEmergencyRecovery(initial);
+    // The initial post is intentionally checked once per mounted editor session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function persistDraft(next: BlogPostDraft): Promise<BlogPostDraft | null> {
     if (saveInFlight.current) {
@@ -91,6 +160,16 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     }
   }
 
+  function armAutosave(postId: string) {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      saveTimer.current = null;
+      const latest = currentRef.current;
+      if (!latest || latest.id !== postId || publishingPost.current?.postId === postId) return;
+      void persistDraft(latest);
+    }, 800);
+  }
+
   function scheduleAutosave(next: BlogPostDraft) {
     editRevision.current += 1;
     setCurrent(next); currentRef.current = next; setPosts((value) => replacePost(value, next)); setSaveState("idle");
@@ -100,12 +179,19 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       queuedSave.current = next;
       return;
     }
-    saveTimer.current = window.setTimeout(() => { saveTimer.current = null; void persistDraft(next); }, 800);
+    if (publishingPost.current?.postId === next.id) return;
+    armAutosave(next.id);
   }
 
   async function flushAutosave(): Promise<BlogPostDraft | null> {
-    if (saveTimer.current) { window.clearTimeout(saveTimer.current); saveTimer.current = null; }
     while (true) {
+      if (saveTimer.current) { window.clearTimeout(saveTimer.current); saveTimer.current = null; }
+      const pendingPublish = publishPromise.current;
+      if (pendingPublish) {
+        await pendingPublish;
+        if (publishPromise.current === pendingPublish) publishPromise.current = null;
+        continue;
+      }
       if (saveInFlight.current) { await savePromise.current; continue; }
       if (savedRevision.current === editRevision.current) return currentRef.current;
       const next = currentRef.current;
@@ -121,10 +207,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     }
     const local = posts.find((post) => post.id === id);
     activePostId.current = id; setSelectedId(id); setCurrent(local ?? null); currentRef.current = local ?? null; setSaveState("idle"); setMessage("");
-    try {
-      const recovery = localStorage.getItem(emergencyKey(id));
-      if (recovery && window.confirm("发现这个文章的未保存恢复副本，是否恢复？")) scheduleAutosave(JSON.parse(recovery) as BlogPostDraft);
-    } catch { /* Ignore unreadable recovery data. */ }
+    if (local) offerEmergencyRecovery(local);
   }
 
   async function createPost(type: PostType) {
@@ -176,15 +259,39 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
 
   async function publish() {
     const saved = await flushAutosave(); if (!saved) return;
+    const context = { postId: saved.id, editRevision: editRevision.current };
+    publishingPost.current = context;
     setMessage("正在发布……");
+    const request = (async () => {
+      try {
+        const response = await fetch(`/api/editor/posts/${saved.id}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
+        if (response.status === 401) { setMessage("登录已失效，请重新登录后再发布。"); return; }
+        const payload = await response.json() as { post?: BlogPostDraft & { publishedAt?: string } } & ApiError;
+        if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "发布失败")); return; }
+        const latest = currentRef.current;
+        if (activePostId.current !== context.postId || latest?.id !== context.postId) return;
+        const hasNewEdits = editRevision.current !== context.editRevision;
+        const next = hasNewEdits ? {
+          ...latest,
+          status: payload.post.status,
+          draftVersion: payload.post.draftVersion,
+          publishedRevisionId: payload.post.publishedRevisionId,
+          createdAt: payload.post.createdAt,
+          updatedAt: payload.post.updatedAt,
+        } : payload.post;
+        setCurrent(next); currentRef.current = next; setPosts((value) => replacePost(value, next)); setSaveState(hasNewEdits ? "idle" : "saved"); setMessage(`已发布${payload.post.publishedAt ? ` · ${payload.post.publishedAt}` : ""}`);
+      } catch {
+        setMessage("网络异常，发布未完成，请检查连接后重试。");
+      }
+    })();
+    publishPromise.current = request;
     try {
-      const response = await fetch(`/api/editor/posts/${saved.id}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
-      if (response.status === 401) { setMessage("登录已失效，请重新登录后再发布。"); return; }
-      const payload = await response.json() as { post?: BlogPostDraft & { publishedAt?: string } } & ApiError;
-      if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "发布失败")); return; }
-      setCurrent(payload.post); currentRef.current = payload.post; setPosts((value) => replacePost(value, payload.post!)); setSaveState("saved"); setMessage(`已发布${payload.post.publishedAt ? ` · ${payload.post.publishedAt}` : ""}`);
-    } catch {
-      setMessage("网络异常，发布未完成，请检查连接后重试。");
+      await request;
+    } finally {
+      if (publishPromise.current === request) publishPromise.current = null;
+      if (publishingPost.current === context) publishingPost.current = null;
+      const latest = currentRef.current;
+      if (activePostId.current === context.postId && latest?.id === context.postId && savedRevision.current !== editRevision.current) armAutosave(context.postId);
     }
   }
 
@@ -204,8 +311,23 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     });
   }
 
+  async function recoverConflictedDraft(local: BlogPostDraft) {
+    try {
+      const { exportPostMarkdown } = await import("@/lib/blog/markdown");
+      const response = await fetch("/api/editor/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown: exportPostMarkdown(local), create: true }) });
+      const payload = await response.json() as { draft?: BlogPostDraft; errors?: string[]; warnings?: string[] } & ApiError;
+      if (!response.ok || !payload.draft) { setMessage(payload.errors?.join("；") || formatApiError(payload, "创建恢复副本失败")); return; }
+      if (payload.errors?.length) { setMessage(`恢复副本校验：${payload.errors.join("；")}`); return; }
+      activePostId.current = payload.draft.id; setSelectedId(payload.draft.id); setCurrent(payload.draft); currentRef.current = payload.draft;
+      setPosts((value) => replacePost(value, payload.draft!)); savedRevision.current = editRevision.current; setSaveState("saved"); setMessage("已从本地冲突稿创建新文章。");
+    } catch {
+      setMessage("网络异常，未创建恢复副本，请检查连接后重试。");
+    }
+  }
+
   async function saveAsNewArticle() {
     if (!currentRef.current) return;
+    if (saveState === "conflict") { await recoverConflictedDraft(currentRef.current); return; }
     const saved = await flushAutosave();
     if (!saved) return;
     try {

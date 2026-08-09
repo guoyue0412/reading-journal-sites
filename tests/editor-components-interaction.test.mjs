@@ -280,6 +280,67 @@ test("structured editor closes the article drawer and restores focus after selec
   }
 });
 
+test("the initially selected post offers one matching complete recovery and ignores malformed or foreign data", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "线上草稿" };
+  const second = { ...createEmptyDraft("reflections", "post-2", "2026-08-10", []), title: "第二篇" };
+  const recovered = {
+    ...current,
+    title: "浏览器恢复标题",
+    sections: current.sections.map((section, index) => index === 0 ? { ...section, content: "浏览器恢复正文" } : section),
+  };
+  const originals = { window: globalThis.window, localStorage: globalThis.localStorage, confirm: globalThis.confirm };
+  let renderer;
+
+  const mount = async (raw, confirmResult = true, posts = [current]) => {
+    let confirmCalls = 0;
+    globalThis.window = globalThis;
+    globalThis.confirm = () => { confirmCalls += 1; return confirmResult; };
+    globalThis.localStorage = {
+      setItem() {}, removeItem() {},
+      getItem(key) { return key.endsWith(":post-1") ? raw : null; },
+    };
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: posts, initialTemplates: [], ownerName: "Guo Yue" }));
+      await Promise.resolve();
+    });
+    return () => confirmCalls;
+  };
+
+  try {
+    let confirmCalls = await mount(JSON.stringify(recovered));
+    assert.equal(confirmCalls(), 1);
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "浏览器恢复标题"));
+    assert.ok(renderer.root.findAllByType("textarea").some((input) => input.props.value === "浏览器恢复正文"));
+    await act(async () => renderer.unmount()); renderer = null;
+
+    confirmCalls = await mount("{not-json");
+    assert.equal(confirmCalls(), 0);
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "线上草稿"));
+    await act(async () => renderer.unmount()); renderer = null;
+
+    confirmCalls = await mount(JSON.stringify({ ...recovered, id: "foreign-post" }));
+    assert.equal(confirmCalls(), 0);
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "线上草稿"));
+    await act(async () => renderer.unmount()); renderer = null;
+
+    confirmCalls = await mount(JSON.stringify(recovered), false, [current, second]);
+    assert.equal(confirmCalls(), 1, "the initial recovery is offered on mount");
+    const secondButton = renderer.root.findAllByType("button").find((button) => button.findAllByType("span").some((span) => span.children.join("") === "第二篇"));
+    await act(async () => { secondButton.props.onClick(); await Promise.resolve(); });
+    const firstButton = renderer.root.findAllByType("button").find((button) => button.findAllByType("span").some((span) => span.children.join("") === "线上草稿"));
+    await act(async () => { firstButton.props.onClick(); await Promise.resolve(); });
+    assert.equal(confirmCalls(), 1, "rejecting a recovery does not prompt again in the same editor session");
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "线上草稿"));
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
 test("Markdown import commits the full draft atomically after confirmation", async () => {
   const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
   const current = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "当前文章" };
@@ -477,24 +538,29 @@ test("save-as-copy stops on a version conflict without posting a placeholder", a
   }
 });
 
-test("a reflection copy keeps the server-reserved slug and persists the complete article", async () => {
+test("save-as-new recovers a conflicted local draft through atomic Markdown import without another stale PATCH", async () => {
   const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
   const current = {
     ...createEmptyDraft("reflections", "post-1", "2026-08-09", []),
     title: "当前文章",
     summary: "完整摘要",
-    sections: createEmptyDraft("reflections", "post-1", "2026-08-09", []).sections.map((section, index) => index === 0 ? { ...section, content: "完整正文" } : section),
   };
-  const copy = {
+  const localContent = "冲突中的完整正文\n\n![本地图](/media/source-asset/figure.png)";
+  const recovered = {
     ...current,
-    id: "post-copy",
+    id: "post-recovered",
     slug: "2026-08-09-2",
-    title: "冲突中的完整文章（副本）",
-    sections: current.sections.map((section, index) => ({ ...section, id: `post-copy-section-${index}` })),
+    title: "冲突中的完整文章",
+    sections: current.sections.map((section, index) => ({
+      ...section,
+      id: `post-recovered-section-${index}`,
+      title: index === 0 ? "自定义结构" : section.title,
+      content: index === 0 ? localContent : section.content,
+    })),
   };
   const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
   const fetchCalls = [];
-  let currentPatchAttempts = 0;
+  let importAttempts = 0;
   let renderer;
 
   try {
@@ -505,31 +571,49 @@ test("a reflection copy keeps the server-reserved slug and persists the complete
       const body = init?.body ? JSON.parse(init.body) : {};
       fetchCalls.push([url, init, body]);
       if (url === "/api/editor/posts/post-1") {
-        currentPatchAttempts += 1;
-        if (currentPatchAttempts === 1) return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
-        return { ok: true, status: 200, json: async () => ({ post: { ...body.draft, draftVersion: 1 } }) };
+        return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
       }
-      if (url === "/api/editor/posts/post-1/copy") {
-        return { ok: true, status: 200, json: async () => ({ post: { ...copy, title: "冲突中的完整文章（副本）" } }) };
+      if (url === "/api/editor/import") {
+        importAttempts += 1;
+        if (importAttempts === 1) return { ok: false, status: 422, json: async () => ({ error: "恢复副本校验失败" }) };
+        return { ok: true, status: 200, json: async () => ({ draft: recovered, errors: [], warnings: [] }) };
       }
       throw new Error(`Unexpected request: ${url}`);
     };
     await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue" })); });
-    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
+    let title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
     await act(async () => { title.props.onChange({ target: { value: "冲突中的完整文章" } }); });
+    const sectionTitle = renderer.root.findAllByType("input").find((input) => input.props["aria-label"] === "模块标题");
+    await act(async () => { sectionTitle.props.onChange({ target: { value: "自定义结构" } }); });
+    const sectionContent = renderer.root.findAllByType("textarea").find((input) => input.props["aria-label"] === "自定义结构内容");
+    await act(async () => { sectionContent.props.onChange({ target: { value: localContent } }); });
     const publishButton = renderer.root.findByProps({ className: "material-action material-action--primary" });
     await act(async () => { publishButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 10)); });
-    const copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
-    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    let copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 30)); });
 
-    const copyCreate = fetchCalls.find(([url]) => url === "/api/editor/posts/post-1/copy");
-    assert.ok(copyCreate);
-    assert.deepEqual(copyCreate[2], { expectedVersion: 1 });
-    assert.equal(fetchCalls.some(([url]) => url === "/api/editor/posts" || url === "/api/editor/posts/post-copy"), false);
-    const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
-    assert.equal(exportLink.props.href, "/api/editor/posts/post-copy/export");
-    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "冲突中的完整文章（副本）"));
-    assert.ok(renderer.root.findAllByType("textarea").some((input) => input.props.value === "完整摘要"));
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/posts/post-1", "/api/editor/import"]);
+    assert.match(renderer.root.findByProps({ className: "studio-message" }).children.join(""), /恢复副本校验失败/);
+    let exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+    title = renderer.root.findAllByType("input").find((input) => input.props.value === "冲突中的完整文章");
+    assert.ok(title, "a failed recovery keeps the complete local draft selected");
+
+    copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 30)); });
+
+    assert.deepEqual(fetchCalls.map(([url]) => url), ["/api/editor/posts/post-1", "/api/editor/import", "/api/editor/import"]);
+    assert.equal(fetchCalls.some(([url]) => url.endsWith("/copy")), false);
+    for (const [, , body] of fetchCalls.filter(([url]) => url === "/api/editor/import")) {
+      assert.equal(body.create, true);
+      assert.match(body.markdown, /title: 冲突中的完整文章/);
+      assert.match(body.markdown, /## 自定义结构/);
+      assert.match(body.markdown, /\/media\/source-asset\/figure\.png/);
+    }
+    exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
+    assert.equal(exportLink.props.href, "/api/editor/posts/post-recovered/export");
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "冲突中的完整文章"));
+    assert.ok(renderer.root.findAllByType("textarea").some((input) => input.props.value === localContent));
     assert.equal(renderer.root.findByProps({ className: "studio-save-state save-state--saved" }).children.join(""), "已保存");
   } finally {
     if (renderer) await act(async () => renderer.unmount());
@@ -570,6 +654,100 @@ test("import preview never commits or switches when flushing the current draft f
     assert.equal(fetchCalls.some(([, init]) => JSON.parse(init?.body ?? "{}").create === true), false);
     const exportLink = renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown");
     assert.equal(exportLink.props.href, "/api/editor/posts/post-1/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("edits made while publish is pending keep their content and autosave from the published version", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const current = {
+    ...createEmptyDraft("reflections", "post-1", "2026-08-09", []),
+    title: "当前文章",
+    summary: "发布竞态回归",
+  };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const patchBodies = [];
+  let flushedDraft;
+  let resolvePublish;
+  let notifyPublishStarted;
+  const publishStarted = new Promise((resolve) => { notifyPublishStarted = resolve; });
+  const pendingPublish = new Promise((resolve) => { resolvePublish = resolve; });
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      const body = init?.body ? JSON.parse(init.body) : {};
+      if (url === "/api/editor/posts/post-1" && init?.method === "PATCH") {
+        patchBodies.push(body);
+        if (body.expectedVersion === 0) {
+          flushedDraft = { ...body.draft, draftVersion: 1 };
+          return { ok: true, status: 200, json: async () => ({ post: flushedDraft }) };
+        }
+        if (body.expectedVersion === 2) {
+          return { ok: true, status: 200, json: async () => ({ post: { ...body.draft, draftVersion: 3 } }) };
+        }
+        return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
+      }
+      if (url === "/api/editor/posts/post-1/publish" && init?.method === "POST") {
+        assert.deepEqual(body, { expectedVersion: 1 }, "publish starts from the completed flush");
+        notifyPublishStarted();
+        return pendingPublish;
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    };
+
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(StructuredEditor, {
+        initialPosts: [current], initialTemplates: [], ownerName: "Guo Yue",
+      }));
+    });
+    let title = renderer.root.findAllByType("input").find((input) => input.props.value === "当前文章");
+    await act(async () => { title.props.onChange({ target: { value: "准备发布" } }); });
+    const publishButton = renderer.root.findByProps({ className: "material-action material-action--primary" });
+    await act(async () => { publishButton.props.onClick(); await publishStarted; });
+
+    title = renderer.root.findAllByType("input").find((input) => input.props.value === "准备发布");
+    await act(async () => { title.props.onChange({ target: { value: "发布期间的新标题" } }); });
+    const section = renderer.root.findAllByType("textarea").find((input) => input.props["aria-label"] === "今日事件内容");
+    await act(async () => { section.props.onChange({ target: { value: "发布期间的新正文" } }); });
+
+    await act(async () => {
+      resolvePublish({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          post: {
+            ...flushedDraft,
+            status: "published",
+            draftVersion: 2,
+            publishedRevisionId: "revision-1",
+            publishedAt: "2026-08-10T12:00:00.000Z",
+          },
+        }),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "发布期间的新标题"));
+    assert.ok(renderer.root.findAllByType("textarea").some((input) => input.props.value === "发布期间的新正文"));
+    assert.match(renderer.root.findByProps({ className: "studio-message" }).children.join(""), /已发布/);
+
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 850)); });
+    assert.deepEqual(patchBodies.map(({ expectedVersion }) => expectedVersion), [0, 2]);
+    assert.equal(patchBodies[1].draft.title, "发布期间的新标题");
+    assert.equal(patchBodies[1].draft.sections[0].content, "发布期间的新正文");
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "发布期间的新标题"));
+    assert.ok(renderer.root.findAllByType("textarea").some((input) => input.props.value === "发布期间的新正文"));
+    assert.equal(renderer.root.findByProps({ className: "studio-save-state save-state--saved" }).children.join(""), "已保存");
+    assert.equal(renderer.root.findAllByType("span").some((span) => span.children.join("") === "版本冲突"), false);
   } finally {
     if (renderer) await act(async () => renderer.unmount());
     for (const [key, value] of Object.entries(originals)) {
