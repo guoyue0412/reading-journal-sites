@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { listPublicEntries } from "../lib/blog/read-model.ts";
+import { listPublicEntries, snapshotToContentEntry } from "../lib/blog/read-model.ts";
 import { MemoryBlogStore } from "../lib/blog/store.ts";
 import { createEmptyDraft } from "../lib/blog/default-templates.ts";
 
@@ -22,4 +22,37 @@ test("public read returns immutable snapshots and excludes later draft edits", a
   const entries = await listPublicEntries(store, []);
   assert.equal(entries[0].title, "Published");
   assert.equal(entries[0].updatedAt, "2026-07-24T00:00:00.000Z");
+});
+
+test("public read gives shuffled static and D1 reflections the same query order", async () => {
+  function reflectionSnapshot(slug) {
+    const draft = createEmptyDraft("reflections", `post-${slug}`, "2026-07-24", []);
+    return {
+      ...draft,
+      slug,
+      title: slug,
+      status: "published",
+      revisionId: `revision-${slug}`,
+      publishedAt: "2026-07-24T12:00:00.000Z",
+    };
+  }
+  const snapshots = [
+    reflectionSnapshot("2026-07-24"),
+    reflectionSnapshot("2026-07-24-3"),
+    reflectionSnapshot("2026-07-24-2"),
+  ];
+  const d1Store = {
+    hasBootstrapMarker: async () => true,
+    listPublished: async () => snapshots,
+  };
+  const expected = ["2026-07-24-3", "2026-07-24-2", "2026-07-24"];
+
+  assert.deepEqual(
+    (await listPublicEntries(new MemoryBlogStore(), snapshots.map(snapshotToContentEntry))).map((entry) => entry.slug),
+    expected,
+  );
+  assert.deepEqual(
+    (await listPublicEntries(d1Store, [])).map((entry) => entry.slug),
+    expected,
+  );
 });

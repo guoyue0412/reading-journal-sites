@@ -126,18 +126,19 @@ test("generates four isolated modules with cross references and newest-first ref
   );
 });
 
-test("accepts multiple same-day reflections and orders later version suffixes first", async () => {
+test("accepts shuffled same-day reflections and orders later version suffixes first", async () => {
   const fields = {
     ...validCommon,
     type: "reflections",
     date: "2026-07-20",
   };
   const { entries } = await runIsolatedGenerator({
-    "reflections/2026-07-20.md": markdown({ ...fields, slug: "2026-07-20" }),
     "reflections/2026-07-20-2.md": markdown({ ...fields, slug: "2026-07-20-2" }),
+    "reflections/2026-07-20.md": markdown({ ...fields, slug: "2026-07-20" }),
+    "reflections/2026-07-20-3.md": markdown({ ...fields, slug: "2026-07-20-3" }),
   });
 
-  assert.deepEqual(entries.map((entry) => entry.slug), ["2026-07-20-2", "2026-07-20"]);
+  assert.deepEqual(entries.map((entry) => entry.slug), ["2026-07-20-3", "2026-07-20-2", "2026-07-20"]);
 });
 
 test("rejects malformed same-day reflection suffixes", async () => {
@@ -486,4 +487,26 @@ test("sorts recruiting and paper entries newest first before limiting", async ()
   ];
   assert.deepEqual(query.sortEntriesByRecency(entries).map((entry) => entry.slug), ["newer", "middle", "older"]);
   assert.deepEqual(query.getRecentEntriesByType("jobs", 1).map((entry) => entry.slug), ["autumn-recruiting-journey"]);
+});
+
+test("sorts same-day reflections by legal slug sequence without changing readAt recency", async () => {
+  const query = await import("../lib/content/query.ts");
+  const reflections = [
+    { slug: "2026-07-20", type: "reflections", date: "2026-07-20" },
+    { slug: "2026-07-20-3", type: "reflections", date: "2026-07-20" },
+    { slug: "2026-07-20-2", type: "reflections", date: "2026-07-20" },
+  ];
+  const papers = [
+    { slug: "new-read", type: "papers", date: "2026-07-24", readAt: "2026-07-26" },
+    { slug: "old-read", type: "papers", date: "2026-07-25", readAt: "2026-07-20" },
+  ];
+
+  assert.deepEqual(
+    query.sortEntriesByRecency(reflections).map((entry) => entry.slug),
+    ["2026-07-20-3", "2026-07-20-2", "2026-07-20"],
+  );
+  assert.deepEqual(
+    query.sortEntriesByRecency(papers).map((entry) => entry.slug),
+    ["new-read", "old-read"],
+  );
 });

@@ -9,8 +9,32 @@ function copyEntries(entries: ContentEntry[]): ContentEntry[] {
   return structuredClone(entries);
 }
 
-export function sortEntriesByRecency<T extends { date: string; readAt?: string }>(entries: T[]): T[] {
-  return [...entries].sort((left, right) => Date.parse(right.readAt ?? right.date) - Date.parse(left.readAt ?? left.date));
+type RecencyEntry = {
+  date: string;
+  readAt?: string;
+  type?: ContentType;
+  slug?: string;
+};
+
+export function sortEntriesByRecency<T extends RecencyEntry>(entries: T[]): T[] {
+  return [...entries].sort((left, right) => {
+    const recency = Date.parse(right.readAt ?? right.date) - Date.parse(left.readAt ?? left.date);
+    if (recency !== 0) return recency;
+
+    if (
+      left.type === "reflections" &&
+      right.type === "reflections" &&
+      left.date === right.date &&
+      left.slug &&
+      right.slug
+    ) {
+      const leftSequence = reflectionSlugSequence(left.slug, left.date);
+      const rightSequence = reflectionSlugSequence(right.slug, right.date);
+      if (leftSequence !== null && rightSequence !== null) return rightSequence - leftSequence;
+    }
+
+    return 0;
+  });
 }
 
 export function getRecentEntries(limit: number, source: ContentEntry[] = CONTENT_ENTRIES): ContentEntry[] {
@@ -116,11 +140,7 @@ export function getReflectionNavigation(slug: string, entries: ContentEntry[] = 
   const previous = sortEntriesByRecency(reflections.filter((entry) => entry.date < source.date))[0] ?? null;
   const newer = sortEntriesByRecency(reflections.filter((entry) => entry.date > source.date));
   const next = newer.at(-1) ?? null;
-  const sameDay = reflections
-    .filter((entry) => entry.date === source.date)
-    .sort((left, right) =>
-      (reflectionSlugSequence(right.slug, right.date) ?? 1) - (reflectionSlugSequence(left.slug, left.date) ?? 1)
-    );
+  const sameDay = sortEntriesByRecency(reflections.filter((entry) => entry.date === source.date));
 
   return structuredClone({ previous, next, sameDay });
 }

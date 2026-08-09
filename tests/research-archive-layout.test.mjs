@@ -120,9 +120,11 @@ test("project evidence statuses are grouped without pretending to be navigation"
 test("masthead has desktop and native mobile navigation without glass chrome", async () => {
   const [shell, navigation, css] = await Promise.all([read("components/research-shell.tsx"), read("components/research-navigation.tsx"), read("app/research-archive.css")]);
   assert.match(shell, /<details className="archive-mobile-nav"/);
-  assert.match(shell, /href="\/editor"/);
+  assert.match(shell, /ResearchToolNavigation/);
   assert.match(navigation, /"use client"/);
   assert.match(navigation, /usePathname/);
+  assert.match(navigation, /\["\/search", "搜索"\]/);
+  assert.match(navigation, /\["\/editor", "编辑"\]/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(css, /\.archive-masthead/);
   assert.match(css, /a\[aria-current="page"\]/);

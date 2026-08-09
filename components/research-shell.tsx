@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ResearchNavigation } from "./research-navigation";
+import { ResearchNavigation, ResearchToolNavigation } from "./research-navigation";
 
 export function ResearchShell({ children }: { children: ReactNode }) {
   return <div className="research-page">
@@ -10,10 +10,13 @@ export function ResearchShell({ children }: { children: ReactNode }) {
         <p>EMBODIED AI · RESEARCH ARCHIVE</p>
       </div>
       <ResearchNavigation className="archive-desktop-nav" ariaLabel="公开导航" />
-      <nav className="archive-tools" aria-label="站点工具"><Link href="/search">搜索</Link><Link href="/editor">编辑</Link></nav>
+      <ResearchToolNavigation className="archive-tools" ariaLabel="站点工具" />
       <details className="archive-mobile-nav">
         <summary>菜单</summary>
-        <ResearchNavigation ariaLabel="移动端公开导航" includeTools />
+        <div className="archive-mobile-nav__panel">
+          <ResearchNavigation ariaLabel="移动端公开导航" />
+          <ResearchToolNavigation ariaLabel="移动端站点工具" />
+        </div>
       </details>
     </header>
     <main>{children}</main>

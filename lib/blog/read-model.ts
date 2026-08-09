@@ -1,4 +1,5 @@
 import { CONTENT_ENTRIES } from "../content/generated.ts";
+import { sortEntriesByRecency } from "../content/query.ts";
 import type { ContentEntry } from "../content/types.ts";
 import type { BlogStore } from "./store.ts";
 import type { JobMetadata, PaperMetadata, PublishedSnapshot } from "./types.ts";
@@ -32,13 +33,13 @@ export async function listPublicEntries(store?: BlogStore, fallback: ContentEntr
   try {
     if (!store) {
       const { env } = await import("cloudflare:workers");
-      if (!env.DB) return structuredClone(fallback);
+      if (!env.DB) return sortEntriesByRecency(structuredClone(fallback));
     }
     const activeStore = store ?? new (await import("./d1-store.ts")).D1BlogStore();
-    if (!(await activeStore.hasBootstrapMarker())) return structuredClone(fallback);
-    return (await activeStore.listPublished()).map(snapshotToContentEntry);
+    if (!(await activeStore.hasBootstrapMarker())) return sortEntriesByRecency(structuredClone(fallback));
+    return sortEntriesByRecency((await activeStore.listPublished()).map(snapshotToContentEntry));
   } catch (error) {
-    if (missingSchema(error)) return structuredClone(fallback);
+    if (missingSchema(error)) return sortEntriesByRecency(structuredClone(fallback));
     throw error;
   }
 }

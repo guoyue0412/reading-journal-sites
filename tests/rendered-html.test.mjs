@@ -84,6 +84,14 @@ test("marks only the true current public navigation destination", async () => {
   assert.equal((articleHtml.match(/aria-current="page"/g) ?? []).length, 0);
 });
 
+test("marks search as the current desktop and mobile site tool", async () => {
+  const html = await (await render("/search")).text();
+  const currentLinks = [...html.matchAll(/<a\b[^>]*aria-current="page"[^>]*>/g)].map((match) => match[0]);
+
+  assert.equal(currentLinks.length, 2);
+  assert.ok(currentLinks.every((link) => link.includes('href="/search"')));
+});
+
 test("server-renders a labeled research-topic heading and recency-ordered Chinese record labels", async () => {
   const html = await (await render("/")).text();
   const recordList = html.match(/<ol class="archive-record-list">([\s\S]*?)<\/ol>/)?.[1] ?? "";
