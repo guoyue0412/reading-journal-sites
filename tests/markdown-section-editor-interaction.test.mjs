@@ -30,6 +30,30 @@ test.after(async () => {
   else globalThis.self = originalSelf;
 });
 
+test("toolbar formatting uses the textarea's live selection", async () => {
+  const { MarkdownSectionEditor } = await vite.ssrLoadModule("/components/editor/markdown-section-editor.tsx");
+  let renderer;
+
+  try {
+    function Parent() {
+      const [value, setValue] = React.useState("ABC");
+      return React.createElement(MarkdownSectionEditor, { postId: "post-a", label: "正文", value, onChange: setValue });
+    }
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(Parent), {
+        createNodeMock: (element) => element.type === "textarea" ? { selectionStart: 1, selectionEnd: 2 } : {},
+      });
+    });
+
+    const bold = renderer.root.findAllByType("button").find((button) => button.children.join("") === "粗体");
+    await act(async () => { bold.props.onClick(); });
+
+    assert.equal(renderer.root.findByType("textarea").props.value, "A**B**C");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+  }
+});
+
 test("an image upload inserts into the latest parent text at the cursor captured when the upload began", async () => {
   const { MarkdownSectionEditor } = await vite.ssrLoadModule("/components/editor/markdown-section-editor.tsx");
   const originalFetch = globalThis.fetch;
@@ -131,6 +155,47 @@ async function makePost(id, title, content) {
 function editorFileInput(renderer) {
   return renderer.root.findAllByType("input").find((input) => input.props.accept?.startsWith("image/"));
 }
+
+test("an upload never replaces selected text that changed while the request was pending", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const post = await makePost("post-a", "文章 A", "ABC");
+  let resolveUpload;
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+    globalThis.fetch = (url) => {
+      if (String(url) === "/api/editor/assets") return new Promise((resolve) => { resolveUpload = resolve; });
+      throw new Error(`unexpected request: ${url}`);
+    };
+    await act(async () => {
+      renderer = TestRenderer.create(
+        React.createElement(StructuredEditor, { initialPosts: [post], initialTemplates: [], ownerName: "Guo Yue" }),
+        { createNodeMock: (element) => element.type === "textarea" ? { selectionStart: 1, selectionEnd: 2 } : {} },
+      );
+    });
+    await act(async () => {
+      editorFileInput(renderer).props.onChange({ target: { files: [new File(["image"], "a.png", { type: "image/png" })], value: "a.png" } });
+    });
+    const editedSection = renderer.root.findAllByType("textarea").find((textarea) => textarea.props.value === "ABC");
+    await act(async () => { editedSection.props.onChange({ target: { value: "AXC" } }); });
+
+    await act(async () => {
+      resolveUpload({ ok: true, json: async () => ({ url: "/uploads/a.png", safeName: "a.png" }) });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    assert.ok(renderer.root.findAllByType("textarea").some((textarea) => textarea.props.value === "AXC![a.png](/uploads/a.png)"));
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
 
 test("selecting article B waits for article A's upload to merge and save before switching", async () => {
   const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");

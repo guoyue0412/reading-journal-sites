@@ -134,7 +134,8 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     if (!section) return;
     const validSelection = image.selection.start >= 0
       && image.selection.start <= image.selection.end
-      && image.selection.end <= section.content.length;
+      && image.selection.end <= section.content.length
+      && section.content.slice(image.selection.start, image.selection.end) === image.selection.selectedText;
     const start = validSelection ? image.selection.start : section.content.length;
     const end = validSelection ? image.selection.end : section.content.length;
     const content = section.content.slice(0, start) + image.markdown + section.content.slice(end);

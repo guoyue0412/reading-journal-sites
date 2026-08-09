@@ -13,7 +13,7 @@ export type UploadedMarkdownImage = {
   postId: string;
   sectionId: string;
   markdown: string;
-  selection: { start: number; end: number };
+  selection: { start: number; end: number; selectedText: string };
 };
 
 type Props = {
@@ -36,22 +36,29 @@ export function MarkdownSectionEditor({ postId, sectionId, label, value, onChang
   const [error, setError] = useState("");
   latestValue.current = value;
 
-  function insert(before: string, after = before, placeholder = "文字", selection?: { start: number; end: number }) {
+  function insert(before: string, after = before, placeholder = "文字", selection?: UploadedMarkdownImage["selection"]) {
     const latest = latestValue.current;
-    const validSelection = selection
-      && selection.start >= 0
-      && selection.start <= selection.end
-      && selection.end <= latest.length;
-    const start = validSelection ? selection.start : latest.length;
-    const end = validSelection ? selection.end : latest.length;
+    const liveStart = textareaRef.current?.selectionStart ?? latest.length;
+    const liveEnd = textareaRef.current?.selectionEnd ?? liveStart;
+    const target = selection ?? { start: liveStart, end: liveEnd, selectedText: latest.slice(liveStart, liveEnd) };
+    const validSelection = target.start >= 0
+      && target.start <= target.end
+      && target.end <= latest.length
+      && latest.slice(target.start, target.end) === target.selectedText;
+    const start = validSelection ? target.start : latest.length;
+    const end = validSelection ? target.end : latest.length;
     onChange(latest.slice(0, start) + before + (latest.slice(start, end) || placeholder) + after + latest.slice(end));
   }
 
   async function upload(file: File) {
     const textarea = textareaRef.current;
+    const valueAtUpload = latestValue.current;
+    const start = textarea?.selectionStart ?? valueAtUpload.length;
+    const end = textarea?.selectionEnd ?? textarea?.selectionStart ?? valueAtUpload.length;
     const selection = {
-      start: textarea?.selectionStart ?? latestValue.current.length,
-      end: textarea?.selectionEnd ?? textarea?.selectionStart ?? latestValue.current.length,
+      start,
+      end,
+      selectedText: valueAtUpload.slice(start, end),
     };
     const upload = { id: `markdown-upload-${++nextUploadId}`, postId, sectionId: sectionId ?? "" };
     setUploading(true);
