@@ -9,9 +9,11 @@ import { EditorSidebar } from "./editor-sidebar";
 import { localDate, postTypeLabels, replacePost, type MobilePane, type SaveState } from "./editor-types";
 import { PostFields } from "./post-fields";
 import { SectionEditor } from "./section-editor";
+import type { MarkdownImageUpload, UploadedMarkdownImage } from "./markdown-section-editor";
 
 type Props = { initialPosts: BlogPostDraft[]; initialTemplates: SectionTemplate[]; ownerName: string };
 type ApiError = { error?: string; message?: string; code?: string; fields?: string[] };
+type PendingUpload = MarkdownImageUpload & { done: Promise<void>; settle: () => void };
 const emergencyKey = (id: string) => `guoyue-blog-recovery:${id}`;
 const formatApiError = (payload: ApiError, fallback: string) => {
   const detail = payload.fields?.filter(Boolean).join("；");
@@ -79,6 +81,8 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   const savedRevision = useRef(0);
   const queuedSave = useRef<BlogPostDraft | null>(null);
   const savePromise = useRef<Promise<BlogPostDraft | null> | null>(null);
+  const uploads = useRef(new Map<string, PendingUpload>());
+  const [uploadSummary, setUploadSummary] = useState({ pending: 0, failed: 0 });
   const publishingPost = useRef<{ postId: string; editRevision: number } | null>(null);
   const publishPromise = useRef<Promise<void> | null>(null);
   const recoveryChecked = useRef(new Set<string>());
@@ -95,6 +99,72 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     try { localStorage.setItem(emergencyKey(post.id), JSON.stringify(post)); } catch { setMessage("浏览器恢复副本保存失败，请及时导出 Markdown。"); }
   }
   function clearEmergencyDraft(id: string) { try { localStorage.removeItem(emergencyKey(id)); } catch { /* D1 remains authoritative. */ } }
+
+  function refreshUploadSummary(postId = activePostId.current) {
+    const uploadsForPost = [...uploads.current.values()].filter((upload) => upload.postId === postId);
+    setUploadSummary({
+      pending: uploadsForPost.filter((upload) => upload.state === "pending").length,
+      failed: uploadsForPost.filter((upload) => upload.state === "failed").length,
+    });
+  }
+
+  function onUploadStateChange(upload: MarkdownImageUpload) {
+    if (upload.state === "pending") {
+      for (const [id, existing] of uploads.current) {
+        if (existing.postId === upload.postId && existing.sectionId === upload.sectionId && existing.state === "failed") uploads.current.delete(id);
+      }
+      let settle!: () => void;
+      const done = new Promise<void>((resolve) => { settle = resolve; });
+      uploads.current.set(upload.id, { ...upload, done, settle });
+    } else {
+      const existing = uploads.current.get(upload.id);
+      if (!existing) return;
+      existing.settle();
+      if (upload.state === "complete") uploads.current.delete(upload.id);
+      else uploads.current.set(upload.id, { ...existing, ...upload });
+    }
+    refreshUploadSummary();
+  }
+
+  function onImageUploaded(image: UploadedMarkdownImage) {
+    const upload = uploads.current.get(image.id);
+    const current = currentRef.current;
+    if (!upload || upload.state !== "pending" || activePostId.current !== image.postId || current?.id !== image.postId) return;
+    const section = current.sections.find((item) => item.id === image.sectionId);
+    if (!section) return;
+    const validSelection = image.selection.start >= 0
+      && image.selection.start <= image.selection.end
+      && image.selection.end <= section.content.length;
+    const start = validSelection ? image.selection.start : section.content.length;
+    const end = validSelection ? image.selection.end : section.content.length;
+    const content = section.content.slice(0, start) + image.markdown + section.content.slice(end);
+    scheduleAutosave({
+      ...current,
+      sections: current.sections.map((item) => item.id === image.sectionId ? { ...item, kind: "markdown", content, items: [], relationSlugs: [] } : item),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  async function waitForUploads(postId: string) {
+    while (true) {
+      const pending = [...uploads.current.values()].filter((upload) => upload.postId === postId && upload.state === "pending");
+      if (!pending.length) break;
+      await Promise.all(pending.map((upload) => upload.done));
+    }
+    const failed = [...uploads.current.values()].filter((upload) => upload.postId === postId && upload.state === "failed");
+    refreshUploadSummary(postId);
+    if (failed.length) {
+      setMessage(`有 ${failed.length} 张图片上传失败，请在对应模块重试后再继续。`);
+      return false;
+    }
+    return true;
+  }
+
+  async function flushUploadsAndAutosave() {
+    const current = currentRef.current;
+    if (current && !await waitForUploads(current.id)) return null;
+    return flushAutosave();
+  }
 
   function offerEmergencyRecovery(post: BlogPostDraft) {
     if (recoveryChecked.current.has(post.id)) {
@@ -202,11 +272,11 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   async function selectPost(id: string) {
     if (id === selectedId) return;
     if (currentRef.current) {
-      const saved = await flushAutosave();
+      const saved = await flushUploadsAndAutosave();
       if (!saved) return;
     }
     const local = posts.find((post) => post.id === id);
-    activePostId.current = id; setSelectedId(id); setCurrent(local ?? null); currentRef.current = local ?? null; setSaveState("idle"); setMessage("");
+    activePostId.current = id; setSelectedId(id); setCurrent(local ?? null); currentRef.current = local ?? null; setSaveState("idle"); setMessage(""); refreshUploadSummary(id);
     if (local) offerEmergencyRecovery(local);
   }
 
@@ -214,19 +284,20 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     setCreating(true); setMessage("");
     try {
       if (currentRef.current) {
-        const saved = await flushAutosave();
+        const saved = await flushUploadsAndAutosave();
         if (!saved) return;
       }
       const response = await fetch("/api/editor/posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, date: localDate() }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
       if (!response.ok || !payload.post) throw new Error(formatApiError(payload, "新建失败"));
-      setPosts((value) => replacePost(value, payload.post!)); activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved");
+      setPosts((value) => replacePost(value, payload.post!)); activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; setSaveState("saved"); refreshUploadSummary(payload.post.id);
     } catch (error) { setMessage(error instanceof Error ? error.message : "新建失败"); } finally { setCreating(false); }
   }
 
   function updateSection(section: BlogSection) {
-    if (!current) return;
-    scheduleAutosave({ ...current, sections: current.sections.map((item) => item.id === section.id ? section : item), updatedAt: new Date().toISOString() });
+    const latest = currentRef.current;
+    if (!latest) return;
+    scheduleAutosave({ ...latest, sections: latest.sections.map((item) => item.id === section.id ? section : item), updatedAt: new Date().toISOString() });
   }
   function moveSection(id: string, delta: number) {
     if (!current) return;
@@ -258,7 +329,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   }
 
   async function publish() {
-    const saved = await flushAutosave(); if (!saved) return;
+    const saved = await flushUploadsAndAutosave(); if (!saved) return;
     const context = { postId: saved.id, editRevision: editRevision.current };
     publishingPost.current = context;
     setMessage("正在发布……");
@@ -318,7 +389,7 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       const payload = await response.json() as { draft?: BlogPostDraft; errors?: string[]; warnings?: string[] } & ApiError;
       if (!response.ok || !payload.draft) { setMessage(payload.errors?.join("；") || formatApiError(payload, "创建恢复副本失败")); return; }
       if (payload.errors?.length) { setMessage(`恢复副本校验：${payload.errors.join("；")}`); return; }
-      activePostId.current = payload.draft.id; setSelectedId(payload.draft.id); setCurrent(payload.draft); currentRef.current = payload.draft;
+      activePostId.current = payload.draft.id; setSelectedId(payload.draft.id); setCurrent(payload.draft); currentRef.current = payload.draft; refreshUploadSummary(payload.draft.id);
       setPosts((value) => replacePost(value, payload.draft!)); savedRevision.current = editRevision.current; setSaveState("saved"); setMessage("已从本地冲突稿创建新文章。");
     } catch {
       setMessage("网络异常，未创建恢复副本，请检查连接后重试。");
@@ -328,13 +399,13 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   async function saveAsNewArticle() {
     if (!currentRef.current) return;
     if (saveState === "conflict") { await recoverConflictedDraft(currentRef.current); return; }
-    const saved = await flushAutosave();
+    const saved = await flushUploadsAndAutosave();
     if (!saved) return;
     try {
       const response = await fetch(`/api/editor/posts/${saved.id}/copy`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: saved.draftVersion }) });
       const payload = await response.json() as { post?: BlogPostDraft } & ApiError;
       if (!response.ok || !payload.post) { setMessage(formatApiError(payload, "另存失败")); return; }
-      activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post;
+      activePostId.current = payload.post.id; setSelectedId(payload.post.id); setCurrent(payload.post); currentRef.current = payload.post; refreshUploadSummary(payload.post.id);
       setPosts((value) => replacePost(value, payload.post!)); savedRevision.current = editRevision.current; setSaveState("saved");
       setMessage("已创建新文章副本，本地恢复副本仍保留。");
     } catch {
@@ -352,14 +423,14 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const warning = payload.warnings?.length ? `\n警告：${payload.warnings.join("；")}` : "";
     if (!window.confirm(`导入内容将创建为新草稿，是否继续？${warning}`)) return;
     if (currentRef.current) {
-      const saved = await flushAutosave();
+      const saved = await flushUploadsAndAutosave();
       if (!saved) return;
     }
     const createResponse = await fetch("/api/editor/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown, create: true }) });
     const created = await createResponse.json() as { draft?: BlogPostDraft; errors?: string[]; warnings?: string[] } & ApiError;
     if (!createResponse.ok || !created.draft) { setMessage(formatApiError(created, "创建导入草稿失败")); return; }
     if (created.errors?.length) { setMessage(`导入校验：${created.errors.join("；")}`); return; }
-    activePostId.current = created.draft.id; setSelectedId(created.draft.id); setCurrent(created.draft); currentRef.current = created.draft;
+    activePostId.current = created.draft.id; setSelectedId(created.draft.id); setCurrent(created.draft); currentRef.current = created.draft; refreshUploadSummary(created.draft.id);
     setPosts((value) => replacePost(value, created.draft!)); savedRevision.current = editRevision.current; setSaveState("saved"); setMessage("已导入为新草稿。");
   }
 
@@ -374,12 +445,14 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
       <button className="material-action material-action--primary" type="button" disabled={!current || saveState === "saving"} onClick={() => void publish()}>发布</button>
     </header>
     {message ? <p className="studio-message" role="status" aria-live="polite">{message}</p> : null}
+    {uploadSummary.pending ? <p className="studio-message" role="status" aria-live="polite">正在上传 {uploadSummary.pending} 张图片，切换和发布会在上传完成后继续。</p> : null}
+    {uploadSummary.failed ? <p className="studio-message" role="alert">有 {uploadSummary.failed} 张图片上传失败，请在对应模块重试后再继续。</p> : null}
     {saveState === "failed" ? <div className="studio-recovery"><button type="button" onClick={() => currentRef.current && void persistDraft(currentRef.current)}>重试保存</button><button type="button" onClick={exportCurrentDraft}>导出当前草稿</button></div> : null}
     {saveState === "conflict" ? <div className="studio-recovery"><button type="button" onClick={() => void reloadOnlineDraft()}>重新加载线上草稿</button><button type="button" onClick={() => void saveAsNewArticle()}>另存为新文章</button></div> : null}
     <div className="studio-mobile-tabs"><button type="button" aria-pressed={mobilePane === "edit"} onClick={() => setMobilePane("edit")}>编辑</button><button type="button" aria-pressed={mobilePane === "preview"} onClick={() => setMobilePane("preview")}>预览</button></div>
     <div className={`studio-layout studio-layout--${mobilePane}`} data-mobile-pane={mobilePane}>
       <EditorSidebar id="studio-post-list" isOpen={sidebarOpen} posts={posts} selectedId={selectedId} creating={creating} onSelect={(id) => { closeSidebarAndRestoreFocus(); void selectPost(id); }} onCreate={(type) => { closeSidebarAndRestoreFocus(); void createPost(type); }} />
-      <main className="studio-form">{current ? <><p className="eyebrow">{postTypeLabels[current.type]}</p><PostFields post={current} onChange={scheduleAutosave} /><div className="studio-sections"><div className="studio-sections__title"><h2>内容模块</h2><button className="material-action" type="button" onClick={() => setDrawerOpen(true)}>+ 添加模块</button></div>{[...current.sections].sort((a, b) => a.position - b.position).map((section) => <SectionEditor key={section.id} postId={current.id} section={section} onChange={updateSection} onMove={(delta) => moveSection(section.id, delta)} onDuplicate={() => duplicateSection(section.id)} onDelete={() => deleteSection(section.id)} />)}</div></> : <div className="studio-empty"><h2>开始写作</h2><p>从左侧选择文章类型，系统会提供对应的结构化模板。</p></div>}</main>
+      <main className="studio-form">{current ? <><p className="eyebrow">{postTypeLabels[current.type]}</p><PostFields post={current} onChange={scheduleAutosave} /><div className="studio-sections"><div className="studio-sections__title"><h2>内容模块</h2><button className="material-action" type="button" onClick={() => setDrawerOpen(true)}>+ 添加模块</button></div>{[...current.sections].sort((a, b) => a.position - b.position).map((section) => <SectionEditor key={section.id} postId={current.id} section={section} onChange={updateSection} onImageUploaded={onImageUploaded} onUploadStateChange={onUploadStateChange} onMove={(delta) => moveSection(section.id, delta)} onDuplicate={() => duplicateSection(section.id)} onDelete={() => deleteSection(section.id)} />)}</div></> : <div className="studio-empty"><h2>开始写作</h2><p>从左侧选择文章类型，系统会提供对应的结构化模板。</p></div>}</main>
       <ArticlePreview post={current} />
     </div>
     <EditorMobileBar pane={mobilePane} saveState={saveState} disabled={!current} onAdd={() => setDrawerOpen(true)} onPaneChange={setMobilePane} onPublish={() => void publish()} onImport={() => importInputRef.current?.click()} onExport={exportCurrentDraft} />
