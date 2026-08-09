@@ -3,7 +3,6 @@ import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
 import {
@@ -100,13 +99,43 @@ async function generatorFailure(files) {
 }
 
 async function loadGeneratedEntries() {
-  await execFileAsync(process.execPath, ["scripts/generate-content-index.mjs"]);
-  const generatedUrl = pathToFileURL(
-    new URL("../lib/content/generated.ts", import.meta.url).pathname,
-  );
-  generatedUrl.searchParams.set("cache", Date.now().toString());
-  return (await import(generatedUrl.href)).CONTENT_ENTRIES;
+  const temporaryRoot = await mkdtemp(path.join(tmpdir(), "guoyue-live-content-"));
+  const outputPath = path.join(temporaryRoot, "generated.ts");
+  const legacyOutputPath = path.join(temporaryRoot, "legacy-generated.ts");
+
+  try {
+    await execFileAsync(
+      process.execPath,
+      [
+        "scripts/generate-content-index.mjs",
+        "--output",
+        outputPath,
+        "--legacy-output",
+        legacyOutputPath,
+      ],
+      { cwd: new URL("../", import.meta.url) },
+    );
+    const generated = await readFile(outputPath, "utf8");
+    const serialized = generated.match(/CONTENT_ENTRIES: ContentEntry\[\] = ([\s\S]*);\n$/)?.[1];
+    assert.ok(serialized, "generated entries must be serializable without rewriting tracked files");
+    return JSON.parse(serialized);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 }
+
+test("loads real content without rewriting tracked generated modules", async () => {
+  const generatedPaths = [
+    new URL("../lib/content/generated.ts", import.meta.url),
+    new URL("../lib/content/legacy-generated.ts", import.meta.url),
+  ];
+  const before = await Promise.all(generatedPaths.map((file) => readFile(file, "utf8")));
+
+  await loadGeneratedEntries();
+
+  const after = await Promise.all(generatedPaths.map((file) => readFile(file, "utf8")));
+  assert.deepEqual(after, before);
+});
 
 test("generates four isolated modules with cross references and newest-first reflections", async () => {
   const entries = await loadGeneratedEntries();
