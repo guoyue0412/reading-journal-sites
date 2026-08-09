@@ -136,6 +136,7 @@ test("papers render the bibliography labels backed by existing reading fields", 
   assert.match(html, /tactile-sensing/);
   assert.match(html, /2026-07-22/);
   assert.match(html, /关于长期主义，我最近改变的三个看法/);
+  assert.match(html, /class="paper-mobile-list__status">已完成<\/span>/);
 });
 
 test("projects render research questions, contributions, and evidence without card grids", async () => {

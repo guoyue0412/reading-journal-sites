@@ -83,3 +83,17 @@ test("homepage derives non-paper records through the shared recency query", asyn
   assert.match(page, /import\s*{[^}]*getRecentEntries[^}]*}\s*from\s*["']@\/lib\/content\/query["']/);
   assert.match(page, /getRecentEntries\(4,\s*entries\.filter\(\(entry\)\s*=>\s*entry\.type\s*!==\s*["']papers["']\)\)/);
 });
+
+test("paper bibliography keeps desktop and mobile presentations mutually exclusive", async () => {
+  const css = await read("app/research-archive.css");
+
+  assert.match(css, /\.research-page \.paper-bibliography\s*\{[^}]*display:\s*block/s);
+  assert.match(css, /\.research-page \.paper-mobile-list\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.research-page \.paper-bibliography\s*\{[^}]*display:\s*none[^}]*\}[\s\S]*?\.research-page \.paper-mobile-list\s*\{[^}]*display:\s*block/s);
+});
+
+test("paper connection links retain a 44px target in the archive layer", async () => {
+  const css = await read("app/research-archive.css");
+
+  assert.match(css, /\.research-page \.paper-index-connections a\s*\{[^}]*min-height:\s*44px/s);
+});

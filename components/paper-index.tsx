@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { PaperMethodBadges, readingStatusLabels } from "./paper-method-badges";
 import type { ContentEntry, ReadingMethod, ReadingStatus } from "../lib/content/types";
+import {
+  DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS,
+  filterAndSortPaperEntries,
+  hasPaperBibliographyFilters,
+} from "../lib/research/paper-bibliography";
 
 const methods: [ReadingMethod, string][] = [["skim", "粗读"], ["deep", "细读"], ["synthesis", "总结"]];
 const statuses = Object.entries(readingStatusLabels) as [ReadingStatus, string][];
@@ -25,23 +30,26 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
   const topics = unique(entries.flatMap((entry) => entry.topics ?? []));
   const years = unique(entries.map((entry) => entry.year));
   const venues = unique(entries.map((entry) => entry.venue));
-  const needle = query.trim().toLocaleLowerCase();
-  const hasFilters = Boolean(query || topic || year || venue || readingStatus || readingMethod);
-
-  const filteredEntries = entries.filter((entry) =>
-    (!needle || [entry.title, entry.summary, entry.venue ?? "", ...(entry.authors ?? []), ...(entry.topics ?? [])].some((value) => value.toLocaleLowerCase().includes(needle))) &&
-    (!topic || entry.topics?.includes(topic)) &&
-    (!year || String(entry.year) === year) &&
-    (!venue || entry.venue === venue) &&
-    (!readingStatus || entry.readingStatus === readingStatus) &&
-    (!readingMethod || entry.readingMethods?.includes(readingMethod as ReadingMethod))
-  ).sort((left, right) => {
-    const comparison = (left.readAt ?? left.date).localeCompare(right.readAt ?? right.date);
-    return order === "newest" ? -comparison : comparison;
-  });
+  const filters = {
+    query,
+    readingMethod: readingMethod as ReadingMethod | "",
+    readingStatus: readingStatus as ReadingStatus | "",
+    topic,
+    year,
+    venue,
+    order,
+  };
+  const hasFilters = hasPaperBibliographyFilters(filters);
+  const filteredEntries = filterAndSortPaperEntries(entries, filters);
 
   function clearFilters() {
-    setQuery(""); setTopic(""); setYear(""); setVenue(""); setReadingStatus(""); setReadingMethod(""); setOrder("newest");
+    setQuery(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.query);
+    setTopic(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.topic);
+    setYear(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.year);
+    setVenue(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.venue);
+    setReadingStatus(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingStatus);
+    setReadingMethod(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.readingMethod);
+    setOrder(DEFAULT_PAPER_BIBLIOGRAPHY_FILTERS.order);
   }
 
   return (
@@ -80,6 +88,7 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
               <p>{entry.readAt ?? entry.date} · {entry.venue ?? "未注明来源"}</p>
               <h2><Link href={`/post/${entry.slug}`}>{entry.title}</Link></h2>
               <p>{entry.authors?.join("、")} · {entry.year}</p>
+              <span className="paper-mobile-list__status">{readingStatusLabels[entry.readingStatus ?? "queued"]}</span>
               <PaperMethodBadges methods={entry.readingMethods ?? []} status={entry.readingStatus ?? "queued"} showInactive={false} />
               <ul className="paper-index-topics" aria-label="论文主题">{(entry.topics ?? []).map((value) => <li key={value}>{value}</li>)}</ul>
               {connections[entry.slug]?.length ? <nav className="paper-index-connections" aria-label="关联文章">{connections[entry.slug].map((related) => <Link href={`/post/${related.slug}`} key={related.slug}>{related.title}</Link>)}</nav> : null}

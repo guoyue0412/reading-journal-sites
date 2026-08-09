@@ -158,8 +158,8 @@ test("paper bibliography supports query, method, status, topic, year, venue, and
     assert.match(source, new RegExp(`\\[${state},\\s*set${state[0].toUpperCase()}${state.slice(1)}\\]`));
   }
   assert.match(source, /type="search"/);
-  assert.match(source, /readingMethods\?\.includes/);
-  assert.match(source, /localeCompare/);
+  assert.match(source, /filterAndSortPaperEntries\(entries, filters\)/);
+  assert.match(source, /hasPaperBibliographyFilters\(filters\)/);
   assert.match(source, /paper-bibliography/);
   for (const status of ["queued", "in_progress", "synthesizing", "completed", "archived"]) {
     assert.match(badges, new RegExp(status));
