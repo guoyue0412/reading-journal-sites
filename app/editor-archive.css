@@ -14,6 +14,42 @@
   font-family: var(--archive-sans);
 }
 
+.admin-page :focus-visible {
+  outline: 2px solid var(--archive-focus);
+  outline-offset: 3px;
+}
+
+.admin-page button,
+.admin-page input,
+.admin-page select,
+.admin-page textarea,
+.admin-page summary,
+.admin-page a {
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, opacity 140ms ease;
+}
+
+.admin-page button:not(:disabled):hover,
+.admin-page input:not(:disabled):hover,
+.admin-page select:not(:disabled):hover,
+.admin-page summary:hover,
+.admin-page a:hover {
+  border-color: var(--archive-accent);
+}
+
+.structured-editor button:not(:disabled):active,
+.structured-editor summary:active,
+.structured-editor a:active {
+  opacity: .7;
+}
+
+.structured-editor button:disabled,
+.structured-editor input:disabled,
+.structured-editor select:disabled,
+.structured-editor textarea:disabled {
+  cursor: not-allowed;
+  opacity: .52;
+}
+
 .admin-page .admin-header {
   border-bottom: 1px solid var(--archive-rule);
   background: var(--archive-paper);
@@ -209,6 +245,12 @@
 }
 
 .studio-recovery { background: oklch(94% .035 80); }
+
+.save-state--saving { color: var(--archive-muted); }
+.save-state--saved { color: oklch(43% .09 145); }
+.save-state--failed { color: var(--archive-accent); }
+.save-state--conflict { color: var(--archive-accent); }
+.markdown-editor__error { color: var(--archive-accent); }
 
 @media (max-width: 1060px) {
   .studio-posts-toggle { display: inline-flex !important; }

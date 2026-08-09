@@ -97,3 +97,49 @@ test("paper connection links retain a 44px target in the archive layer", async (
 
   assert.match(css, /\.research-page \.paper-index-connections a\s*\{[^}]*min-height:\s*44px/s);
 });
+
+test("new presentation files do not reintroduce the retired visual language", async () => {
+  const [publicCss, editorCss, home, shell, paperIndex] = await Promise.all([
+    read("app/research-archive.css"),
+    read("app/editor-archive.css"),
+    read("app/page.tsx"),
+    read("components/research-shell.tsx"),
+    read("components/paper-index.tsx"),
+  ]);
+  const combined = `${publicCss}\n${editorCss}\n${home}\n${shell}`;
+
+  assert.doesNotMatch(combined, /ambient|glass|linear-gradient|radial-gradient|translateY\(-/i);
+  assert.doesNotMatch(combined, /border-radius:\s*999px/i);
+  assert.doesNotMatch(paperIndex, /panel-controls/);
+
+  const backdropValues = [...combined.matchAll(/(?:^|[;{]\s*)(?:-webkit-)?backdrop-filter:\s*([^;}]+)/gm)]
+    .map((match) => match[1].trim());
+  const filterValues = [...combined.matchAll(/(?:^|[;{]\s*)filter:\s*([^;}]+)/gm)]
+    .map((match) => match[1].trim());
+
+  assert.ok(backdropValues.every((value) => value === "none"), `unsafe backdrop-filter: ${backdropValues.join(", ")}`);
+  assert.ok(filterValues.every((value) => value === "none"), `unsafe filter: ${filterValues.join(", ")}`);
+});
+
+test("all archive controls expose complete interaction and status treatments", async () => {
+  const [publicCss, editorCss] = await Promise.all([
+    read("app/research-archive.css"),
+    read("app/editor-archive.css"),
+  ]);
+
+  assert.match(publicCss, /\.research-page :focus-visible/);
+  assert.match(publicCss, /:hover/);
+  assert.match(publicCss, /:active/);
+  assert.match(publicCss, /:disabled/);
+  assert.match(publicCss, /prefers-reduced-motion:\s*reduce/);
+
+  assert.match(editorCss, /\.admin-page :focus-visible/);
+  assert.match(editorCss, /:hover/);
+  assert.match(editorCss, /:active/);
+  assert.match(editorCss, /:disabled/);
+  assert.match(editorCss, /prefers-reduced-motion:\s*reduce/);
+  for (const state of ["saving", "saved", "failed", "conflict"]) {
+    assert.match(editorCss, new RegExp(`\\.save-state--${state}\\s*\\{`));
+  }
+  assert.match(editorCss, /\.markdown-editor__error/);
+});

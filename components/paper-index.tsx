@@ -54,7 +54,7 @@ export function PaperIndex({ entries, connections = {} }: { entries: ContentEntr
 
   return (
     <>
-      <div className="paper-filters panel-controls" aria-label="论文筛选">
+      <div className="paper-filters" aria-label="论文筛选">
         <label>关键词<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <label>阅读方式<select value={readingMethod} onChange={(event) => setReadingMethod(event.target.value)}><option value="">全部方式</option>{methods.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <label>执行状态<select value={readingStatus} onChange={(event) => setReadingStatus(event.target.value)}><option value="">全部状态</option>{statuses.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>

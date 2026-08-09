@@ -37,6 +37,39 @@ body {
   outline-offset: 3px;
 }
 
+.research-page a,
+.research-page button,
+.research-page input,
+.research-page select,
+.research-page summary {
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, opacity 140ms ease;
+}
+
+.research-page a:hover {
+  color: var(--archive-accent);
+  text-decoration-thickness: 1px;
+}
+
+.research-page button:not(:disabled):hover,
+.research-page input:not(:disabled):hover,
+.research-page select:not(:disabled):hover,
+.research-page summary:hover {
+  border-color: var(--archive-accent);
+}
+
+.research-page a:active,
+.research-page button:not(:disabled):active,
+.research-page summary:active {
+  opacity: .7;
+}
+
+.research-page button:disabled,
+.research-page input:disabled,
+.research-page select:disabled {
+  cursor: not-allowed;
+  opacity: .52;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
