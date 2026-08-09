@@ -102,6 +102,51 @@ test("paper bibliography combines reading method and single execution status fil
   }).map((entry) => entry.slug), ["vision-beta"]);
 });
 
+test("paper bibliography filters by reading method alone", async () => {
+  const { filterAndSortPaperEntries } = await loadSubject();
+
+  assert.deepEqual(
+    filterAndSortPaperEntries(entries, { readingMethod: "deep" }).map((entry) => entry.slug),
+    ["robotics-alpha", "control-gamma"],
+  );
+});
+
+test("paper bibliography filters by execution status alone", async () => {
+  const { filterAndSortPaperEntries } = await loadSubject();
+
+  assert.deepEqual(
+    filterAndSortPaperEntries(entries, { readingStatus: "completed" }).map((entry) => entry.slug),
+    ["robotics-alpha"],
+  );
+});
+
+test("paper bibliography filters by topic alone", async () => {
+  const { filterAndSortPaperEntries } = await loadSubject();
+
+  assert.deepEqual(
+    filterAndSortPaperEntries(entries, { topic: "robotics" }).map((entry) => entry.slug),
+    ["robotics-alpha", "control-gamma"],
+  );
+});
+
+test("paper bibliography filters by year alone", async () => {
+  const { filterAndSortPaperEntries } = await loadSubject();
+
+  assert.deepEqual(
+    filterAndSortPaperEntries(entries, { year: "2025" }).map((entry) => entry.slug),
+    ["robotics-alpha", "control-gamma"],
+  );
+});
+
+test("paper bibliography filters by venue alone", async () => {
+  const { filterAndSortPaperEntries } = await loadSubject();
+
+  assert.deepEqual(
+    filterAndSortPaperEntries(entries, { venue: "ICRA" }).map((entry) => entry.slug),
+    ["robotics-alpha", "control-gamma"],
+  );
+});
+
 test("paper bibliography combines topic, year, and venue filters", async () => {
   const { filterAndSortPaperEntries } = await loadSubject();
   const result = filterAndSortPaperEntries(entries, {
