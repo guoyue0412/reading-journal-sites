@@ -155,6 +155,73 @@ test("editor sidebar exposes drawer state and executes selection and creation ca
   }
 });
 
+test("add section drawer preserves title focus across a parent callback rerender and keeps its keyboard focus contract", async () => {
+  const { AddSectionDrawer } = await vite.ssrLoadModule("/components/editor/add-section-drawer.tsx");
+  const originalDocument = globalThis.document;
+  const listeners = new Set();
+  const outside = { focusCalls: 0, focus() { this.focusCalls += 1; documentMock.activeElement = this; } };
+  const closeButton = { focus() { documentMock.activeElement = this; }, hasAttribute() { return false; } };
+  const titleInput = { focus() { documentMock.activeElement = this; }, hasAttribute() { return false; } };
+  const saveTemplate = { focus() { documentMock.activeElement = this; }, hasAttribute() { return false; } };
+  const addButton = { focus() { documentMock.activeElement = this; }, hasAttribute() { return false; } };
+  const dialog = {
+    querySelector() { return closeButton; },
+    querySelectorAll() { return [closeButton, titleInput, saveTemplate, addButton]; },
+  };
+  const documentMock = {
+    activeElement: outside,
+    addEventListener(type, listener) { if (type === "keydown") listeners.add(listener); },
+    removeEventListener(type, listener) { if (type === "keydown") listeners.delete(listener); },
+  };
+  let renderer;
+  let initialCloseCalls = 0;
+  let latestCloseCalls = 0;
+  const render = async (open, onClose) => {
+    const props = { open, insertionPosition: 10, templates: [], onClose, onAdd: async () => {} };
+    await act(async () => {
+      if (renderer) renderer.update(React.createElement(AddSectionDrawer, props));
+      else renderer = TestRenderer.create(React.createElement(AddSectionDrawer, props), {
+        createNodeMock: (element) => element.type === "div" && element.props.className === "studio-drawer" ? dialog : {},
+      });
+    });
+  };
+
+  try {
+    globalThis.document = documentMock;
+    await render(true, () => { initialCloseCalls += 1; });
+    assert.equal(documentMock.activeElement, closeButton, "opening focuses the first drawer control");
+
+    const title = renderer.root.findAllByType("input").find((input) => input.props.placeholder === "例如：创新点、相关论文");
+    assert.ok(title);
+    await act(async () => { title.props.onChange({ target: { value: "保留焦点" } }); });
+    titleInput.focus();
+
+    await render(true, () => { latestCloseCalls += 1; });
+    assert.equal(documentMock.activeElement, titleInput, "a parent rerender does not steal focus from the module title");
+
+    let prevented = false;
+    documentMock.activeElement = addButton;
+    for (const listener of listeners) listener({ key: "Tab", shiftKey: false, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(documentMock.activeElement, closeButton, "Tab wraps from the last control");
+
+    documentMock.activeElement = closeButton;
+    for (const listener of listeners) listener({ key: "Tab", shiftKey: true, preventDefault() {} });
+    assert.equal(documentMock.activeElement, addButton, "Shift+Tab wraps from the first control");
+
+    for (const listener of listeners) listener({ key: "Escape" });
+    assert.equal(initialCloseCalls, 0);
+    assert.equal(latestCloseCalls, 1, "Escape uses the latest parent callback");
+
+    await render(false, () => { latestCloseCalls += 1; });
+    assert.equal(documentMock.activeElement, outside, "closing restores focus to the opener");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  }
+});
+
 test("structured editor closes the article drawer and restores focus after selection and creation", async () => {
   const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
   const post = { ...createEmptyDraft("reflections", "post-1", "2026-08-09", []), title: "测试文章" };

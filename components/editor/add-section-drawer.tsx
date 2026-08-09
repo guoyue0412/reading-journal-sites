@@ -6,15 +6,17 @@ type Props = { open: boolean; insertionPosition: number; templates: SectionTempl
 
 export function AddSectionDrawer({ open, insertionPosition, templates, onClose, onAdd }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const [title, setTitle] = useState("");
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  useEffect(() => { onCloseRef.current = onClose; });
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
     dialog?.querySelector<HTMLElement>("button, input, select")?.focus();
     function keyboard(event: KeyboardEvent) {
-      if (event.key === "Escape") { onClose(); return; }
+      if (event.key === "Escape") { onCloseRef.current(); return; }
       if (event.key !== "Tab" || !dialog) return;
       const focusable = [...dialog.querySelectorAll<HTMLElement>("button, input, select")].filter((item) => !item.hasAttribute("disabled"));
       if (!focusable.length) return;
@@ -24,7 +26,7 @@ export function AddSectionDrawer({ open, insertionPosition, templates, onClose, 
     }
     document.addEventListener("keydown", keyboard);
     return () => { document.removeEventListener("keydown", keyboard); previous?.focus(); };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   async function submit() {
     if (!title.trim()) return;
