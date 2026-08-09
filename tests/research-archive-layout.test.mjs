@@ -54,3 +54,31 @@ test("masthead has desktop and native mobile navigation without glass chrome", a
   assert.match(css, /\.archive-masthead/);
   assert.doesNotMatch(css, /backdrop-filter|border-radius:\s*999px/);
 });
+
+test("keeps all archive navigation and entry links as explicit 44px targets", async () => {
+  const css = await read("app/research-archive.css");
+
+  for (const selector of [
+    ".archive-masthead__identity a",
+    ".archive-topics li a",
+    ".archive-reading-list h3 a",
+    ".archive-record-list a",
+  ]) {
+    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rule = css.match(new RegExp(`${escapedSelector}\\s*\\{[^}]*\\}`))?.[0] ?? "";
+    assert.match(
+      rule,
+      /display:\s*(?:inline-)?flex/,
+      selector,
+    );
+    assert.match(rule, /align-items:\s*center/, selector);
+    assert.match(rule, /min-height:\s*44px/, selector);
+  }
+});
+
+test("homepage derives non-paper records through the shared recency query", async () => {
+  const page = await read("app/page.tsx");
+
+  assert.match(page, /import\s*{[^}]*getRecentEntries[^}]*}\s*from\s*["']@\/lib\/content\/query["']/);
+  assert.match(page, /getRecentEntries\(4,\s*entries\.filter\(\(entry\)\s*=>\s*entry\.type\s*!==\s*["']papers["']\)\)/);
+});

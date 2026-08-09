@@ -72,6 +72,22 @@ test("server-renders the research archive homepage in the approved order", async
   assert.doesNotMatch(html, /CONTENT PULSE|overview-progress|文章管理/);
 });
 
+test("server-renders a labeled research-topic heading and recency-ordered Chinese record labels", async () => {
+  const html = await (await render("/")).text();
+  const recordList = html.match(/<ol class="archive-record-list">([\s\S]*?)<\/ol>/)?.[1] ?? "";
+
+  assert.match(html, /<nav[^>]+aria-labelledby="research-topics"[^>]*>/);
+  assert.match(html, /<h2 id="research-topics">研究主题<\/h2>/);
+  assert.match(html, /RESEARCH TOPICS/);
+  const recordDates = ["2026-07-22", "2026-07-21", "2026-07-18", "2026-06-23"];
+  const datePositions = recordDates.map((date) => recordList.indexOf(date));
+  assert.ok(datePositions.every((position) => position >= 0));
+  assert.deepEqual([...datePositions].sort((left, right) => left - right), datePositions);
+  for (const label of ["秋招记录", "实习日记", "个人感悟"]) {
+    assert.match(recordList, new RegExp(label));
+  }
+});
+
 test("homepage project entries expose questions, contributions, and evidence links", async () => {
   const html = await (await render("/")).text();
   for (const text of ["LingBot-VA", "EgoEngine", "GenWAM", "研究问题", "研究贡献", "研究证据"]) {
