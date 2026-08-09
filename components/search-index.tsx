@@ -12,11 +12,11 @@ const modules: { type: ContentType; label: string }[] = [
   { type: "reflections", label: "个人感悟" },
 ];
 
-export function SearchIndex({ entries }: { entries: ContentEntry[] }) {
-  const [query, setQuery] = useState("");
+export function SearchIndex({ entries, initialQuery = "" }: { entries: ContentEntry[]; initialQuery?: string }) {
+  const [query, setQuery] = useState(initialQuery);
   const [activeType, setActiveType] = useState<ContentType | "">("");
   const results = useMemo(() => {
-    const matches = query.trim() ? searchEntries(query) : entries;
+    const matches = query.trim() ? searchEntries(query, entries) : entries;
     return activeType
       ? matches.filter((entry) => entry.type === activeType)
       : matches;

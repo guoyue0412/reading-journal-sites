@@ -217,6 +217,17 @@ test("server-renders unified local search for all four content modules", async (
   assert.match(html, /个人感悟/);
 });
 
+test("prefills query-link searches and filters public archive entries", async () => {
+  const response = await render("/search?q=arXiv");
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<input[^>]*id="site-search"[^>]*value="arXiv"/);
+  const searchResults = html.match(/<div class="search-results">([\s\S]*?)<\/div>/)?.[1] ?? "";
+  assert.match(searchResults, /UniTacVLA/);
+  assert.doesNotMatch(searchResults, /个人秋招总览/);
+});
+
 test("removes the disposable starter preview and dependency", async () => {
   const [page, layout, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
