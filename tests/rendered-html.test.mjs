@@ -120,21 +120,30 @@ test("server-renders a title-only Markdown index", async () => {
   assert.match(html, /href="\/blog\/unitacvla-reading"/);
 });
 
-test("server-renders the paper reading matrix with independent methods and execution status", async () => {
+test("papers render the bibliography labels backed by existing reading fields", async () => {
   const response = await render("/papers");
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.match(html, /阅读方式矩阵/);
-  assert.match(html, /粗读/);
-  assert.match(html, /细读/);
-  assert.match(html, /总结/);
+  for (const label of ["关键词", "阅读方式", "执行状态", "主题", "年份", "来源", "排序", "粗读", "细读", "总结"]) {
+    assert.match(html, new RegExp(label));
+  }
+  assert.doesNotMatch(html, /复现|对比阅读|阅读方式矩阵/);
   assert.match(html, /已完成/);
   assert.match(html, /UniTacVLA/);
   assert.match(html, /UniTacVLA Team/);
   assert.match(html, /2026-05-10/);
   assert.match(html, /tactile-sensing/);
   assert.match(html, /2026-07-22/);
+  assert.match(html, /关于长期主义，我最近改变的三个看法/);
+});
+
+test("projects render research questions, contributions, and evidence without card grids", async () => {
+  const html = await (await render("/projects")).text();
+  assert.match(html, /研究问题/);
+  assert.match(html, /研究贡献/);
+  assert.match(html, /查看 VLA 研究笔记/);
+  assert.doesNotMatch(html, /project-grid/);
 });
 
 test("server-renders the recruiting funnel and岗位 archive metadata", async () => {
