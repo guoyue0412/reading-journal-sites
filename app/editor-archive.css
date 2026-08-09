@@ -59,6 +59,12 @@
   box-shadow: none;
 }
 
+.admin-page .admin-header a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
 .admin-main {
   width: min(calc(100% - 32px), 1440px);
   max-width: none;

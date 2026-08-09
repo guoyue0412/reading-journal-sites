@@ -23,6 +23,15 @@ test("editor exposes desktop, tablet, and phone presentation controls", async ()
   assert.match(css, /padding-bottom:\s*calc\(88px\s*\+\s*env\(safe-area-inset-bottom\)\)/);
 });
 
+test("phone admin navigation keeps 44px touch targets", async () => {
+  const css = await read("app/editor-archive.css");
+  const rule = css.match(/\.admin-page \.admin-header a\s*\{[^}]*\}/s)?.[0] ?? "";
+
+  assert.match(rule, /display:\s*inline-flex/);
+  assert.match(rule, /align-items:\s*center/);
+  assert.match(rule, /min-height:\s*44px/);
+});
+
 test("late editor archive rules explicitly neutralize legacy material chrome", async () => {
   const [legacy, css] = await Promise.all([read("app/globals.css"), read("app/editor-archive.css")]);
   assert.match(legacy, /\.admin-header\s*{[^}]*backdrop-filter:\s*blur/s);

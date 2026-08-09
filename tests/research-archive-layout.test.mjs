@@ -134,6 +134,15 @@ test("paper bibliography keeps desktop and mobile presentations mutually exclusi
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.research-page \.paper-bibliography\s*\{[^}]*display:\s*none[^}]*\}[\s\S]*?\.research-page \.paper-mobile-list\s*\{[^}]*display:\s*block/s);
 });
 
+test("paper mobile title links keep a 44px target across the full mobile-list breakpoint", async () => {
+  const css = await read("app/research-archive.css");
+  const rule = css.match(/\.research-page \.paper-mobile-list h2 a\s*\{[^}]*\}/s)?.[0] ?? "";
+
+  assert.match(rule, /display:\s*inline-flex/);
+  assert.match(rule, /align-items:\s*center/);
+  assert.match(rule, /min-height:\s*44px/);
+});
+
 test("paper connection links retain a 44px target in the archive layer", async () => {
   const css = await read("app/research-archive.css");
 
