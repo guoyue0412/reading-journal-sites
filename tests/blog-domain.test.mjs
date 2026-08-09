@@ -22,8 +22,10 @@ test("active paper methods must match standard sections", () => {
   assert.match(validateForPublish(draft).join("\n"), /细读记录/);
 });
 
-test("reflection slug must equal its date", () => {
+test("reflection slug must be its date or a versioned same-day import", () => {
   const draft = createEmptyDraft("reflections", "post-2", "2026-07-24", []);
+  draft.slug = "2026-07-24-2";
+  assert.doesNotMatch(validateDraft(draft).join("\n"), /每日感悟的 slug/);
   draft.slug = "wrong";
   assert.match(validateDraft(draft).join("\n"), /slug/);
 });

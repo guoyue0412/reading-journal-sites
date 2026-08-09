@@ -37,7 +37,10 @@ export function validateDraft(post: BlogPostDraft): string[] {
   if (!includes(postTypes, post.type)) errors.push("文章类型无效");
   if (!isIsoDate(post.date)) errors.push("日期必须是有效的 YYYY-MM-DD");
   if (!slugPattern.test(post.slug)) errors.push("slug 只能包含中文、小写字母、数字和单个连字符");
-  if (post.type === "reflections" && post.slug !== post.date) errors.push("每日感悟的 slug 必须等于日期");
+  const reflectionSlug = new RegExp(`^${post.date}-(?:[2-9]|[1-9]\\d+)$`);
+  if (post.type === "reflections" && post.slug !== post.date && !reflectionSlug.test(post.slug)) {
+    errors.push("每日感悟的 slug 必须等于日期或使用同日版本后缀");
+  }
   if (post.status !== "draft" && post.status !== "published") errors.push("文章状态无效");
 
   const ids = post.sections.map((section) => section.id);

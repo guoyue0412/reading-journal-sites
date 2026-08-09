@@ -89,6 +89,41 @@ test("createPost gives repeated same-day article types distinct addresses", asyn
   assert.equal(second.slug, "internship-2026-07-24-2");
 });
 
+test("same-day reflection imports reserve a distinct slug without changing their date or content", async () => {
+  const { service } = createService();
+  await service.createPost({ type: "reflections", date: "2026-07-24" });
+
+  const preview = await service.previewImport(`---
+title: Imported reflection
+slug: 2026-07-24
+type: reflections
+date: 2026-07-24
+summary: Imported without changing its journal date
+tags: [import]
+related: []
+status: draft
+---
+
+## 反思
+
+原样保留的导入内容。`);
+  const created = await service.createPost({ type: "reflections", date: preview.draft.date });
+  const saved = await service.saveDraft({
+    ...preview.draft,
+    id: created.id,
+    draftVersion: created.draftVersion,
+    createdAt: created.createdAt,
+    sections: preview.draft.sections.map((section, index) => ({ ...section, id: `imported-section-${index}` })),
+  }, created.draftVersion);
+
+  assert.deepEqual(preview.errors, []);
+  assert.equal(preview.draft.date, "2026-07-24");
+  assert.equal(preview.draft.slug, "2026-07-24-2");
+  assert.equal(created.slug, "2026-07-24-2");
+  assert.equal(saved.slug, "2026-07-24-2");
+  assert.match(saved.sections[0].content, /原样保留的导入内容/);
+});
+
 test("publish rejects invalid drafts and preserves the previous snapshot", async () => {
   const { store, service } = createService();
   const created = await service.createPost({ type: "papers", date: "2026-07-24" });

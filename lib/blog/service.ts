@@ -118,9 +118,7 @@ export function createBlogService(
       if (errors.length) throw new BlogValidationError(errors);
       const templates = await store.listTemplates(input.type);
       const draft = createEmptyDraft(input.type, ids(), input.date, templates);
-      if (input.type !== "reflections") {
-        draft.slug = await nextAvailableSlug(draft.slug);
-      }
+      draft.slug = await nextAvailableSlug(draft.slug);
       const now = clock();
       return store.createDraft(normalizeMarkdownPost({ ...draft, createdAt: now, updatedAt: now }));
     },
@@ -204,7 +202,9 @@ export function createBlogService(
     },
 
     async previewImport(markdown) {
-      return importPostMarkdown(markdown, { id: ids(), now: clock() });
+      const imported = importPostMarkdown(markdown, { id: ids(), now: clock() });
+      if (!imported.errors.length) imported.draft.slug = await nextAvailableSlug(imported.draft.slug);
+      return imported;
     },
 
     async exportPost(id) {
