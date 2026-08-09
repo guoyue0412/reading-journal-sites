@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "katex/dist/katex.min.css";
+import "@fontsource-variable/newsreader/wght.css";
+import "@fontsource-variable/ibm-plex-sans/wght.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
+import "./research-archive.css";
+import "./editor-archive.css";
 
 const title = "Guo Yue Research";
 const description = "Embodied AI, world models, robot learning, simulation, and research writing by Guo Yue.";

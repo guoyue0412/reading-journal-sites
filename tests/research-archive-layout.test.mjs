@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const root = new URL("../", import.meta.url);
+const read = (path) => readFile(new URL(path, root), "utf8");
+
+test("loads self-hosted archive fonts and late isolated style layers", async () => {
+  const [layout, packageJson] = await Promise.all([
+    read("app/layout.tsx"),
+    read("package.json"),
+  ]);
+  const dependencies = JSON.parse(packageJson).dependencies;
+
+  assert.equal(dependencies["@fontsource-variable/newsreader"], "5.3.0");
+  assert.equal(dependencies["@fontsource-variable/ibm-plex-sans"], "5.3.0");
+  assert.equal(dependencies["@fontsource/ibm-plex-mono"], "5.3.0");
+  assert.match(layout, /@fontsource-variable\/newsreader\/wght\.css/);
+  assert.match(layout, /@fontsource-variable\/ibm-plex-sans\/wght\.css/);
+  assert.match(layout, /@fontsource\/ibm-plex-mono\/400\.css/);
+  assert.ok(layout.indexOf("./globals.css") < layout.indexOf("./research-archive.css"));
+  assert.ok(layout.indexOf("./research-archive.css") < layout.indexOf("./editor-archive.css"));
+});
+
+test("defines the approved OKLCH palette and excludes decorative effects", async () => {
+  const css = await read("app/research-archive.css");
+
+  for (const token of ["--archive-paper", "--archive-ink", "--archive-muted", "--archive-rule", "--archive-accent", "--archive-focus"]) {
+    assert.match(css, new RegExp(`${token}:\\s*oklch\\(`));
+  }
+  assert.match(css, /overflow-x:\s*clip/);
+  assert.doesNotMatch(css, /linear-gradient|radial-gradient|backdrop-filter|filter:\s*blur/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+});

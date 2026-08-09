@@ -1,0 +1,47 @@
+:root {
+  --archive-paper: oklch(97% 0.012 85);
+  --archive-paper-soft: oklch(94% 0.014 85);
+  --archive-ink: oklch(22% 0.018 255);
+  --archive-muted: oklch(49% 0.018 255);
+  --archive-rule: oklch(84% 0.015 85);
+  --archive-accent: oklch(43% 0.12 28);
+  --archive-focus: oklch(57% 0.16 28);
+  --archive-display: "Newsreader Variable", "Noto Serif SC", "Songti SC", serif;
+  --archive-sans: "IBM Plex Sans Variable", "Noto Sans SC", "PingFang SC", sans-serif;
+  --archive-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+  --archive-width: 1180px;
+  --archive-reading: 65ch;
+}
+
+html { overflow-x: clip; }
+
+body {
+  min-width: 320px;
+  background: var(--archive-paper);
+  color: var(--archive-ink);
+  font-family: var(--archive-sans);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.research-page {
+  min-height: 100vh;
+  overflow-x: clip;
+  background: var(--archive-paper);
+  color: var(--archive-ink);
+  font-family: var(--archive-sans);
+}
+
+.research-page :focus-visible {
+  outline: 2px solid var(--archive-focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

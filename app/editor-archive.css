@@ -1,0 +1,15 @@
+.admin-page {
+  --paper: var(--archive-paper);
+  --ink: var(--archive-ink);
+  --muted: var(--archive-muted);
+  --rule: var(--archive-rule);
+  --vermilion: var(--archive-accent);
+  --serif: var(--archive-display);
+  --sans: var(--archive-sans);
+  --mono: var(--archive-mono);
+  min-height: 100vh;
+  overflow-x: clip;
+  background: var(--archive-paper-soft);
+  color: var(--archive-ink);
+  font-family: var(--archive-sans);
+}
