@@ -42,20 +42,43 @@ test("editor serializes autosaves and keeps newer local edits ahead of stale res
   const scheduleAutosave = source.slice(source.indexOf("function scheduleAutosave"), source.indexOf("async function flushAutosave"));
   assert.match(scheduleAutosave, /if \(saveInFlight\.current\) \{\s*queuedSave\.current = next;\s*return;\s*\}/s);
 
+  const waitForUploads = source.slice(source.indexOf("async function waitForUploads"), source.indexOf("async function flushUploadsAndAutosave"));
+  assert.match(waitForUploads, /discardUploadsForMissingSections\(postId\)/);
+  assert.match(waitForUploads, /await Promise\.all\(pending\.map\(\(upload\) => upload\.done\)\)/);
+  assert.match(waitForUploads, /if \(failed\.length\) \{[\s\S]*?return false;[\s\S]*?return true;/);
+
+  const flushUploadsAndAutosave = source.slice(source.indexOf("async function flushUploadsAndAutosave"), source.indexOf("function offerEmergencyRecovery"));
+  assert.match(flushUploadsAndAutosave, /if \(current && !await waitForUploads\(current\.id\)\) return null;\s*return flushAutosave\(\);/);
+
   const selectPost = source.slice(source.indexOf("async function selectPost"), source.indexOf("async function createPost"));
-  assert.match(selectPost, /if \(id === selectedId\) return;[\s\S]*?const saved = await flushAutosave\(\);\s*if \(!saved\) return;[\s\S]*?const local/);
+  assert.match(selectPost, /if \(id === selectedId\) return;[\s\S]*?const saved = await flushUploadsAndAutosave\(\);\s*if \(!saved\) return;[\s\S]*?const local/);
+
+  const deleteSection = source.slice(source.indexOf("function deleteSection"), source.indexOf("async function addSection"));
+  assert.match(deleteSection, /discardSectionUploads\(latest\.id, id\)[\s\S]*?scheduleAutosave/);
 });
 
-test("every new-article path flushes the old draft before switching active articles", async () => {
+test("every cross-entity path settles uploads and flushes the old draft before continuing", async () => {
   const source = await readFile(editorUrl, "utf8");
+  const selectPost = source.slice(source.indexOf("async function selectPost"), source.indexOf("async function createPost"));
   const createPost = source.slice(source.indexOf("async function createPost"), source.indexOf("function updateSection"));
+  const publish = source.slice(source.indexOf("async function publish"), source.indexOf("async function reloadOnlineDraft"));
   const saveAsNewArticle = source.slice(source.indexOf("async function saveAsNewArticle"), source.indexOf("async function importMarkdown"));
   const importMarkdown = source.slice(source.indexOf("async function importMarkdown"), source.indexOf("const typeTemplates"));
 
-  for (const path of [createPost, saveAsNewArticle, importMarkdown]) {
-    assert.ok(path.indexOf("await flushAutosave();") >= 0);
-    assert.ok(path.indexOf("await flushAutosave();") < path.indexOf("activePostId.current ="));
+  for (const [path, continuation] of [
+    [selectPost, "const local"],
+    [createPost, "const response = await fetch"],
+    [publish, "publishingPost.current = context"],
+    [saveAsNewArticle, "const response = await fetch"],
+    [importMarkdown, "const createResponse = await fetch"],
+  ]) {
+    assert.ok(path.indexOf("await flushUploadsAndAutosave();") >= 0);
+    assert.ok(path.indexOf("await flushUploadsAndAutosave();") < path.indexOf(continuation));
   }
+
+  const conflictRecovery = saveAsNewArticle.slice(0, saveAsNewArticle.indexOf("const saved = await flushUploadsAndAutosave();"));
+  assert.match(conflictRecovery, /if \(saveState === "conflict"\) \{[\s\S]*?await waitForUploads\(requested\.id\)[\s\S]*?const latest = currentRef\.current;[\s\S]*?recoverConflictedDraft\(latest\)/);
+  assert.doesNotMatch(conflictRecovery, /flushAutosave|flushUploadsAndAutosave/);
 });
 
 test("phone editor keeps import and export in a 44px non-scrolling tool menu", async () => {

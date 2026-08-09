@@ -138,6 +138,8 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const start = validSelection ? image.selection.start : section.content.length;
     const end = validSelection ? image.selection.end : section.content.length;
     const content = section.content.slice(0, start) + image.markdown + section.content.slice(end);
+    // Function declarations are intentionally hoisted so upload callbacks share the canonical autosave path.
+    // eslint-disable-next-line react-hooks/immutability
     scheduleAutosave({
       ...current,
       sections: current.sections.map((item) => item.id === image.sectionId ? { ...item, kind: "markdown", content, items: [], relationSlugs: [] } : item),
@@ -145,12 +147,32 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     });
   }
 
+  function discardSectionUploads(postId: string, sectionId: string) {
+    for (const [id, upload] of uploads.current) {
+      if (upload.postId !== postId || upload.sectionId !== sectionId) continue;
+      upload.settle();
+      uploads.current.delete(id);
+    }
+    refreshUploadSummary(postId);
+  }
+
+  function discardUploadsForMissingSections(postId: string) {
+    const current = currentRef.current;
+    if (current?.id !== postId) return;
+    const sectionIds = new Set(current.sections.map((section) => section.id));
+    for (const upload of [...uploads.current.values()]) {
+      if (upload.postId === postId && !sectionIds.has(upload.sectionId)) discardSectionUploads(postId, upload.sectionId);
+    }
+  }
+
   async function waitForUploads(postId: string) {
     while (true) {
+      discardUploadsForMissingSections(postId);
       const pending = [...uploads.current.values()].filter((upload) => upload.postId === postId && upload.state === "pending");
       if (!pending.length) break;
       await Promise.all(pending.map((upload) => upload.done));
     }
+    discardUploadsForMissingSections(postId);
     const failed = [...uploads.current.values()].filter((upload) => upload.postId === postId && upload.state === "failed");
     refreshUploadSummary(postId);
     if (failed.length) {
@@ -168,7 +190,11 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
 
   function offerEmergencyRecovery(post: BlogPostDraft) {
     if (recoveryChecked.current.has(post.id)) {
-      if (acceptedRecoveries.current.has(post.id) && currentRef.current?.id === post.id && savedRevision.current !== editRevision.current) armAutosave(post.id);
+      if (acceptedRecoveries.current.has(post.id) && currentRef.current?.id === post.id && savedRevision.current !== editRevision.current) {
+        // Function declarations are intentionally hoisted so recovery reuses the canonical timer.
+        // eslint-disable-next-line react-hooks/immutability
+        armAutosave(post.id);
+      }
       return;
     }
     recoveryChecked.current.add(post.id);
@@ -314,7 +340,12 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
     const sections = [...current.sections, copy].sort((a, b) => a.position - b.position).map((item, index) => ({ ...item, position: (index + 1) * 10 }));
     scheduleAutosave({ ...current, sections, updatedAt: new Date().toISOString() });
   }
-  function deleteSection(id: string) { if (current && window.confirm("确定删除这个模块？")) scheduleAutosave({ ...current, sections: current.sections.filter((item) => item.id !== id), updatedAt: new Date().toISOString() }); }
+  function deleteSection(id: string) {
+    const latest = currentRef.current;
+    if (!latest || !window.confirm("确定删除这个模块？")) return;
+    discardSectionUploads(latest.id, id);
+    scheduleAutosave({ ...latest, sections: latest.sections.filter((item) => item.id !== id), updatedAt: new Date().toISOString() });
+  }
 
   async function addSection(section: BlogSection, saveAsTemplate: boolean) {
     if (!current) return;
@@ -397,8 +428,15 @@ export function StructuredEditor({ initialPosts, initialTemplates, ownerName }: 
   }
 
   async function saveAsNewArticle() {
-    if (!currentRef.current) return;
-    if (saveState === "conflict") { await recoverConflictedDraft(currentRef.current); return; }
+    const requested = currentRef.current;
+    if (!requested) return;
+    if (saveState === "conflict") {
+      if (!await waitForUploads(requested.id)) return;
+      const latest = currentRef.current;
+      if (!latest || latest.id !== requested.id || activePostId.current !== requested.id) return;
+      await recoverConflictedDraft(latest);
+      return;
+    }
     const saved = await flushUploadsAndAutosave();
     if (!saved) return;
     try {

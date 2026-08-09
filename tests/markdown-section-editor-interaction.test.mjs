@@ -291,3 +291,183 @@ test("a failed image upload remains visible in its module and blocks publication
     else globalThis.window = originalWindow;
   }
 });
+
+test("deleting a section clears its failed upload so the remaining draft can publish", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const postA = await makePost("post-a", "文章 A", "A");
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage, confirm: globalThis.confirm };
+  const calls = [];
+  let persisted = postA;
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.confirm = () => true;
+    globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+    globalThis.fetch = async (url, init) => {
+      calls.push([String(url), init]);
+      if (String(url) === "/api/editor/assets") return { ok: false, json: async () => ({ error: "存储失败" }) };
+      if (String(url) === "/api/editor/posts/post-a") {
+        const body = JSON.parse(init.body);
+        persisted = { ...body.draft, draftVersion: body.expectedVersion + 1 };
+        return { ok: true, json: async () => ({ post: persisted }) };
+      }
+      if (String(url) === "/api/editor/posts/post-a/publish") return { ok: true, json: async () => ({ post: { ...persisted, status: "published", draftVersion: persisted.draftVersion + 1 } }) };
+      throw new Error(`unexpected request: ${url}`);
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [postA], initialTemplates: [], ownerName: "Guo Yue" })); });
+    await act(async () => {
+      editorFileInput(renderer).props.onChange({ target: { files: [new File(["image"], "a.png", { type: "image/png" })], value: "a.png" } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const deleteButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "删除");
+    await act(async () => { deleteButton.props.onClick(); });
+    const publish = renderer.root.findByProps({ className: "material-action material-action--primary" });
+    await act(async () => { publish.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+    assert.equal(calls.filter(([url]) => url === "/api/editor/posts/post-a").length, 1);
+    assert.equal(calls.filter(([url]) => url.endsWith("/publish")).length, 1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("conflict recovery waits for a pending upload and imports the latest image without another stale PATCH", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const postA = await makePost("post-a", "文章 A", "A");
+  const recovered = { ...postA, id: "post-recovered", slug: "2026-08-10-2", draftVersion: 0 };
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const calls = [];
+  let resolveUpload;
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+    globalThis.fetch = async (url, init) => {
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+      calls.push([String(url), init, body]);
+      if (String(url) === "/api/editor/assets") return new Promise((resolve) => { resolveUpload = resolve; });
+      if (String(url) === "/api/editor/posts/post-a") return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
+      if (String(url) === "/api/editor/import") return { ok: true, status: 200, json: async () => ({ draft: recovered, errors: [], warnings: [] }) };
+      throw new Error(`unexpected request: ${url}`);
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [postA], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "文章 A");
+    await act(async () => { title.props.onChange({ target: { value: "冲突文章" } }); });
+    await act(async () => { editorFileInput(renderer).props.onChange({ target: { files: [new File(["image"], "a.png", { type: "image/png" })], value: "a.png" } }); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 850)); });
+    const copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
+    assert.ok(copyButton);
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.equal(calls.filter(([url]) => url === "/api/editor/import").length, 0, "conflict recovery remains gated while the upload is pending");
+
+    await act(async () => {
+      resolveUpload({ ok: true, json: async () => ({ url: "/uploads/a.png", safeName: "a.png" }) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    assert.equal(calls.filter(([url]) => url === "/api/editor/posts/post-a").length, 1, "the conflicted PATCH is never retried");
+    const imports = calls.filter(([url]) => url === "/api/editor/import");
+    assert.equal(imports.length, 1);
+    assert.match(imports[0][2].markdown, /!\[a\.png\]\(\/uploads\/a\.png\)/);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("deleting a section ignores its later upload failure and never resurrects the section", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const postA = await makePost("post-a", "文章 A", "A");
+  const sectionLabel = `${postA.sections[0].title}内容`;
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage, confirm: globalThis.confirm };
+  const calls = [];
+  let resolveUpload;
+  let persisted = postA;
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.confirm = () => true;
+    globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+    globalThis.fetch = async (url, init) => {
+      calls.push([String(url), init]);
+      if (String(url) === "/api/editor/assets") return new Promise((resolve) => { resolveUpload = resolve; });
+      if (String(url) === "/api/editor/posts/post-a") {
+        const body = JSON.parse(init.body);
+        persisted = { ...body.draft, draftVersion: body.expectedVersion + 1 };
+        return { ok: true, json: async () => ({ post: persisted }) };
+      }
+      if (String(url) === "/api/editor/posts/post-a/publish") return { ok: true, json: async () => ({ post: { ...persisted, status: "published", draftVersion: persisted.draftVersion + 1 } }) };
+      throw new Error(`unexpected request: ${url}`);
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [postA], initialTemplates: [], ownerName: "Guo Yue" })); });
+    await act(async () => { editorFileInput(renderer).props.onChange({ target: { files: [new File(["image"], "a.png", { type: "image/png" })], value: "a.png" } }); });
+    const deleteButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "删除");
+    await act(async () => { deleteButton.props.onClick(); });
+    await act(async () => {
+      resolveUpload({ ok: false, json: async () => ({ error: "迟到的上传失败" }) });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const publish = renderer.root.findByProps({ className: "material-action material-action--primary" });
+    await act(async () => { publish.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+    assert.equal(renderer.root.findAllByType("textarea").some((textarea) => textarea.props["aria-label"] === sectionLabel), false);
+    assert.equal(calls.filter(([url]) => url.endsWith("/publish")).length, 1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test("a failed pending upload blocks conflict recovery without importing or retrying the stale PATCH", async () => {
+  const { StructuredEditor } = await vite.ssrLoadModule("/components/editor/structured-editor.tsx");
+  const postA = await makePost("post-a", "文章 A", "A");
+  const originals = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
+  const calls = [];
+  let resolveUpload;
+  let renderer;
+
+  try {
+    globalThis.window = globalThis;
+    globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+    globalThis.fetch = async (url, init) => {
+      calls.push([String(url), init]);
+      if (String(url) === "/api/editor/assets") return new Promise((resolve) => { resolveUpload = resolve; });
+      if (String(url) === "/api/editor/posts/post-a") return { ok: false, status: 409, json: async () => ({ code: "VERSION_CONFLICT" }) };
+      throw new Error(`conflict recovery must remain local after upload failure: ${url}`);
+    };
+    await act(async () => { renderer = TestRenderer.create(React.createElement(StructuredEditor, { initialPosts: [postA], initialTemplates: [], ownerName: "Guo Yue" })); });
+    const title = renderer.root.findAllByType("input").find((input) => input.props.value === "文章 A");
+    await act(async () => { title.props.onChange({ target: { value: "冲突文章" } }); });
+    await act(async () => { editorFileInput(renderer).props.onChange({ target: { files: [new File(["image"], "a.png", { type: "image/png" })], value: "a.png" } }); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 850)); });
+    const copyButton = renderer.root.findAllByType("button").find((button) => button.children.join("") === "另存为新文章");
+    await act(async () => { copyButton.props.onClick(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    await act(async () => {
+      resolveUpload({ ok: false, json: async () => ({ error: "存储失败" }) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    assert.equal(calls.filter(([url]) => url === "/api/editor/posts/post-a").length, 1);
+    assert.equal(calls.filter(([url]) => url === "/api/editor/import").length, 0);
+    assert.ok(renderer.root.findAllByType("input").some((input) => input.props.value === "冲突文章"));
+    assert.equal(renderer.root.findAllByType("a").find((link) => link.children.join("") === "导出 Markdown").props.href, "/api/editor/posts/post-a/export");
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
