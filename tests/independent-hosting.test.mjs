@@ -33,3 +33,16 @@ test("provides explicit independent migration and deployment commands", async ()
   assert.match(pkg.scripts["db:migrate:staging"], /wrangler d1 migrations apply DB --remote --env staging/);
   assert.match(pkg.scripts.deploy, /wrangler deploy --env production/);
 });
+
+test("verifies every push and deploys only through a pinned Cloudflare action with secrets", async () => {
+  const path = new URL(".github/workflows/deploy.yml", root);
+  assert.equal(existsSync(path), true, "deployment workflow must exist");
+  const source = await readFile(path, "utf8");
+  assert.match(source, /npm run lint/);
+  assert.match(source, /npm test/);
+  assert.match(source, /CLOUDFLARE_API_TOKEN/);
+  assert.match(source, /CLOUDFLARE_ACCOUNT_ID/);
+  assert.match(source, /if:\s*env\.CLOUDFLARE_API_TOKEN != '' && env\.CLOUDFLARE_ACCOUNT_ID != ''/);
+  assert.match(source, /cloudflare\/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd/);
+  assert.match(source, /command:\s*deploy --env production/);
+});
