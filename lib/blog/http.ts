@@ -1,4 +1,4 @@
-import { assertBlogOwner, BlogAuthError } from "../../app/chatgpt-auth.ts";
+import { assertBlogOwner, BlogAuthError } from "../../app/owner-auth.ts";
 import {
   BlogNotFoundError,
   BlogValidationError,

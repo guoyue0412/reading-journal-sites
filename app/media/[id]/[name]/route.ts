@@ -1,4 +1,4 @@
-import { getChatGPTUser, isBlogOwner } from "@/app/chatgpt-auth.ts";
+import { getOwnerUser } from "@/app/owner-auth.ts";
 
 type Context={params:Promise<{id:string;name:string}>};
 export async function GET(_request:Request,{params}:Context){
@@ -6,8 +6,8 @@ export async function GET(_request:Request,{params}:Context){
   const {id}=await params, asset=await new D1BlogAssetStore().getById(id);
   if(!asset)return new Response("Not found",{status:404});
   if(asset.visibility!=="published"){
-    const user=await getChatGPTUser();
-    if(!user||!isBlogOwner(user.email,process.env.BLOG_OWNER_EMAIL))return new Response("Not found",{status:404});
+    const user=await getOwnerUser();
+    if(!user)return new Response("Not found",{status:404});
   }
   const object=await blogAssetBucket().get(asset.objectKey);
   if(!object)return new Response("Not found",{status:404});

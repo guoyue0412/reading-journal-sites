@@ -1,4 +1,4 @@
-import { assertBlogOwner } from "@/app/chatgpt-auth.ts";
+import { assertBlogOwner } from "@/app/owner-auth.ts";
 import { createEditorBlogService, withOwnerResponse } from "@/lib/blog/http.ts";
 
 type RouteContext = { params: Promise<{ id: string }> };

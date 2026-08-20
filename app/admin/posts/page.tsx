@@ -1,4 +1,4 @@
-import { requireBlogOwner } from "@/app/chatgpt-auth";
+import { requireBlogOwner } from "@/app/owner-auth";
 import { AdminShell } from "@/components/admin-shell";
 import { StructuredEditor } from "@/components/editor/structured-editor";
 import type { PostType, SectionTemplate } from "@/lib/blog/types";

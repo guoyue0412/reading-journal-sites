@@ -1,4 +1,4 @@
-import { assertBlogOwner } from "@/app/chatgpt-auth.ts";
+import { assertBlogOwner } from "@/app/owner-auth.ts";
 import { assetMarkdownUrl, validateImageFile } from "@/lib/blog/assets.ts";
 import { createEditorBlogService } from "@/lib/blog/http.ts";
 

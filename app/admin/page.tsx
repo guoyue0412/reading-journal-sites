@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireBlogOwner } from "@/app/chatgpt-auth";
+import { requireBlogOwner } from "@/app/owner-auth";
 import { AdminShell } from "@/components/admin-shell";
 
 export const dynamic = "force-dynamic";
