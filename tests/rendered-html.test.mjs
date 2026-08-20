@@ -43,6 +43,7 @@ test("derives absolute Open Graph and X image URLs from the incoming host", asyn
   assert.match(layout, /twitter\s*:/);
   assert.match(layout, /new URL\(["']\/og\.png["']/);
   assert.match(layout, /images\s*:\s*\[socialImage\]/);
+  assert.match(layout, /process\.env\.PUBLIC_ORIGIN/);
 
   const response = await render("/", "https://journal.guoyue.test");
   assert.equal(response.status, 200);

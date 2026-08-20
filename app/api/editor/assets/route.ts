@@ -1,10 +1,12 @@
 import { assertBlogOwner } from "@/app/owner-auth.ts";
 import { assetMarkdownUrl, validateImageFile } from "@/lib/blog/assets.ts";
 import { createEditorBlogService } from "@/lib/blog/http.ts";
+import { assertSameOrigin } from "@/lib/blog/csrf.ts";
 
 export async function POST(request: Request) {
   try {
     await assertBlogOwner();
+    assertSameOrigin(request);
     const { D1BlogAssetStore, blogAssetBucket } = await import("@/lib/blog/d1-asset-store.ts");
     const form = await request.formData();
     const postId = form.get("postId");

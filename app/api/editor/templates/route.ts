@@ -9,6 +9,7 @@ import {
   withOwnerJson,
 } from "@/lib/blog/http.ts";
 import type { BlogSection, SectionTemplate } from "@/lib/blog/types.ts";
+import { assertSameOrigin } from "@/lib/blog/csrf.ts";
 
 const getService = createEditorBlogService;
 const owner = () => assertBlogOwner();
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const payload = await readJsonRecord(request);
     if ("section" in payload) {
       const section = requireBlogSectionRecord(payload.section);

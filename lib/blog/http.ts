@@ -1,4 +1,5 @@
 import { assertBlogOwner, BlogAuthError } from "../../app/owner-auth.ts";
+import { BlogCsrfError } from "./csrf.ts";
 import {
   BlogNotFoundError,
   BlogValidationError,
@@ -251,7 +252,7 @@ export function requireScopedTemplatePostType(
 }
 
 function errorResponse(error: unknown): Response {
-  if (error instanceof BlogAuthError) {
+  if (error instanceof BlogAuthError || error instanceof BlogCsrfError) {
     return Response.json({ error: error.message }, { status: error.status });
   }
   if (error instanceof BlogValidationError) {

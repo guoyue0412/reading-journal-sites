@@ -7,6 +7,7 @@ import {
   withOwnerJson,
 } from "@/lib/blog/http.ts";
 import { BlogValidationError } from "@/lib/blog/service.ts";
+import { assertSameOrigin } from "@/lib/blog/csrf.ts";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -23,6 +24,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const { id } = await params;
     const payload = await readJsonRecord(request);
     const draft = requireDraftRecord(payload.draft);
@@ -35,8 +37,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }, owner);
 }
 
-export async function DELETE(_request: Request, { params }: RouteContext) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const { id } = await params;
     const service = await getService();
     await service.deletePost(id);

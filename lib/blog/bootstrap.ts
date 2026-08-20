@@ -24,7 +24,9 @@ export async function ensureLegacyContentImported(
   entries: ContentEntry[] = LEGACY_CONTENT_ENTRIES,
   clock = () => new Date().toISOString(),
   ids = () => crypto.randomUUID(),
+  migrationMode = process.env.MIGRATION_MODE,
 ): Promise<void> {
+  if (migrationMode === "true") throw new Error("MIGRATION_MODE blocks legacy bootstrap until verified data import");
   if (await store.hasBootstrapMarker()) return;
   for (const entry of entries) {
     const imported = importPostMarkdown(legacyEntryToMarkdown(entry), { id: ids(), now: clock() });

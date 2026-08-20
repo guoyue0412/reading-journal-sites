@@ -6,6 +6,7 @@ import {
   withOwnerJson,
 } from "@/lib/blog/http.ts";
 import type { PostType } from "@/lib/blog/types.ts";
+import { assertSameOrigin } from "@/lib/blog/csrf.ts";
 
 const getService = createEditorBlogService;
 const owner = () => assertBlogOwner();
@@ -19,6 +20,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const payload = await readJsonRecord(request);
     const input = {
       type: requireStringField(payload, "type", "文章类型不能为空") as PostType,

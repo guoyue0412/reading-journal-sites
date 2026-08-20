@@ -14,6 +14,7 @@ import {
   type BlogService,
 } from "@/lib/blog/service.ts";
 import type { PostType, SectionTemplate } from "@/lib/blog/types.ts";
+import { assertSameOrigin } from "@/lib/blog/csrf.ts";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -43,6 +44,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const { id } = await params;
     const type = requirePostType(new URL(request.url).searchParams.get("type"));
     const payload = await readJsonRecord(request);
@@ -64,6 +66,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
 export async function DELETE(request: Request, { params }: RouteContext) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const { id } = await params;
     const type = requirePostType(new URL(request.url).searchParams.get("type"));
     const service = await getService();

@@ -16,3 +16,13 @@ test("bootstrap imports published and draft legacy entries exactly once", async 
   assert.ok(first.some((post) => post.status === "draft"));
   assert.equal((await store.listPublished()).length, LEGACY_CONTENT_ENTRIES.filter((entry) => entry.status === "published").length);
 });
+
+test("migration mode blocks legacy bootstrap before any target writes", async () => {
+  const store = new MemoryBlogStore();
+  await assert.rejects(
+    ensureLegacyContentImported(store, LEGACY_CONTENT_ENTRIES, () => "2026-07-24T12:00:00.000Z", ids(), "true"),
+    /MIGRATION_MODE/,
+  );
+  assert.equal((await store.listDrafts()).length, 0);
+  assert.equal(await store.hasBootstrapMarker(), false);
+});

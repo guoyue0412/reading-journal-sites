@@ -29,10 +29,28 @@ const routes = [
   "../app/api/editor/templates/[id]/route.ts",
 ];
 
+const mutatingRoutes = [
+  "../app/api/editor/assets/route.ts",
+  "../app/api/editor/import/route.ts",
+  "../app/api/editor/posts/route.ts",
+  "../app/api/editor/posts/[id]/route.ts",
+  "../app/api/editor/posts/[id]/copy/route.ts",
+  "../app/api/editor/posts/[id]/publish/route.ts",
+  "../app/api/editor/templates/route.ts",
+  "../app/api/editor/templates/[id]/route.ts",
+];
+
 test("every editor API performs server-side owner authorization", async () => {
   for (const route of routes) {
     const source = await readFile(new URL(route, import.meta.url), "utf8");
     assert.match(source, /assertBlogOwner\(\)/, route);
+  }
+});
+
+test("every mutating editor route enforces the same-origin guard", async () => {
+  for (const route of mutatingRoutes) {
+    const source = await readFile(new URL(route, import.meta.url), "utf8");
+    assert.match(source, /assertSameOrigin\(request\)/, route);
   }
 });
 

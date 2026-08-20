@@ -5,6 +5,7 @@ import {
   requireExpectedVersion,
   withOwnerJson,
 } from "@/lib/blog/http.ts";
+import { assertSameOrigin } from "@/lib/blog/csrf.ts";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,6 +14,7 @@ const owner = () => assertBlogOwner();
 
 export async function POST(request: Request, { params }: RouteContext) {
   return withOwnerJson(async () => {
+    assertSameOrigin(request);
     const { id } = await params;
     const payload = await readJsonRecord(request);
     const expectedVersion = requireExpectedVersion(payload);
