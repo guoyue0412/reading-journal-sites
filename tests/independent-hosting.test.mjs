@@ -29,6 +29,7 @@ test("retires every ChatGPT Sites build and login hook", async () => {
 
 test("provides explicit independent migration and deployment commands", async () => {
   const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  assert.match(pkg.scripts.test, /node --experimental-strip-types --test tests\/\*\.test\.mjs/);
   assert.match(pkg.scripts["db:migrate:local"], /wrangler d1 migrations apply DB --local/);
   assert.match(pkg.scripts["db:migrate:staging"], /wrangler d1 migrations apply DB --remote --env staging/);
   assert.match(pkg.scripts.deploy, /wrangler deploy --env production/);
