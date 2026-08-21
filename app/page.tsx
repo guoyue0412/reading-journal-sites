@@ -8,7 +8,6 @@ import { listPublicEntries } from "@/lib/blog/read-model";
 import type { ContentType } from "@/lib/content/types";
 import { researchProfile, researchProjects, researchTopics } from "@/lib/research/archive";
 
-export const dynamic = "force-dynamic";
 
 const recordTypeLabels: Record<ContentType, string> = {
   jobs: "秋招记录",
