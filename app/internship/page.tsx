@@ -3,7 +3,6 @@ import { SiteShell } from "../../components/site-shell";
 import { getEntriesByType } from "../../lib/content/query";
 import { listPublicEntries } from "../../lib/blog/read-model";
 
-export const dynamic = "force-dynamic";
 export default async function InternshipPage() {
   const entries = await listPublicEntries();
   return (
