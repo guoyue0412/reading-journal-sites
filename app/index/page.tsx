@@ -3,7 +3,6 @@ import { ResearchShell } from "@/components/research-shell";
 import { listPublicEntries } from "@/lib/blog/read-model";
 import type { ContentEntry } from "@/lib/content/types";
 
-export const dynamic = "force-dynamic";
 
 const groups: Array<{ type: ContentEntry["type"]; title: string }> = [
   { type: "papers", title: "论文精读" },
