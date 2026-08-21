@@ -3,7 +3,7 @@ import { SiteShell } from "../../components/site-shell";
 import { getRecentEntries } from "../../lib/content/query";
 import { listPublicEntries } from "../../lib/blog/read-model";
 
-export const dynamic = "force-dynamic";
+
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const entries = await listPublicEntries();
