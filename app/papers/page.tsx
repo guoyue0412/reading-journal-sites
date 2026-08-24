@@ -3,7 +3,6 @@ import { ResearchShell } from "../../components/research-shell";
 import { getEntriesByType, getRelatedEntries } from "../../lib/content/query";
 import { listPublicEntries } from "../../lib/blog/read-model";
 
-export const dynamic = "force-dynamic";
 export default async function PapersPage() {
   const allEntries = await listPublicEntries();
   const entries = getEntriesByType("papers", allEntries);
