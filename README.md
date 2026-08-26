@@ -55,7 +55,7 @@
 | | | |
 |---|---|---|
 | [![Sim2Real/Real2Sim 数据闭环](./assets/thumbs/sim2real.jpg)](#项目演示) | [![WAM 多视角视频预测](./assets/thumbs/wam.jpg)](#项目演示) | [![OpenArms 双臂叠衣](./assets/thumbs/openarms.jpg)](#项目演示) |
-| **Sim2Real / Real2Sim 数据闭环**<br>北京人形 · 两平台 8 case，0.01s 级对齐 | **WAM 多视角视频预测**<br>BAAI · 三视角联合预测，head-camera frame 动作统一 | **OpenArms 双臂叠衣**<br>BAAI · DiT4DiT 跨本体后训练，8D → 16D |
+| **Sim2Real / Real2Sim 数据闭环**<br>北京人形 · 两平台 8 case，0.01s 级对齐 | **WAM 多视角视频预测**<br>BAAI · 多视角联合预测，head-camera frame 动作统一 | **OpenArms 双臂叠衣**<br>BAAI · DiT4DiT 跨本体后训练，8D → 16D |
 | [![道通 VLA 真机操作](./assets/thumbs/vla.jpg)](#项目演示) | [![道通 BPTT 可微仿真](./assets/thumbs/bptt.jpg)](#项目演示) | |
 | **VLA 真机操作落地**<br>道通 · 动态抓取成功率 40%+ → 70%+ | **BPTT 可微仿真与 Sim-to-Real**<br>道通 · 公司首个实践验证 RL 控制器，10 万元奖金 | |
 
@@ -68,7 +68,7 @@
 | 项目 | 关键词 | 我做了什么 | 关键结果 | 证据 |
 |---|---|---|---|---|
 | **北京人形 · Sim2Real/Real2Sim 数据闭环** | Sim2Real, Real2Sim, 数据工厂 | 打通仿真↔真机双向动作闭环：统一关节语义与时间轴，真机成功动作回灌仿真生成帧级对齐的 REAL\|SIM 视频对 | 天轶2.0+Robotiq 与松灵双臂两平台 **8 个 case** 运动复现，视频时长误差 **0.01s 级** | 见下方「项目演示」/ `clean_2026/02-internship/humanoid-sim2real/` |
-| **BAAI · WAM 预训练** | Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert | 搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM；统一 DROID/EgoDex/AgiBot/RoboTwin 动作空间到 head-camera frame | 策略路径无需完整视频去噪，单次前向解码 30-step action chunk | 见下方「项目演示」/ `clean_2026/02-internship/baai-wam/`（三视角预测视频） |
+| **BAAI · WAM 预训练** | Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert | 搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM；统一 DROID/EgoDex/AgiBot/RoboTwin 动作空间到 head-camera frame | 策略路径无需完整视频去噪，单次前向解码 30-step action chunk | 见下方「项目演示」/ `clean_2026/02-internship/baai-wam/`（多视角预测视频） |
 | **BAAI · DiT4DiT / OpenArms** | DiT4DiT, LeRobot v3, 跨本体 | 冻结 DiT backbone，新增 embodiment 适配层，完成 LIBERO 8D → OpenArms 16D 动作迁移与双臂叠衣后训练 | 多视角预测与双臂协调动作序列生成 | 见下方「项目演示」/ `clean_2026/02-internship/baai-dit4dit/` |
 | **道通 · VLA 真机落地** | OpenPI π₀.₅, 智元 G1, ROS2 | 负责数据清洗 → 8 卡 A800 全量微调 → ROS2 端云部署的完整闭环 | 动态抓取成功率 **40%+ → 70%+**；LIBERO-10 平均 **96.6%** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-vla/` |
 | **道通 · BPTT 可微仿真** | JAX, BPTT, Sim-to-Real | 构建 JAX 可微动力学引擎与残差模型，建立 1h 内多轮调参验证体系 | 公司首个实践验证的 RL 控制器，**获 10 万元项目奖金** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-bptt/` |
@@ -87,13 +87,13 @@
 > 主页只展示 4 段代表作（GIF 自动播放，点击任意动图进入完整画廊）。**全部 21 段演示见 [完整画廊 →](https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md)**。
 
 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/sim2real_tianyi_hangclothes.gif" width="23%"></a>
-  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/wam_gopro.gif" width="23%"></a>
-  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/vla_realrobot.gif" width="23%"></a>
-  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/bptt_morph.gif" width="23%"></a>
+  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/sim2real_tianyi_hangclothes.gif" height="150"></a>
+  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/agibot_mobile_pred_2x2.gif" height="150"></a>
+  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/vla_realrobot.gif" height="150"></a>
+  <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/bptt_morph.gif" height="150"></a>
 </div>
 
-*北京人形 Sim2Real 闭环 · BAAI WAM 三视角预测 · 道通 VLA 真机 · 道通 BPTT 可微仿真*
+*北京人形 Sim2Real 闭环 · BAAI WAM 多视角预测 · 道通 VLA 真机 · 道通 BPTT 可微仿真*
 
 ---
 

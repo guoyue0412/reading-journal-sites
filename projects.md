@@ -28,33 +28,29 @@
 
 ## BAAI · WAM 多视角视频预测
 
+多视角视频 latent 沿 width 维拼接联合预测，注入 FPS 条件与 3D RoPE。以下为 2×2 多视角画面，GT 与模型预测逐对对比。
+
 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-  <a href="./assets/evidence/baai-wam/wam_episode_gopro_view.mp4"><img src="./assets/gifs/wam_gopro.gif" width="30%"></a>
-  <a href="./assets/evidence/baai-wam/wam_episode_zed2_view.mp4"><img src="./assets/gifs/wam_zed2.gif" width="30%"></a>
-  <a href="./assets/evidence/baai-wam/wam_episode_shoulder_view.mp4"><img src="./assets/gifs/wam_shoulder.gif" width="30%"></a>
+  <a href="./assets/evidence/baai-wam/agibot_mobile_gt_2x2.mp4"><img src="./assets/gifs/agibot_mobile_gt_2x2.gif" width="45%"></a>
+  <a href="./assets/evidence/baai-wam/agibot_mobile_pred_2x2.mp4"><img src="./assets/gifs/agibot_mobile_pred_2x2.gif" width="45%"></a>
 </div>
 
-*同一 episode 三视角联合预测（DROID，gopro / zed2 / shoulder，域随机化）*
+*AgiBot 移动双臂：GT（左）vs WAM 预测（右）*
 
-<a href="./assets/evidence/baai-wam/wam_teacher_posttrain_gt_pred.mp4"><img src="./assets/gifs/wam_teacher_gt_pred.gif" width="60%"></a>
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <a href="./assets/evidence/baai-wam/robotwin_aloha_gt_2x2.mp4"><img src="./assets/gifs/robotwin_aloha_gt_2x2.gif" width="45%"></a>
+  <a href="./assets/evidence/baai-wam/robotwin_aloha_pred_2x2.mp4"><img src="./assets/gifs/robotwin_aloha_pred_2x2.gif" width="45%"></a>
+</div>
 
-*教师模型后训练效果：GT vs 预测对比*
+*RoboTwin aloha-agilex：GT（左）vs WAM 预测（右）*
 
 ---
 
-## BAAI · OpenArms 双臂叠衣与多视角预测
+## BAAI · OpenArms 双臂叠衣（DiT4DiT 跨本体后训练）
 
-<a href="./assets/evidence/baai-dit4dit/openarm_demo.mp4"><img src="./assets/gifs/openarm_demo.gif" width="60%"></a>
+<a href="./assets/evidence/baai-dit4dit/openarm_demo.mp4"><img src="./assets/gifs/openarm_demo.gif" width="45%"></a>
 
-*OpenArms 双臂叠衣 demo*
-
-<a href="./assets/evidence/baai-dit4dit/agibot_multiview_pred.mp4"><img src="./assets/gifs/agibot_multiview.gif" width="60%"></a>
-
-*AgiBot 多视角视频预测*
-
-<a href="./assets/evidence/baai-dit4dit/robotwin_multiview_pred.mp4"><img src="./assets/gifs/robotwin_multiview.gif" width="60%"></a>
-
-*RoboTwin 多视角视频预测*
+*OpenArms 双臂叠衣 demo（LIBERO 8D → OpenArms 16D 动作迁移）*
 
 ---
 
