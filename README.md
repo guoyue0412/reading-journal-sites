@@ -2,8 +2,11 @@
 
 **具身世界模型 / World-Action Model 算法方向**
 
+哈尔滨工业大学（深圳）硕士 · 机器人与先进制造学院 · CAIA 实验室（导师：Bernd Noack）  
+研究兴趣：World-Action Model、Video2World、VLA、Sim2Real / Real2Sim 数据闭环
+
 📍 深圳 · 📧 [your-email@example.com] · 📱 [your-phone-number]  
-[论文阅读](./content/papers/) · [实习记录](./content/internship/) · [秋招复盘](./content/jobs/) · [日常思考](./content/reflections/)
+[GitHub](https://github.com/guoyue0412) · [论文阅读](./content/papers/) · [实习记录](./content/internship/) · [秋招复盘](./content/jobs/) · [日常思考](./content/reflections/)
 
 <p>
   <img src="https://img.shields.io/badge/Focus-Embodied%20AI-blue" alt="Focus" />
@@ -16,6 +19,7 @@
 ## 目录
 
 - [关于我](#关于我)
+- [精选项目](#精选项目-selected-work)
 - [快速入口](#快速入口-fast-entry)
 - [项目演示](#项目演示)
 - [教育经历](#教育经历)
@@ -43,6 +47,19 @@
 - **2026-04**：完成道通智能 VLA 真机部署，动态抓取成功率 40% → 70%
 - **2025-08**：获中国机器人及人工智能大赛国家级一等奖（复合机器人月球探索，全场最快成绩）
 - **2024-02**：获中国大学生工程实践与创新能力大赛全国总决赛金奖（「智能+」赛道，组长）
+
+---
+
+## 精选项目 Selected Work
+
+| | | |
+|---|---|---|
+| [![Sim2Real/Real2Sim 数据闭环](./assets/thumbs/sim2real.jpg)](#项目演示) | [![WAM 多视角视频预测](./assets/thumbs/wam.jpg)](#项目演示) | [![OpenArms 双臂叠衣](./assets/thumbs/openarms.jpg)](#项目演示) |
+| **Sim2Real / Real2Sim 数据闭环**<br>北京人形 · 两平台 8 case，0.01s 级对齐 | **WAM 多视角视频预测**<br>BAAI · 三视角联合预测，head-camera frame 动作统一 | **OpenArms 双臂叠衣**<br>BAAI · DiT4DiT 跨本体后训练，8D → 16D |
+| [![道通 VLA 真机操作](./assets/thumbs/vla.jpg)](#项目演示) | [![道通 BPTT 可微仿真](./assets/thumbs/bptt.jpg)](#项目演示) | |
+| **VLA 真机操作落地**<br>道通 · 动态抓取成功率 40%+ → 70%+ | **BPTT 可微仿真与 Sim-to-Real**<br>道通 · 公司首个实践验证 RL 控制器，10 万元奖金 | |
+
+> 完整项目列表见下方「快速入口」，演示视频见「[项目演示](#项目演示)」。
 
 ---
 
