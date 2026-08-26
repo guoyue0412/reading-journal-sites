@@ -1,0 +1,6 @@
+title: 郭跃的个人主页
+description: 记录研究项目、论文阅读、秋招、实习与个人随笔
+theme: jekyll-theme-cayman
+markdown: GFM
+include:
+  - content
