@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>郭跃 · 具身世界模型 / World-Action Model</title>
+<meta name="description" content="郭跃的个人主页：World-Action Model、Video2World、VLA、Sim2Real/Real2Sim 数据闭环">
+<style>
+  :root{
+    --accent:#2f5fb3; --ink:#1f2328; --muted:#5b6470; --line:#e5e8ec;
+    --bg:#fafbfc; --card:#ffffff; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.65;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* header */
+  header{border-bottom:1px solid var(--line);background:var(--card);padding:44px 0 28px}
+  h1{font-size:34px;margin:0 0 6px}
+  h1 .en{font-size:18px;color:var(--muted);font-weight:500;margin-left:10px}
+  .tagline{font-size:17px;font-weight:600;color:var(--accent);margin:2px 0 8px}
+  .meta{color:var(--muted);font-size:14.5px;margin:2px 0}
+  .badges{margin-top:10px}
+  .badges span{display:inline-block;background:#eef3fb;color:var(--accent);
+    border:1px solid #d5e0f2;border-radius:999px;padding:2px 12px;font-size:13px;margin:3px 6px 0 0}
+  .links{margin-top:16px}
+  .btn{display:inline-block;border:1px solid var(--line);border-radius:8px;background:#fff;
+    padding:6px 14px;margin:4px 8px 0 0;font-size:14px;color:var(--ink)}
+  .btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:#264e97}
+
+  /* sections */
+  section{padding:30px 0 6px}
+  h2{font-size:21px;margin:0 0 14px;padding-left:11px;border-left:4px solid var(--accent)}
+  h3{font-size:16.5px;margin:18px 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 10px}
+
+  /* hero gif strip */
+  .strip{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
+  .strip a{line-height:0}
+  .strip img{height:150px;width:auto;border-radius:8px;border:1px solid var(--line);display:block}
+  .caption{color:var(--muted);font-size:13.5px;margin:4px 0 0}
+
+  /* cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;transition:box-shadow .15s,transform .15s}
+  .card:hover{box-shadow:0 4px 14px rgba(31,35,40,.10);transform:translateY(-2px)}
+  .card img{width:100%;height:150px;object-fit:cover;display:block;border-bottom:1px solid var(--line)}
+  .card .body{padding:10px 14px 12px}
+  .card .t{font-weight:600;font-size:15px}
+  .card .d{color:var(--muted);font-size:13.5px;margin-top:2px}
+
+  /* timeline */
+  .tl{list-style:none;margin:0;padding:0}
+  .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line);margin-left:6px}
+  .tl li::before{content:"";position:absolute;left:-6px;top:7px;width:10px;height:10px;
+    border-radius:50%;background:var(--accent)}
+  .tl .when{font-size:13px;color:var(--muted)}
+  .tl .what{font-weight:600}
+  .tl .detail{font-size:14px;color:var(--muted)}
+
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top}
+  th{background:#f2f4f7;font-weight:600;white-space:nowrap}
+  .awards{columns:2;column-gap:32px;font-size:14.5px;padding-left:18px;margin:6px 0}
+  .awards li{break-inside:avoid;margin-bottom:4px}
+  @media(max-width:640px){.awards{columns:1}.strip img{height:120px}}
+
+  footer{border-top:1px solid var(--line);margin-top:34px;padding:18px 0 34px;
+    color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>郭跃<span class="en">Yue Guo</span></h1>
+    <div class="tagline">具身世界模型 / World-Action Model 算法方向</div>
+    <div class="meta">哈尔滨工业大学（深圳）硕士 · 机器人与先进制造学院 · CAIA 实验室（导师：Bernd Noack）</div>
+    <div class="meta">研究兴趣：World-Action Model · Video2World · VLA · Sim2Real / Real2Sim 数据闭环</div>
+    <div class="badges">
+      <span>Embodied AI</span><span>World-Action Model</span><span>VLA / Diffusion</span><span>Sim2Real</span>
+    </div>
+    <div class="links">
+      <a class="btn primary" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">完整项目演示画廊 →</a>
+      <a class="btn" href="https://github.com/guoyue0412">GitHub</a>
+      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/papers">论文阅读</a>
+      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习记录</a>
+      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招复盘</a>
+      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">日常思考</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section>
+  <h2>项目演示</h2>
+  <p class="sub">核心问题：<strong>如何让生成式世界模型成为可部署、可泛化的机器人策略</strong>。以下为 4 段代表作（动图自动播放），点击任意动图进入完整画廊（21 段演示视频）。</p>
+  <div class="strip">
+    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/sim2real_tianyi_hangclothes.gif" alt="北京人形 Sim2Real 闭环"></a>
+    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/agibot_mobile_pred_2x2.gif" alt="BAAI WAM 多视角预测"></a>
+    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/vla_realrobot.gif" alt="道通 VLA 真机"></a>
+    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/bptt_morph.gif" alt="道通 BPTT 可微仿真"></a>
+  </div>
+  <p class="caption">北京人形 Sim2Real 闭环 · BAAI WAM 多视角预测 · 道通 VLA 真机 · 道通 BPTT 可微仿真</p>
+</section>
+
+<section>
+  <h2>精选项目</h2>
+  <div class="grid">
+    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
+      <img src="./assets/thumbs/sim2real.jpg" alt="Sim2Real/Real2Sim 数据闭环">
+      <div class="body"><div class="t">Sim2Real / Real2Sim 数据闭环</div>
+      <div class="d">北京人形 · 两平台 8 case 运动复现，REAL|SIM 视频对 0.01s 级对齐</div></div>
+    </a>
+    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
+      <img src="./assets/thumbs/wam.jpg" alt="WAM 多视角视频预测">
+      <div class="body"><div class="t">WAM 多视角视频预测</div>
+      <div class="d">BAAI · 多视角联合预测，head-camera frame 动作空间统一</div></div>
+    </a>
+    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
+      <img src="./assets/thumbs/openarms.jpg" alt="OpenArms 双臂叠衣">
+      <div class="body"><div class="t">OpenArms 双臂叠衣</div>
+      <div class="d">BAAI · DiT4DiT 跨本体后训练，LIBERO 8D → OpenArms 16D</div></div>
+    </a>
+    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
+      <img src="./assets/thumbs/vla.jpg" alt="VLA 真机操作">
+      <div class="body"><div class="t">VLA 真机操作落地</div>
+      <div class="d">道通 · 动态抓取成功率 40%+ → 70%+，LIBERO-10 平均 96.6%</div></div>
+    </a>
+    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
+      <img src="./assets/thumbs/bptt.jpg" alt="BPTT 可微仿真">
+      <div class="body"><div class="t">BPTT 可微仿真与 Sim-to-Real</div>
+      <div class="d">道通 · 公司首个实践验证 RL 控制器，获 10 万元项目奖金</div></div>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>实习经历</h2>
+  <ul class="tl">
+    <li>
+      <div class="when">2026.08 – 至今</div>
+      <div class="what">北京人形机器人创新中心 · 具身智能算法实习生</div>
+      <div class="detail">Sim2Real / Real2Sim 双向动作数据闭环：统一关节语义与时间轴，两平台 8 个 case 运动复现，REAL|SIM 视频对时长误差 0.01s 级；下一阶段 3DGS 场景重建与批量数据工厂。</div>
+    </li>
+    <li>
+      <div class="when">2026.04 – 2026.08</div>
+      <div class="what">智源人工智能研究院（BAAI）认知大模型组 · 世界模型与机器人策略</div>
+      <div class="detail">搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM（Cosmos-Predict2.5-2B 教师），单次前向解码 30-step action chunk；DiT4DiT 跨本体后训练完成双臂叠衣。</div>
+    </li>
+    <li>
+      <div class="when">2025.11 – 2026.04</div>
+      <div class="what">道通智能 · 强化学习算法工程师（前沿预研）</div>
+      <div class="detail">OpenPI π₀.₅ VLA 真机落地（8 卡 A800 全量微调 + ROS2 端云部署，抓取成功率 40%→70%）；JAX BPTT 可微仿真控制器（获 10 万元奖金）；残差动力学精度提升 10 倍、吞吐提升 1000%；AutoResearch 调参效率提升 2.6 倍。</div>
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2>教育经历</h2>
+  <table>
+    <tr><th>时间</th><th>学校</th><th>学位 / 专业</th><th>GPA</th></tr>
+    <tr><td>2024.08 – 2027.06（预计）</td><td>哈尔滨工业大学（深圳）· 机器人与先进制造学院</td><td>硕士 · 动力工程（保研）</td><td>3.639 / 4.0（前 5%）</td></tr>
+    <tr><td>2020.09 – 2024.06</td><td>吉林大学 · 汽车工程学院</td><td>本科 · 动力工程（已保研）</td><td>3.826 / 4.0（前 5%）</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>科研与项目</h2>
+  <h3>Colugo：多尺度潜在世界模型引导的 VLA 操作研究 · 协作研究</h3>
+  <p class="sub">slow/fast queries 从 VLM hidden states 预测 latent futures，dual cross-attention 调制 flow-based Action DiT；完成 LIBERO-Long / CALVIN ABC→D / AgileX Nero 消融评测。</p>
+  <h3>复合机器人月球探索 · 项目负责人</h3>
+  <p class="sub">全向底盘 + 5-DOF 机械臂，RGB-D / LiDAR / IMU 自主建图与动态避障；中国机器人及人工智能大赛国家级一等奖（全场最快成绩）。</p>
+  <h3>无人机抗风性能优化及底层控制 · 项目负责人</h3>
+  <p class="sub">DNN/CNN 气动代理 + PPO 调参 + C++ 模糊 PID，扰动下轨迹追踪误差降低 76.6%。</p>
+</section>
+
+<section>
+  <h2>核心技能</h2>
+  <table>
+    <tr><th>方向</th><th>具体内容</th></tr>
+    <tr><td>视频生成 / 策略建模</td><td>Video2World、Diffusion / Flow Matching、VLA、future latent / latent dynamics、跨本体动作空间适配</td></tr>
+    <tr><td>训练与数据工程</td><td>PyTorch、JAX、DeepSpeed、多机多卡 bf16；WebDataset、LeRobot/OXE、多源机器人数据统一与加权采样</td></tr>
+    <tr><td>评测与部署</td><td>LIBERO / CALVIN 消融评测、JAX BPTT 与 Sim-to-Real；ROS2 端云推理、TensorRT/ONNX 部署</td></tr>
+    <tr><td>语言</td><td>英语 CET-4 545 / CET-6 464</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>荣誉奖项（节选）</h2>
+  <ul class="awards">
+    <li>国家奖学金（2 / 145）</li>
+    <li>黑龙江省优秀学生</li>
+    <li>哈工大（深圳）特等学业奖学金</li>
+    <li>工程实践与创新能力大赛「智能+」赛道全国金奖（组长）</li>
+    <li>中国机器人及人工智能大赛国家一等奖（全场最快）</li>
+    <li>全国大学生数学竞赛二等奖</li>
+    <li>周培源力学竞赛全国优秀奖</li>
+    <li>黎明人才奖学金 × 3（10 / 455）</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    内容入口：<a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/papers">论文阅读</a> ·
+    <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招记录</a> ·
+    <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习日记</a> ·
+    <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">个人感悟</a>
+    　|　<a href="https://github.com/guoyue0412/reading-journal-sites">仓库主页</a><br>
+    最后更新：2026-08-26 · 联系方式已隐去，请通过 GitHub 私信或校方邮箱联系
+  </div>
+</footer>
+
+</body>
+</html>
