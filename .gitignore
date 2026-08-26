@@ -43,7 +43,5 @@ next-env.d.ts
 /work/
 /.worktrees/
 
-# resume source PDFs (kept locally, content extracted into README)
-/sources/24级- 哈尔滨工业大学（深圳）-郭跃.pdf
-/sources/PlayOffer-简历导入-郭跃.pdf
-/sources/自我介绍ppt.pdf
+# source materials (kept locally, content extracted into README; videos are copied to assets/evidence/)
+/sources/

@@ -31,17 +31,18 @@
 ## 关于我
 
 我关注的问题是：**如何让生成式世界模型成为可部署、可泛化的机器人策略**。  
-硕士阶段围绕 **Cosmos-Predict2.5-2B、DiT4DiT、OpenPI π₀.₅** 开展 Video2World、future latent prediction、跨本体动作适配及真机部署，具备多源机器人数据统一、开源模型后训练与多机多卡训练实践。
+硕士阶段围绕 **Cosmos-Predict2.5-2B、DiT4DiT、OpenPI π₀.₅** 开展 Video2World、future latent prediction、跨本体动作适配及真机部署，具备多源机器人数据统一、开源模型后训练与多机多卡训练实践。前沿跟踪：持续研读 **π 系列、DreamZero、EgoScale、EgoWAM**，关注 Flow Matching VLA、WAM 视频–动作建模与 Ego-to-Robot 对齐。
 
 > 这个主页同时是我的简历、项目证据索引与阅读笔记入口。如果你是我的面试官或合作者，建议从下方的「快速入口」开始看。
 
 ### 近期动态 News
 
+- **2026-08**：在北京人形机器人创新中心打通 Sim2Real / Real2Sim 双向动作数据闭环，两平台 8 个 case 运动复现，REAL|SIM 视频对时长误差 0.01s 级
 - **2026-08**：重构个人主页，新增项目视频证据与 Fast Entry 索引
 - **2026-04**：加入智源 BAAI 认知大模型组，实习方向为世界模型与机器人策略
 - **2026-04**：完成道通智能 VLA 真机部署，动态抓取成功率 40% → 70%
-- **2025-08**：获中国机器人及人工智能大赛国家级一等奖（复合机器人月球探索）
-- **2025-06**：获中国大学生工程实践与创新能力大赛「智能+」赛道金奖
+- **2025-08**：获中国机器人及人工智能大赛国家级一等奖（复合机器人月球探索，全场最快成绩）
+- **2024-02**：获中国大学生工程实践与创新能力大赛全国总决赛金奖（「智能+」赛道，组长）
 
 ---
 
@@ -49,6 +50,7 @@
 
 | 项目 | 关键词 | 我做了什么 | 关键结果 | 证据 |
 |---|---|---|---|---|
+| **北京人形 · Sim2Real/Real2Sim 数据闭环** | Sim2Real, Real2Sim, 数据工厂 | 打通仿真↔真机双向动作闭环：统一关节语义与时间轴，真机成功动作回灌仿真生成帧级对齐的 REAL\|SIM 视频对 | 天轶2.0+Robotiq 与松灵双臂两平台 **8 个 case** 运动复现，视频时长误差 **0.01s 级** | 见下方「项目演示」/ `clean_2026/02-internship/humanoid-sim2real/` |
 | **BAAI · WAM 预训练** | Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert | 搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM；统一 DROID/EgoDex/AgiBot/RoboTwin 动作空间到 head-camera frame | 策略路径无需完整视频去噪，单次前向解码 30-step action chunk | 见下方「项目演示」/ `clean_2026/02-internship/baai-wam/`（三视角预测视频） |
 | **BAAI · DiT4DiT / OpenArms** | DiT4DiT, LeRobot v3, 跨本体 | 冻结 DiT backbone，新增 embodiment 适配层，完成 LIBERO 8D → OpenArms 16D 动作迁移与双臂叠衣后训练 | 多视角预测与双臂协调动作序列生成 | 见下方「项目演示」/ `clean_2026/02-internship/baai-dit4dit/` |
 | **道通 · VLA 真机落地** | OpenPI π₀.₅, 智元 G1, ROS2 | 负责数据清洗 → 8 卡 A800 全量微调 → ROS2 端云部署的完整闭环 | 动态抓取成功率 **40%+ → 70%+**；LIBERO-10 平均 **96.6%** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-vla/` |
@@ -59,13 +61,30 @@
 | **道通 · AutoResearch** | LLM Agent, Auto-tuning, 强化学习 | 搭建自动化强化学习调参平台：LLM Agent 自动生成训练配置、调用接口、反馈效果 | 调参效率 **提升 2.6 倍**，支持 24h 连续实验 | `clean_2026/02-internship/daotong-autoresearch/`（slides PDF + 平台 Dashboard 截图） |
 | **Colugo** | VLA, Multi-Scale Latent World Model | 参与 slow/fast future 建模与 flow-based Action DiT 调制；完成多平台消融 | LIBERO-Long / CALVIN ABC→D / AgileX Nero 消融评测 | `clean_2026/03-research/colugo/` |
 
-> **边界说明**：WAM、Colugo、LIFT、Extreme Parkour、AutoResearch 为团队共建或预研项目；道通 VLA/BPTT/残差动力学、BAAI DiT4DiT 中我主导了从算法到落地的完整链路或关键子模块。
+> **边界说明**：WAM、Colugo、LIFT、Extreme Parkour、AutoResearch 为团队共建或预研项目；北京人形 Sim2Real/Real2Sim、道通 VLA/BPTT/残差动力学、BAAI DiT4DiT 中我主导了从算法到落地的完整链路或关键子模块。
 
 ---
 
 ## 项目演示
 
 > 以下视频可直接在 GitHub 上播放。完整证据库（含未放入仓库的大文件）见 `clean_2026/`。
+
+### 北京人形 · Sim2Real / Real2Sim 动作数据闭环
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <video src="./assets/evidence/humanoid-sim2real/tianyi_hangclothes_REAL_SIM.mp4" controls width="45%"></video>
+  <video src="./assets/evidence/humanoid-sim2real/tianyi_right_REAL_SIM.mp4" controls width="45%"></video>
+</div>
+
+*天轶 2.0 + Robotiq：REAL | SIM 帧级对齐视频对（挂衣服 / 右臂动作）*
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <video src="./assets/evidence/humanoid-sim2real/blue_REAL_SIM.mp4" controls width="30%"></video>
+  <video src="./assets/evidence/humanoid-sim2real/purple_REAL_SIM.mp4" controls width="30%"></video>
+  <video src="./assets/evidence/humanoid-sim2real/tray_REAL_SIM.mp4" controls width="30%"></video>
+</div>
+
+*松灵双臂：REAL | SIM 视频对（BLUE / PURPLE / TRAY 三个 case）*
 
 ### BAAI · WAM 多视角视频预测
 
@@ -137,17 +156,33 @@
 
 ## 教育经历
 
-| 时间 | 学校 | 学院 | 学位 | GPA |
+| 时间 | 学校 | 学院 | 学位 / 专业 | GPA |
 |---|---|---|---|---|
-| 2024.08 – 2027.06（预计） | 哈尔滨工业大学（深圳） | 机器人与先进制造学院 | 硕士（保研） | 3.639 / 4.0 |
-| 2020.09 – 2024.06 | 吉林大学 | 汽车工程学院 | 本科 | 3.826 / 4.0 |
+| 2024.08 – 2027.06（预计） | 哈尔滨工业大学（深圳） | 机器人与先进制造学院 | 硕士 · 动力工程（保研，专业学位） | 3.639 / 4.0（前 5%） |
+| 2020.09 – 2024.06 | 吉林大学 | 汽车工程学院 | 本科 · 动力工程（已保研） | 3.826 / 4.0（前 5%） |
+
+> 硕士实验室 / 导师：CAIA / Bernd Noack。
 
 ---
 
 ## 实习经历
 
+### 北京人形机器人创新中心
+**具身智能算法实习生 · 2026.08 – 至今**
+
+<details>
+<summary><strong>Sim2Real / Real2Sim 动作数据闭环</strong>（Isaac Sim, LeRobot, 轨迹复播）</summary>
+
+- **Sim2Real**：Sim 端生成任务动作、关节轨迹与参考视频，输出标准轨迹包（时间戳、关节名称与顺序、单位、夹爪映射、校验信息）；Real 端完成离线校验、频率转换、安全预定位与真机复播，保存执行日志与真机视频，形成可追溯结果。
+- **Real2Sim**：Real 端从遥操数据或真机成功复播日志导出标准轨迹包；Sim 端按首帧直接初始化、固定频率逐点回放（不重新规划 / IK），重新渲染 Sim 视频并对真机视频做帧级裁剪与时间对齐。
+- 两条链路共用同一套动作语义，解决语义一致（关节名称/顺序/方向/单位/夹爪映射）、时序一致（原始时间轴、重采样、帧级对齐）、行为一致（机械臂与夹爪同步复现）、结果可追溯（轨迹、元数据、初始状态、日志、数据指纹可关联）四个核心问题。
+- **已在天轶 2.0 + Robotiq 与松灵双臂两平台完成 8 个 case 的运动复现，生成 REAL | SIM 视频对时长误差 0.01s 级**；真机侧已验证可完成抓取。
+- 下一阶段：场景精准重建（3DGS → USD → Isaac Sim）、分层 Metrics 质量门禁（运动/时序/任务/视觉四层）、批量数据工厂，目标是从 LeRobot 数据集批量 1:1 复现 Sim 视频，产出可用于训练的高质量 Sim-Real Pair 数据集。
+
+</details>
+
 ### 智源人工智能研究院（BAAI）· 认知大模型组
-**世界模型与机器人策略算法实习生 · 2026.04 – 至今**
+**世界模型与机器人策略算法实习生 · 2026.04 – 2026.08**
 
 参与 World-Action Model 预训练与跨本体后训练，核心课题是让视频生成模型作为策略教师，同时避免策略路径承担完整的多步视频去噪开销。
 
@@ -156,7 +191,7 @@
 
 - 搭建 Video2World 2B DiT → PolicyDiT → ActionExpert/ActionDecoderDiT 三阶段 WAM；以 Cosmos-Predict2.5-2B 为教师，在固定低噪声时刻对齐 condition-frame hidden states，聚合 future-aware 表征。
 - PolicyDiT 单次前向预测，ActionExpert 解码 30-step action chunk（2 s），策略路径无需完整多步去噪，缓解 train-inference 输入不一致。
-- 将 DROID、EgoDex、AgiBot、RoboTwin 动作空间统一变换到 head-camera frame，以带 action_mask/confidence 的 48D EE pose delta 兼容异构本体。
+- 将 DROID、EgoDex、AgiBot、RoboTwin 动作空间统一变换到 head-camera frame，以带 action_mask/confidence 的 48D EE pose delta 兼容异构本体；先完成 DROID 单源验证，再扩展至多源异构训练。
 - 多视角视频 latent 沿 width 维拼接联合预测，注入 FPS 条件与 3D RoPE，统一不同采样率下的时间尺度与空间位置编码。
 
 </details>
@@ -175,7 +210,7 @@
 <details>
 <summary><strong>VLA 真机具身操作落地预研</strong>（智元 G1 + OpenPI π₀.₅，OpenPI / ROS2 / LeRobot/OXE）</summary>
 
-- 基于 8 卡 A800 全量微调 OpenPI π₀.₅ Flow Matching VLA；完成 VR 遥操轨迹清洗、quantile normalization 与 LeRobot/OXE 格式转换；单任务约采集 60 条示教轨迹，失败样本补录 20 条。
+- 基于 8 卡 A800 全量微调 OpenPI π₀.₅ Flow Matching VLA（batch size 256，训练 30k 步约 12 小时，warmup + constant 学习率）；完成 VR 遥操轨迹清洗、quantile normalization 与 LeRobot/OXE 格式转换；单任务约采集 60 条示教轨迹，失败样本补录 20 条。
 - 完成 224×224 图像输入、Action Chunk 下发及 ROS2 端云推理；Policy Server（A100）与 G1 客户端通过 Socket 低延迟通信，服务端可热更新模型无需停机。
 - **智元 G1 动态抓取成功率由 40%+ 提升至 70%+**；推理端 policy infer 延迟约 75 ms。
 - 完成 LIBERO 仿真评测链路适配：LIBERO-10 平均成功率 **96.6%**；LIBERO-90 共 74 个任务，其中 40 个任务获得可复现成功 rollout。
@@ -269,12 +304,16 @@
 - 国家奖学金（2 / 145）
 - 黑龙江省优秀学生
 - 哈尔滨工业大学（深圳）特等学业奖学金
-- 中国大学生工程实践与创新能力大赛「智能+」赛道**金奖**（组长）
+- 中国大学生工程实践与创新能力大赛「智能+」赛道全国总决赛**金奖**（组长）
 - 中国机器人及人工智能大赛**国家一等奖**（全场最快成绩）
+- 第十三届全国大学生数学竞赛**二等奖**
+- 第十四届周培源大学生力学竞赛**全国优秀奖**
 - 2024 届吉林大学优秀毕业生
 - 黎明人才奖学金 × 3（10 / 455）
 - 苏州育才奖学金
 - 吉林大学汽车工程学院十佳大学生
+
+> 以上为节选；完整 29 项荣誉清单见本地 `clean_2026/06-resume/` 中的 PlayOffer 简历源文件。
 
 ---
 
@@ -284,6 +323,7 @@
 
 | 简历条目 | 本仓库视频 | 完整证据目录 |
 |---|---|---|
+| 北京人形 · Sim2Real/Real2Sim 数据闭环 | `assets/evidence/humanoid-sim2real/`（6 段） | `clean_2026/02-internship/humanoid-sim2real/` |
 | BAAI · WAM 多视角预测 | `assets/evidence/baai-wam/`（4 段） | `clean_2026/02-internship/baai-wam/` |
 | BAAI · OpenArms 双臂叠衣 | `assets/evidence/baai-dit4dit/`（3 段） | `clean_2026/02-internship/baai-dit4dit/` |
 | 道通 · VLA 真机操作 | `assets/evidence/daotong-vla/`（5 段） | `clean_2026/02-internship/daotong-vla/` |
