@@ -5,6 +5,27 @@
 📍 深圳 · 📧 [your-email@example.com] · 📱 [your-phone-number]  
 [论文阅读](./content/papers/) · [实习记录](./content/internship/) · [秋招复盘](./content/jobs/) · [日常思考](./content/reflections/)
 
+<p>
+  <img src="https://img.shields.io/badge/Focus-Embodied%20AI-blue" alt="Focus" />
+  <img src="https://img.shields.io/badge/Research-World--Action%20Model-orange" alt="Research" />
+  <img src="https://img.shields.io/badge/Robot-VLA%20%7C%20Diffusion-green" alt="Robot" />
+</p>
+
+---
+
+## 目录
+
+- [关于我](#关于我)
+- [快速入口](#快速入口-fast-entry)
+- [项目演示](#项目演示)
+- [教育经历](#教育经历)
+- [实习经历](#实习经历)
+- [科研与项目经历](#科研与项目经历)
+- [核心技能](#核心技能)
+- [荣誉奖项](#荣誉奖项)
+- [项目证据索引](#项目证据索引)
+- [精选笔记](#精选笔记)
+
 ---
 
 ## 关于我
@@ -13,6 +34,14 @@
 硕士阶段围绕 **Cosmos-Predict2.5-2B、DiT4DiT、OpenPI π₀.₅** 开展 Video2World、future latent prediction、跨本体动作适配及真机部署，具备多源机器人数据统一、开源模型后训练与多机多卡训练实践。
 
 > 这个主页同时是我的简历、项目证据索引与阅读笔记入口。如果你是我的面试官或合作者，建议从下方的「快速入口」开始看。
+
+### 近期动态 News
+
+- **2026-08**：重构个人主页，新增项目视频证据与 Fast Entry 索引
+- **2026-04**：加入智源 BAAI 认知大模型组，实习方向为世界模型与机器人策略
+- **2026-04**：完成道通智能 VLA 真机部署，动态抓取成功率 40% → 70%
+- **2025-08**：获中国机器人及人工智能大赛国家级一等奖（复合机器人月球探索）
+- **2025-06**：获中国大学生工程实践与创新能力大赛「智能+」赛道金奖
 
 ---
 
@@ -24,10 +53,13 @@
 | **BAAI · DiT4DiT / OpenArms** | DiT4DiT, LeRobot v3, 跨本体 | 冻结 DiT backbone，新增 embodiment 适配层，完成 LIBERO 8D → OpenArms 16D 动作迁移与双臂叠衣后训练 | 多视角预测与双臂协调动作序列生成 | 见下方「项目演示」/ `clean_2026/02-internship/baai-dit4dit/` |
 | **道通 · VLA 真机落地** | OpenPI π₀.₅, 智元 G1, ROS2 | 负责数据清洗 → 8 卡 A800 全量微调 → ROS2 端云部署的完整闭环 | 动态抓取成功率 **40%+ → 70%+**；LIBERO-10 平均 **96.6%** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-vla/` |
 | **道通 · BPTT 可微仿真** | JAX, BPTT, Sim-to-Real | 构建 JAX 可微动力学引擎与残差模型，建立 1h 内多轮调参验证体系 | 公司首个实践验证的 RL 控制器，**获 10 万元项目奖金** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-bptt/` |
-| **道通 · 残差动力学管线** | PyTorch, Transformer, WebDataset | 设计 Transformer 动力学与残差双头预测，重构数据管线 | 平移动力学预测精度 **提升 10 倍**；训练吞吐 **提升 1000%** | `clean_2026/02-internship/daotong-residual/`（可视化待补） |
+| **道通 · 残差动力学管线** | PyTorch, Transformer, WebDataset | 设计 Transformer 动力学与残差双头预测，重构数据管线 | 平移动力学预测精度 **提升 10 倍**；训练吞吐 **提升 1000%** | `clean_2026/02-internship/daotong-residual/`（slides PDF + 轨迹跟踪曲线图） |
+| **道通 · LIFT 人形控制** | MuJoCo Playground, World Model, Fine-tuning | 参与人形机器人高效微调预研：探索与执行解耦，真实环境只执行确定性动作，随机探索在世界模型内部 rollout | 单张 RTX 4090 可完成部署级预训练；Go1 仅需 80–590 s 真实数据即显著改善姿态与步态 | `clean_2026/06-resume/自我介绍ppt_京东.pdf`（slides） |
+| **道通 · Extreme Parkour** | Isaac Lab, Teacher-Student, Curriculum Learning | 参与四足极限跑酷预研：Teacher 策略利用特权信息，Student 通过视觉蒸馏部署到端侧；课程学习动态生成渐进式地形 | 支持 Unitree Go1/Go2，端侧仅依赖深度相机 + IMU | `clean_2026/06-resume/自我介绍ppt_京东.pdf`（slides） |
+| **道通 · AutoResearch** | LLM Agent, Auto-tuning, 强化学习 | 搭建自动化强化学习调参平台：LLM Agent 自动生成训练配置、调用接口、反馈效果 | 调参效率 **提升 2.6 倍**，支持 24h 连续实验 | `clean_2026/02-internship/daotong-autoresearch/`（slides PDF + 平台 Dashboard 截图） |
 | **Colugo** | VLA, Multi-Scale Latent World Model | 参与 slow/fast future 建模与 flow-based Action DiT 调制；完成多平台消融 | LIBERO-Long / CALVIN ABC→D / AgileX Nero 消融评测 | `clean_2026/03-research/colugo/` |
 
-> **边界说明**：WAM 与 Colugo 为团队共建项目；道通 VLA/BPTT/残差动力学、BAAI DiT4DiT 中我主导了从算法到落地的完整链路或关键子模块。
+> **边界说明**：WAM、Colugo、LIFT、Extreme Parkour、AutoResearch 为团队共建或预研项目；道通 VLA/BPTT/残差动力学、BAAI DiT4DiT 中我主导了从算法到落地的完整链路或关键子模块。
 
 ---
 
@@ -53,7 +85,7 @@
 
 <video src="./assets/evidence/daotong-vla/vla_realrobot_test.mp4" controls width="60%"></video>
 
-*真机 VLA 测试（动态抓取成功率 40%+ → 70%+）*
+*真机 VLA 测试（动态抓取成功率 40%+ → 70%+，policy infer 延迟约 75 ms）*
 
 <video src="./assets/evidence/daotong-vla/vr_teleop_1.mp4" controls width="60%"></video>
 
@@ -105,30 +137,82 @@
 
 参与 World-Action Model 预训练与跨本体后训练，核心课题是让视频生成模型作为策略教师，同时避免策略路径承担完整的多步视频去噪开销。
 
-- **Head Camera-Frame WAM 训练栈**（Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert, DeepSpeed）
-  - 搭建 Video2World 2B DiT → PolicyDiT → ActionExpert/ActionDecoderDiT 三阶段 WAM；以 Cosmos-Predict2.5-2B 为教师，在固定低噪声时刻对齐 condition-frame hidden states，聚合 future-aware 表征。
-  - PolicyDiT 单次前向预测，ActionExpert 解码 30-step action chunk（2 s），策略路径无需完整多步去噪，缓解 train-inference 输入不一致。
-  - 将 DROID、EgoDex、AgiBot、RoboTwin 动作空间统一变换到 head-camera frame，以带 action_mask/confidence 的 48D EE pose delta 兼容异构本体。
-  - 多视角视频 latent 沿 width 维拼接联合预测，注入 FPS 条件与 3D RoPE，统一不同采样率下的时间尺度与空间位置编码。
+<details>
+<summary><strong>Head Camera-Frame WAM 训练栈</strong>（Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert, DeepSpeed）</summary>
 
-- **OpenArms 双臂叠衣跨本体后训练**（DiT4DiT, LeRobot v3.0）
-  - 冻结 DiT backbone，新增 OpenArms embodiment 适配层，将 LIBERO 8D 单臂动作空间迁移到 OpenArms 16D 双臂动作序列。
-  - 接入 LeRobot v3 多视角 RGB、本体状态与语言指令，完成双臂叠衣任务的跨本体后训练与协调动作序列生成。
+- 搭建 Video2World 2B DiT → PolicyDiT → ActionExpert/ActionDecoderDiT 三阶段 WAM；以 Cosmos-Predict2.5-2B 为教师，在固定低噪声时刻对齐 condition-frame hidden states，聚合 future-aware 表征。
+- PolicyDiT 单次前向预测，ActionExpert 解码 30-step action chunk（2 s），策略路径无需完整多步去噪，缓解 train-inference 输入不一致。
+- 将 DROID、EgoDex、AgiBot、RoboTwin 动作空间统一变换到 head-camera frame，以带 action_mask/confidence 的 48D EE pose delta 兼容异构本体。
+- 多视角视频 latent 沿 width 维拼接联合预测，注入 FPS 条件与 3D RoPE，统一不同采样率下的时间尺度与空间位置编码。
+
+</details>
+
+<details>
+<summary><strong>OpenArms 双臂叠衣跨本体后训练</strong>（DiT4DiT, LeRobot v3.0）</summary>
+
+- 冻结 DiT backbone，新增 OpenArms embodiment 适配层，将 LIBERO 8D 单臂动作空间迁移到 OpenArms 16D 双臂动作序列。
+- 接入 LeRobot v3 多视角 RGB、本体状态与语言指令，完成双臂叠衣任务的跨本体后训练与协调动作序列生成。
+
+</details>
 
 ### 深圳市道通智能航空技术股份有限公司
 **强化学习算法工程师 · 前沿预研 · 2025.11 – 2026.04**
 
-- **VLA 真机具身操作落地预研**（智元 G1 + OpenPI π₀.₅，OpenPI / ROS2 / LeRobot/OXE）
-  - 基于 8 卡 A800 全量微调 OpenPI π₀.₅ Flow Matching VLA；完成 VR 遥操轨迹清洗、quantile normalization 与 LeRobot/OXE 格式转换。
-  - 完成 224×224 图像输入、Action Chunk 下发及 ROS2 端云推理，**智元 G1 动态抓取成功率由 40%+ 提升至 70%+**。
+<details>
+<summary><strong>VLA 真机具身操作落地预研</strong>（智元 G1 + OpenPI π₀.₅，OpenPI / ROS2 / LeRobot/OXE）</summary>
 
-- **高动态 BPTT 可微仿真与 Sim-to-Real**（JAX, BPTT, TensorRT）
-  - 构建 JAX 可微动力学引擎与二阶阻力模型，使用 Surrogate Gradients 缓解长时域梯度发散；以 Transformer 残差模型补偿仿真-实飞动力学差异。
-  - 训练 200–1000 轮获得可控控制器，约 2000 轮达到较小轨迹跟踪误差，建立 1h 内多轮调参验证体系；**获 10 万元项目奖金**。
+- 基于 8 卡 A800 全量微调 OpenPI π₀.₅ Flow Matching VLA；完成 VR 遥操轨迹清洗、quantile normalization 与 LeRobot/OXE 格式转换；单任务约采集 60 条示教轨迹，失败样本补录 20 条。
+- 完成 224×224 图像输入、Action Chunk 下发及 ROS2 端云推理；Policy Server（A100）与 G1 客户端通过 Socket 低延迟通信，服务端可热更新模型无需停机。
+- **智元 G1 动态抓取成功率由 40%+ 提升至 70%+**；推理端 policy infer 延迟约 75 ms。
+- 完成 LIBERO 仿真评测链路适配：LIBERO-10 平均成功率 **96.6%**；LIBERO-90 共 74 个任务，其中 40 个任务获得可复现成功 rollout。
 
-- **残差动力学模型与高吞吐数据管线**（PyTorch, Transformer, WebDataset）
-  - 构建 Transformer 动力学与残差双头预测，结合可微物理链式求导隐式监督和残差置信度建模，**平移动力学预测精度提升 10 倍，残差误差降至 < 5%**。
-  - 以轨迹池预生成、WebDataset 块级打散和自动课程学习替代 DataLoader，**训练吞吐提升 1000%**。
+</details>
+
+<details>
+<summary><strong>高动态 BPTT 可微仿真与 Sim-to-Real</strong>（JAX, BPTT, TensorRT）</summary>
+
+- 第一版方案基于 Transformer 对 HIL 数据做动力学预测，但实验噪声与迭代周期问题导致效果受限；随后切换至可微仿真 + BPTT 方向。
+- 第二版参考 NeuroBEM 混合空气动力学模型与《Learning Quadrotor Control From Visual Features Using Differentiable Simulation》，构建 JAX 可微动力学引擎与二阶阻力模型，将未来多步飞行展开为长计算图，从最终轨迹误差反向传播更新控制器。
+- 使用 Surrogate Gradients 缓解长时域梯度发散；以 Transformer 残差模型补偿域随机化未覆盖的仿真-实飞动力学差异。
+- 训练 200–1000 轮获得可控控制器，约 2000 轮达到较小轨迹跟踪误差，建立 1h 内多轮调参验证体系；**获 10 万元项目奖金**。
+
+</details>
+
+<details>
+<summary><strong>残差动力学模型与高吞吐数据管线</strong>（PyTorch, Transformer, WebDataset）</summary>
+
+- 构建 Transformer 动力学与残差双头预测，结合可微物理链式求导隐式监督和残差置信度建模，**平移动力学预测精度提升 10 倍，残差误差降至 < 5%**。
+- 以轨迹池预生成、WebDataset 块级打散和自动课程学习替代 DataLoader，**训练吞吐提升 1000%**。
+
+</details>
+
+<details>
+<summary><strong>LIFT：人形机器人大规模预训练与高效微调</strong>（MuJoCo Playground, World Model, Fine-tuning）</summary>
+
+- 核心思路是**探索与执行解耦**：真实机器人只执行策略的确定性动作，真正的随机探索在世界模型内部 rollout 完成，避免硬件损伤。
+- 三阶段框架：① 在 MuJoCo Playground 中进行大规模并行仿真预训练，训练强基础策略；② 利用离线数据训练 physics-informed world model，补偿未建模动态；③ 真实环境提供真实分布数据，世界模型提供廉价探索与额外训练样本，策略与世界模型共同迭代。
+- **单张 RTX 4090 即可完成可部署的人形预训练；Go1 仅需 80–590 秒真实数据即可显著改善姿态与步态**。
+
+</details>
+
+<details>
+<summary><strong>Extreme Parkour：四足机器人极限跑酷</strong>（Isaac Lab, Teacher-Student, Curriculum Learning）</summary>
+
+- 采用 Teacher-Student 两阶段框架：Teacher 策略利用特权信息（地形高度图、物理参数）在仿真中训练；Student 策略通过视觉蒸馏，仅依赖机载深度相机与 IMU 实现端侧部署。
+- 引入课程学习机制，动态生成从平地到高台、间隙、斜坡的渐进式地形，机器人根据当前表现自动调整难度。
+- 基于 Isaac Lab 进行大规模并行训练；Teacher 通过 132 条射线高度扫描获取局部地形，Student 通过 GRU 时序融合提取 32 维地形向量；RMA 架构编码历史本体状态增强鲁棒性。
+- 原生支持 Unitree Go1 / Go2 等主流四足平台。
+
+</details>
+
+<details>
+<summary><strong>AutoResearch：自动化强化学习调参平台</strong>（LLM Agent, Auto-tuning）</summary>
+
+- 搭建 LLM Agent 驱动的自动迭代平台：用户设定目标后，Agent 自动生成训练配置、调用训练接口、解析效果反馈并给出候选超参。
+- Transformer 智能体基于 scaling law 选择 layers / hidden dimension / multi-head，自动调学习率、batch size、warmup 与微调方式；强化学习控制智能体自动调 reward 权重、惩罚项与学习率，并约束动作平滑性。
+- **调参效率提升 2.6 倍**，支持 24h 连续实验；以 JSON 结构化反馈沉淀专家经验。
+
+</details>
 
 ---
 
@@ -182,19 +266,22 @@
 
 ## 项目证据索引
 
-> 本地完整证据库位于 `/Users/guoyue/gy_2026/clean_2026/`；部分精选视频已放入本仓库 `assets/evidence/`，可在 GitHub 直接播放。完整索引与缺失清单见 [`clean_2026/evidence-index.md`](/Users/guoyue/gy_2026/clean_2026/evidence-index.md)。
+> 本地完整证据库位于 `/Users/guoyue/gy_2026/clean_2026/`；部分精选视频已放入本仓库 `assets/evidence/`，可在 GitHub 直接播放。完整索引与缺失清单见 `clean_2026/evidence-index.md`。
 
 | 简历条目 | 本仓库视频 | 完整证据目录 |
 |---|---|---|
 | BAAI · OpenArms 双臂叠衣 | `assets/evidence/baai-dit4dit/`（3 段） | `clean_2026/02-internship/baai-dit4dit/` |
 | 道通 · VLA 真机操作 | `assets/evidence/daotong-vla/`（5 段） | `clean_2026/02-internship/daotong-vla/` |
 | 道通 · BPTT 可微仿真 | `assets/evidence/daotong-bptt/`（3 段） | `clean_2026/02-internship/daotong-bptt/` |
+| 道通 · 残差动力学管线 | — | `clean_2026/02-internship/daotong-residual/`（slides PDF + 轨迹跟踪曲线图 ×3） |
+| 道通 · AutoResearch | — | `clean_2026/02-internship/daotong-autoresearch/`（slides PDF + 架构/Dashboard 截图 ×2） |
+| 道通 · LIFT / Parkour | — | `clean_2026/06-resume/自我介绍ppt_京东.pdf`（slides） |
 | 人形机器人 | `assets/evidence/humanoid/third_view.mp4` | `clean_2026/04-projects/humanoid/` |
 | 科研 · Colugo | — | `clean_2026/03-research/colugo/` |
 | 奖项 · 黑龙江省优秀学生 | — | `clean_2026/05-awards/` |
 | 各版本简历 | — | `clean_2026/06-resume/` |
 
-**缺失待补**：BAAI WAM 独立 demo 视频、道通残差动力学可视化、复合机器人月球探索比赛视频/证书、无人机抗风飞行 demo、多数奖项高清证书扫描件。
+**缺失待补**：BAAI WAM 独立 demo 视频、道通残差动力学吞吐对比视频（训练/误差曲线图已有）、LIFT/Parkour/AutoResearch 独立演示视频（slides 与截图已有）、复合机器人月球探索比赛视频/证书、无人机抗风飞行 demo、多数奖项高清证书扫描件。
 
 ---
 
@@ -212,3 +299,7 @@
 - **秋招记录** → [`content/jobs/`](./content/jobs/)
 - **实习日记** → [`content/internship/`](./content/internship/)
 - **个人感悟** → [`content/reflections/`](./content/reflections/)
+
+---
+
+*最后更新：2026-08-26 · 联系邮箱与电话已用占位符代替，如需获取请通过 GitHub 私信或校方邮箱联系。*
