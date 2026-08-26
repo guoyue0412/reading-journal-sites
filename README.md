@@ -49,7 +49,7 @@
 
 | 项目 | 关键词 | 我做了什么 | 关键结果 | 证据 |
 |---|---|---|---|---|
-| **BAAI · WAM 预训练** | Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert | 搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM；统一 DROID/EgoDex/AgiBot/RoboTwin 动作空间到 head-camera frame | 策略路径无需完整视频去噪，单次前向解码 30-step action chunk | `clean_2026/02-internship/baai-wam/`（训练日志与可视化待补） |
+| **BAAI · WAM 预训练** | Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert | 搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM；统一 DROID/EgoDex/AgiBot/RoboTwin 动作空间到 head-camera frame | 策略路径无需完整视频去噪，单次前向解码 30-step action chunk | 见下方「项目演示」/ `clean_2026/02-internship/baai-wam/`（三视角预测视频） |
 | **BAAI · DiT4DiT / OpenArms** | DiT4DiT, LeRobot v3, 跨本体 | 冻结 DiT backbone，新增 embodiment 适配层，完成 LIBERO 8D → OpenArms 16D 动作迁移与双臂叠衣后训练 | 多视角预测与双臂协调动作序列生成 | 见下方「项目演示」/ `clean_2026/02-internship/baai-dit4dit/` |
 | **道通 · VLA 真机落地** | OpenPI π₀.₅, 智元 G1, ROS2 | 负责数据清洗 → 8 卡 A800 全量微调 → ROS2 端云部署的完整闭环 | 动态抓取成功率 **40%+ → 70%+**；LIBERO-10 平均 **96.6%** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-vla/` |
 | **道通 · BPTT 可微仿真** | JAX, BPTT, Sim-to-Real | 构建 JAX 可微动力学引擎与残差模型，建立 1h 内多轮调参验证体系 | 公司首个实践验证的 RL 控制器，**获 10 万元项目奖金** | 见下方「项目演示」/ `clean_2026/02-internship/daotong-bptt/` |
@@ -66,6 +66,20 @@
 ## 项目演示
 
 > 以下视频可直接在 GitHub 上播放。完整证据库（含未放入仓库的大文件）见 `clean_2026/`。
+
+### BAAI · WAM 多视角视频预测
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <video src="./assets/evidence/baai-wam/wam_episode_gopro_view.mp4" controls width="30%"></video>
+  <video src="./assets/evidence/baai-wam/wam_episode_zed2_view.mp4" controls width="30%"></video>
+  <video src="./assets/evidence/baai-wam/wam_episode_shoulder_view.mp4" controls width="30%"></video>
+</div>
+
+*同一 episode 三视角联合预测（DROID，gopro / zed2 / shoulder，域随机化）*
+
+<video src="./assets/evidence/baai-wam/wam_teacher_posttrain_gt_pred.mp4" controls width="60%"></video>
+
+*教师模型后训练效果：GT vs 预测对比*
 
 ### BAAI · OpenArms 双臂叠衣与多视角预测
 
@@ -270,6 +284,7 @@
 
 | 简历条目 | 本仓库视频 | 完整证据目录 |
 |---|---|---|
+| BAAI · WAM 多视角预测 | `assets/evidence/baai-wam/`（4 段） | `clean_2026/02-internship/baai-wam/` |
 | BAAI · OpenArms 双臂叠衣 | `assets/evidence/baai-dit4dit/`（3 段） | `clean_2026/02-internship/baai-dit4dit/` |
 | 道通 · VLA 真机操作 | `assets/evidence/daotong-vla/`（5 段） | `clean_2026/02-internship/daotong-vla/` |
 | 道通 · BPTT 可微仿真 | `assets/evidence/daotong-bptt/`（3 段） | `clean_2026/02-internship/daotong-bptt/` |
@@ -281,7 +296,7 @@
 | 奖项 · 黑龙江省优秀学生 | — | `clean_2026/05-awards/` |
 | 各版本简历 | — | `clean_2026/06-resume/` |
 
-**缺失待补**：BAAI WAM 独立 demo 视频、道通残差动力学吞吐对比视频（训练/误差曲线图已有）、LIFT/Parkour/AutoResearch 独立演示视频（slides 与截图已有）、复合机器人月球探索比赛视频/证书、无人机抗风飞行 demo、多数奖项高清证书扫描件。
+**缺失待补**：道通残差动力学吞吐对比视频（训练/误差曲线图已有）、LIFT/Parkour/AutoResearch 独立演示视频（slides 与截图已有）、复合机器人月球探索比赛视频/证书、无人机抗风飞行 demo、多数奖项高清证书扫描件。
 
 ---
 
