@@ -68,6 +68,13 @@
   .diagrams a{display:block}
   .diagrams img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
 
+  /* stats */
+  .stats{display:flex;gap:12px;flex-wrap:wrap}
+  .stat{flex:1;min-width:140px;background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;text-align:center}
+  .stat b{display:block;font-size:21px;color:var(--accent)}
+  .stat span{font-size:12.5px;color:var(--muted)}
+
   /* timeline */
   .tl{list-style:none;margin:0;padding:0}
   .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line);margin-left:6px}
@@ -121,22 +128,28 @@
   <h2>项目演示</h2>
   <p class="sub">核心问题：<strong>如何让生成式世界模型成为可部署、可泛化的机器人策略</strong>。以下为 4 段代表作（动图自动播放），点击任意动图进入完整画廊（21 段演示视频）。</p>
   <div class="strip">
-    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/sim2real_tianyi_hangclothes.gif" alt="北京人形 Sim2Real 闭环"></a>
     <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/agibot_mobile_pred_2x2.gif" alt="BAAI WAM 多视角预测"></a>
+    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/openarm_demo.gif" alt="BAAI OpenArms 双臂叠衣"></a>
     <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/vla_realrobot.gif" alt="道通 VLA 真机"></a>
     <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/bptt_morph.gif" alt="道通 BPTT 可微仿真"></a>
   </div>
-  <p class="caption">北京人形 Sim2Real 闭环 · BAAI WAM 多视角预测 · 道通 VLA 真机 · 道通 BPTT 可微仿真</p>
+  <p class="caption">BAAI WAM 多视角预测 · BAAI OpenArms 双臂叠衣 · 道通 VLA 真机 · 道通 BPTT 可微仿真</p>
+</section>
+
+<section>
+  <h2>亮点数据</h2>
+  <div class="stats">
+    <div class="stat"><b>40% → 70%+</b><span>VLA 真机动态抓取成功率（道通）</span></div>
+    <div class="stat"><b>96.6%</b><span>LIBERO-10 仿真评测平均成功率</span></div>
+    <div class="stat"><b>×10 / ×1000%</b><span>残差动力学精度提升 / 训练吞吐提升</span></div>
+    <div class="stat"><b>×2.6</b><span>AutoResearch 自动调参效率提升</span></div>
+    <div class="stat"><b>¥10 万</b><span>BPTT 可微仿真项目奖金（公司首个实践验证 RL 控制器）</span></div>
+  </div>
 </section>
 
 <section>
   <h2>精选项目</h2>
   <div class="grid">
-    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
-      <img src="./assets/thumbs/sim2real.jpg" alt="Sim2Real/Real2Sim 数据闭环">
-      <div class="body"><div class="t">Sim2Real / Real2Sim 数据闭环</div>
-      <div class="d">北京人形 · 两平台 8 case 运动复现，REAL|SIM 视频对 0.01s 级对齐</div></div>
-    </a>
     <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
       <img src="./assets/thumbs/wam.jpg" alt="WAM 多视角视频预测">
       <div class="body"><div class="t">WAM 多视角视频预测</div>
@@ -162,12 +175,11 @@
 
 <section>
   <h2>研究框架</h2>
-  <p class="sub">两个核心方向的整体架构（draw.io 绘制，源文件见 <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/assets/diagrams">assets/diagrams/</a>，点击图片看大图）。</p>
+  <p class="sub">World-Action Model 训练栈整体架构（draw.io 绘制，源文件见 <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/assets/diagrams">assets/diagrams/</a>，点击图片看大图）。</p>
   <div class="diagrams">
     <a href="./assets/diagrams/wam_pipeline.png"><img src="./assets/diagrams/wam_pipeline.png" alt="WAM 三阶段训练栈架构图"></a>
-    <a href="./assets/diagrams/sim2real_loop.png"><img src="./assets/diagrams/sim2real_loop.png" alt="Sim2Real/Real2Sim 双向闭环图"></a>
   </div>
-  <p class="caption">上：Head Camera-Frame WAM 三阶段训练栈（BAAI）· 下：Sim2Real / Real2Sim 双向动作数据闭环（北京人形）</p>
+  <p class="caption">Head Camera-Frame WAM 三阶段训练栈（BAAI）：Video2World → PolicyDiT → ActionExpert</p>
 </section>
 
 <section>
@@ -176,7 +188,7 @@
     <li>
       <div class="when">2026.08 – 至今</div>
       <div class="what">北京人形机器人创新中心 · 具身智能算法实习生</div>
-      <div class="detail">Sim2Real / Real2Sim 双向动作数据闭环：统一关节语义与时间轴，两平台 8 个 case 运动复现，REAL|SIM 视频对时长误差 0.01s 级；下一阶段 3DGS 场景重建与批量数据工厂。</div>
+      <div class="detail">具身智能数据与 Sim2Real 方向（在职项目细节暂不公开）。</div>
     </li>
     <li>
       <div class="when">2026.04 – 2026.08</div>
