@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>郭跃 · 具身世界模型 / World-Action Model</title>
 <meta name="description" content="郭跃的个人主页：World-Action Model、Video2World、VLA、Sim2Real/Real2Sim 数据闭环">
+<link rel="icon" type="image/png" href="./assets/logo.png">
 <style>
   :root{
     --accent:#2f5fb3; --ink:#1f2328; --muted:#5b6470; --line:#e5e8ec;
@@ -19,7 +20,13 @@
   a:hover{text-decoration:underline}
 
   /* header */
-  header{border-bottom:1px solid var(--line);background:var(--card);padding:44px 0 28px}
+  header{border-bottom:1px solid var(--line);padding:44px 0 28px;
+    background:linear-gradient(90deg,rgba(255,255,255,.95) 25%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.35)),
+    url(./assets/banner.jpg) right center/cover no-repeat #fff}
+  .headflex{display:flex;gap:22px;align-items:flex-start}
+  .avatar{width:76px;height:76px;border-radius:50%;border:1px solid var(--line);
+    background:#fff;flex:none;margin-top:4px}
+  @media(max-width:640px){.avatar{width:56px;height:56px}}
   h1{font-size:34px;margin:0 0 6px}
   h1 .en{font-size:18px;color:var(--muted);font-weight:500;margin-left:10px}
   .tagline{font-size:17px;font-weight:600;color:var(--accent);margin:2px 0 8px}
@@ -56,6 +63,11 @@
   .card .t{font-weight:600;font-size:15px}
   .card .d{color:var(--muted);font-size:13.5px;margin-top:2px}
 
+  /* diagrams */
+  .diagrams{display:flex;flex-direction:column;gap:14px}
+  .diagrams a{display:block}
+  .diagrams img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
+
   /* timeline */
   .tl{list-style:none;margin:0;padding:0}
   .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line);margin-left:6px}
@@ -80,6 +92,9 @@
 
 <header>
   <div class="wrap">
+    <div class="headflex">
+      <img class="avatar" src="./assets/logo.png" alt="郭跃 Logo">
+      <div>
     <h1>郭跃<span class="en">Yue Guo</span></h1>
     <div class="tagline">具身世界模型 / World-Action Model 算法方向</div>
     <div class="meta">哈尔滨工业大学（深圳）硕士 · 机器人与先进制造学院 · CAIA 实验室（导师：Bernd Noack）</div>
@@ -94,6 +109,8 @@
       <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习记录</a>
       <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招复盘</a>
       <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">日常思考</a>
+    </div>
+      </div>
     </div>
   </div>
 </header>
@@ -141,6 +158,16 @@
       <div class="d">道通 · 公司首个实践验证 RL 控制器，获 10 万元项目奖金</div></div>
     </a>
   </div>
+</section>
+
+<section>
+  <h2>研究框架</h2>
+  <p class="sub">两个核心方向的整体架构（draw.io 绘制，源文件见 <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/assets/diagrams">assets/diagrams/</a>，点击图片看大图）。</p>
+  <div class="diagrams">
+    <a href="./assets/diagrams/wam_pipeline.png"><img src="./assets/diagrams/wam_pipeline.png" alt="WAM 三阶段训练栈架构图"></a>
+    <a href="./assets/diagrams/sim2real_loop.png"><img src="./assets/diagrams/sim2real_loop.png" alt="Sim2Real/Real2Sim 双向闭环图"></a>
+  </div>
+  <p class="caption">上：Head Camera-Frame WAM 三阶段训练栈（BAAI）· 下：Sim2Real / Real2Sim 双向动作数据闭环（北京人形）</p>
 </section>
 
 <section>
