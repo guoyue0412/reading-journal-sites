@@ -105,7 +105,7 @@
     <h1>郭跃<span class="en">Yue Guo</span></h1>
     <div class="tagline">具身世界模型 / World-Action Model 算法方向</div>
     <div class="meta">哈尔滨工业大学（深圳）硕士 · 机器人与先进制造学院 · CAIA 实验室（导师：Bernd Noack）</div>
-    <div class="meta">研究兴趣：World-Action Model · Video2World · VLA · Sim2Real / Real2Sim 数据闭环</div>
+    <div class="meta">研究兴趣：多流具身世界模型预训练 · World-Action Model · VLA · 视觉—动作联合建模</div>
     <div class="badges">
       <span>Embodied AI</span><span>World-Action Model</span><span>VLA / Diffusion</span><span>Sim2Real</span>
     </div>
@@ -123,6 +123,19 @@
 </header>
 
 <main class="wrap">
+
+<section id="weave-05">
+  <h2>Weave 0.5 · 多流具身世界模型预训练</h2>
+  <p class="sub">北京人形机器人创新中心 · 2026.08–至今 · 参与模型预训练与数据基建，项目模型取得 <strong>RBench 榜单第一名</strong>。</p>
+  <ul>
+    <li><strong>统一多流架构：</strong>基于 Wan2.2-5B DiT，冻结 VAE/VLM，将多视角 RGB、深度、边缘、分割与动作骨架编码为独立 stream；按各自分辨率 patchify 后拼接，通过跨流全注意力联合建模。</li>
+    <li><strong>任务建模：</strong>虚拟画布 RoPE、视角/模态 embedding 和逐 token timestep/AdaLN 共同表达位置、来源及条件/预测角色，支持视频预测、腕部视角补全和跨模态生成。</li>
+    <li><strong>动作表示与解码：</strong>动作渲染为四视角骨架视频，经 VAE 编码融入训练；生成骨架通过正运动学、多视角投影与距离场残差的 GPU 求解器恢复为关节轨迹。</li>
+    <li><strong>预训练数据基建：</strong>建设 YouTube 视频管线与 Sim–Real 成对数据生产链路，统一关节语义、夹爪映射和时间轴，产出同动作、同时序、可追溯的跨域视频对。</li>
+    <li><strong>评测迭代：</strong>结合 VLM judge、人工 bad case 筛检与指标可视化，依据模型输出分布调整数据回流配置。</li>
+  </ul>
+  <p><a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/README.md#weave-05">完整经历与数据基建进展 →</a></p>
+</section>
 
 <section>
   <h2>项目演示</h2>
@@ -188,12 +201,12 @@
     <li>
       <div class="when">2026.08 – 至今</div>
       <div class="what">北京人形机器人创新中心 · 具身智能算法实习生</div>
-      <div class="detail">具身智能数据与 Sim2Real 方向（在职项目细节暂不公开）。</div>
+      <div class="detail">参与 Weave 0.5 多流具身世界模型预训练；建设 YouTube 与 Sim–Real 数据基建，结合评测驱动数据回流。项目模型取得 RBench 榜单第一名。</div>
     </li>
     <li>
       <div class="when">2026.04 – 2026.08</div>
       <div class="what">智源人工智能研究院（BAAI）认知大模型组 · 世界模型与机器人策略</div>
-      <div class="detail">搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM（Cosmos-Predict2.5-2B 教师），单次前向解码 30-step action chunk；DiT4DiT 跨本体后训练完成双臂叠衣。</div>
+      <div class="detail">参与 Video2World → PolicyDiT → ActionExpert 三阶段 WAM（Cosmos-Predict2.5-2B 教师），单次前向解码 30-step action chunk；针对 EgoDex 数据开展 Ego2Robot 转换；DiT4DiT 跨本体后训练完成双臂叠衣。</div>
     </li>
     <li>
       <div class="when">2025.11 – 2026.04</div>

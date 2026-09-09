@@ -5,9 +5,11 @@
 
 ---
 
-## 北京人形 · Sim2Real / Real2Sim 动作数据闭环
+## 北京人形 · Weave 0.5 预训练数据基建
 
-天轶2.0+Robotiq 与松灵双臂两平台 8 个 case 运动复现，REAL | SIM 视频对时长误差 0.01s 级。
+以下展示 Sim–Real 成对数据生产链路，非 Weave 0.5 模型生成结果。[完整项目介绍](./README.md#weave-05)。
+
+天轶2.0+Robotiq 与松灵双臂两平台 8 个 case 运动复现，REAL | SIM 视频对时长误差 0.01s 级。当前保证运动与时序对应，场景、物体和接触事件的精准复现仍在建设。
 
 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
   <a href="./assets/evidence/humanoid-sim2real/tianyi_hangclothes_REAL_SIM.mp4"><img src="./assets/gifs/sim2real_tianyi_hangclothes.gif" width="45%"></a>

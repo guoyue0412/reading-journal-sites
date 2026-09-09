@@ -3,9 +3,9 @@
 **具身世界模型 / World-Action Model 算法方向**
 
 哈尔滨工业大学（深圳）硕士 · 机器人与先进制造学院 · CAIA 实验室（导师：Bernd Noack）  
-研究兴趣：World-Action Model、Video2World、VLA、Sim2Real / Real2Sim 数据闭环
+研究兴趣：多流具身世界模型预训练、World-Action Model、VLA、视觉—动作联合建模
 
-📍 深圳 · 📧 [your-email@example.com] · 📱 [your-phone-number]  
+📍 深圳
 [GitHub](https://github.com/guoyue0412) · [论文阅读](./content/papers/) · [实习记录](./content/internship/) · [秋招复盘](./content/jobs/) · [日常思考](./content/reflections/)
 
 <p>
@@ -35,12 +35,13 @@
 ## 关于我
 
 我关注的问题是：**如何让生成式世界模型成为可部署、可泛化的机器人策略**。  
-硕士阶段围绕 **Cosmos-Predict2.5-2B、DiT4DiT、OpenPI π₀.₅** 开展 Video2World、future latent prediction、跨本体动作适配及真机部署，具备多源机器人数据统一、开源模型后训练与多机多卡训练实践。前沿跟踪：持续研读 **π 系列、DreamZero、EgoScale、EgoWAM**，关注 Flow Matching VLA、WAM 视频–动作建模与 Ego-to-Robot 对齐。
+目前在北京人形机器人创新中心参与 **Weave 0.5 多流具身世界模型预训练**，围绕统一多视角/多模态建模、骨架视频动作表示，以及 YouTube 与 Sim–Real 数据基建开展工作。此前在智源 BAAI 围绕 **Cosmos-Predict2.5-2B、DiT4DiT** 开展 WAM 与跨本体后训练，并具备 **EgoDex → Ego2Robot** 转换经验；在道通完成 **OpenPI π₀.₅** 真机部署与 JAX BPTT 可微仿真实践。
 
 > 这个主页同时是我的简历、项目证据索引与阅读笔记入口。如果你是我的面试官或合作者，建议从下方的「快速入口」开始看。
 
 ### 近期动态 News
 
+- **2026-09**：参与 Weave 0.5 多流具身世界模型预训练，项目模型取得 **RBench 榜单第一名**；建设 YouTube 视频与 Sim–Real 成对数据生产链路
 - **2026-08**：在北京人形机器人创新中心打通 Sim2Real / Real2Sim 双向动作数据闭环，两平台 8 个 case 运动复现，REAL|SIM 视频对时长误差 0.01s 级
 - **2026-08**：重构个人主页，新增项目视频证据与 Fast Entry 索引
 - **2026-04**：加入智源 BAAI 认知大模型组，实习方向为世界模型与机器人策略
@@ -55,7 +56,7 @@
 | | | |
 |---|---|---|
 | [![Sim2Real/Real2Sim 数据闭环](./assets/thumbs/sim2real.jpg)](#项目演示) | [![WAM 多视角视频预测](./assets/thumbs/wam.jpg)](#项目演示) | [![OpenArms 双臂叠衣](./assets/thumbs/openarms.jpg)](#项目演示) |
-| **Sim2Real / Real2Sim 数据闭环**<br>北京人形 · 两平台 8 case，0.01s 级对齐 | **WAM 多视角视频预测**<br>BAAI · 多视角联合预测，head-camera frame 动作统一 | **OpenArms 双臂叠衣**<br>BAAI · DiT4DiT 跨本体后训练，8D → 16D |
+| **Weave 0.5 · 预训练数据基建演示**<br>北京人形 · Sim–Real 运动/时序配对，非模型生成演示 | **WAM 多视角视频预测**<br>BAAI · 多视角联合预测，head-camera frame 动作统一 | **OpenArms 双臂叠衣**<br>BAAI · DiT4DiT 跨本体后训练，8D → 16D |
 | [![道通 VLA 真机操作](./assets/thumbs/vla.jpg)](#项目演示) | [![道通 BPTT 可微仿真](./assets/thumbs/bptt.jpg)](#项目演示) | |
 | **VLA 真机操作落地**<br>道通 · 动态抓取成功率 40%+ → 70%+ | **BPTT 可微仿真与 Sim-to-Real**<br>道通 · 公司首个实践验证 RL 控制器，10 万元奖金 | |
 
@@ -67,6 +68,7 @@
 
 | 项目 | 关键词 | 我做了什么 | 关键结果 | 证据 |
 |---|---|---|---|---|
+| **北京人形 · Weave 0.5** | 多流预训练、视觉—动作联合建模 | 参与统一多流架构与任务建模；建设 YouTube 和 Sim–Real 数据管线，结合评测与 bad case 筛检驱动数据回流 | 项目模型取得 **RBench 榜单第一名** | [架构与经历](#weave-05) |
 | **北京人形 · Sim2Real/Real2Sim 数据闭环** | Sim2Real, Real2Sim, 数据工厂 | 打通仿真↔真机双向动作闭环：统一关节语义与时间轴，真机成功动作回灌仿真生成帧级对齐的 REAL\|SIM 视频对 | 天轶2.0+Robotiq 与松灵双臂两平台 **8 个 case** 运动复现，视频时长误差 **0.01s 级** | 见下方「项目演示」/ `clean_2026/02-internship/humanoid-sim2real/` |
 | **BAAI · WAM 预训练** | Cosmos-Predict2.5-2B, PolicyDiT, ActionExpert | 搭建 Video2World → PolicyDiT → ActionExpert 三阶段 WAM；统一 DROID/EgoDex/AgiBot/RoboTwin 动作空间到 head-camera frame | 策略路径无需完整视频去噪，单次前向解码 30-step action chunk | 见下方「项目演示」/ `clean_2026/02-internship/baai-wam/`（多视角预测视频） |
 | **BAAI · DiT4DiT / OpenArms** | DiT4DiT, LeRobot v3, 跨本体 | 冻结 DiT backbone，新增 embodiment 适配层，完成 LIBERO 8D → OpenArms 16D 动作迁移与双臂叠衣后训练 | 多视角预测与双臂协调动作序列生成 | 见下方「项目演示」/ `clean_2026/02-internship/baai-dit4dit/` |
@@ -113,8 +115,21 @@
 ### 北京人形机器人创新中心
 **具身智能算法实习生 · 2026.08 – 至今**
 
+<a id="weave-05"></a>
+#### Weave 0.5｜多流具身世界模型预训练
+
+*Wan2.2-5B DiT、VAE、VLM、多视角与多模态联合建模*
+
+- **统一多流架构**：参与基于 Wan2.2-5B DiT 的具身世界模型预训练，冻结 VAE/VLM；将多视角 RGB、深度、边缘、分割及动作骨架分别编码为独立 stream，按各自分辨率 patchify 后拼接为统一 token 序列，通过样本内跨流全注意力实现多模态信息交互。
+- **条件与任务建模**：结合虚拟画布 RoPE、独立的视角/模态 embedding 与逐 token timestep 驱动的 AdaLN，统一表达空间位置、数据来源及条件/预测角色，在共享权重下支持多视角视频预测、腕部视角补全、跨模态条件生成与联合生成。
+- **动作表示与解码**：将动作序列渲染为四视角骨架视频，经冻结 VAE 编码为 action stream，融入视觉—动作联合建模；生成骨架通过结合机器人正运动学、多视角投影及距离场残差的 GPU 求解器恢复为关节轨迹，以当前关节状态为条件衔接动作执行。
+- **预训练数据基建**：建设 YouTube 视频数据管线与 Sim–Real 成对数据生产链路；以标准轨迹包统一关节语义、夹爪映射和时间轴，打通仿真动作真机复播与真实执行轨迹回灌仿真，产出同动作、同时序、可追溯的跨域视频对，为预训练与域适配提供数据基础。
+- **评测与迭代**：搭建指标与 bad case 可视化流程，结合 VLM judge 和人工筛检分析模型预测失败模式，依据每轮模型输出分布调整数据回流配置，支撑预训练迭代；项目模型取得 **RBench 榜单第一名**。
+
 <details>
-<summary><strong>Sim2Real / Real2Sim 动作数据闭环</strong>（Isaac Sim, LeRobot, 轨迹复播）</summary>
+<summary><strong>预训练数据基建细节：Sim–Real 成对数据生产</strong>（Isaac Sim, LeRobot, 轨迹复播）</summary>
+
+当前已打通机器人运动与时间轴对应，场景、物体及接触事件的精准复现和自动质量门禁仍在建设；现阶段配对结果不等同于已完成的大规模高质量训练集。
 
 - **Sim2Real**：Sim 端生成任务动作、关节轨迹与参考视频，输出标准轨迹包（时间戳、关节名称与顺序、单位、夹爪映射、校验信息）；Real 端完成离线校验、频率转换、安全预定位与真机复播，保存执行日志与真机视频，形成可追溯结果。
 - **Real2Sim**：Real 端从遥操数据或真机成功复播日志导出标准轨迹包；Sim 端按首帧直接初始化、固定频率逐点回放（不重新规划 / IK），重新渲染 Sim 视频并对真机视频做帧级裁剪与时间对齐。
@@ -135,6 +150,7 @@
 - 搭建 Video2World 2B DiT → PolicyDiT → ActionExpert/ActionDecoderDiT 三阶段 WAM；以 Cosmos-Predict2.5-2B 为教师，在固定低噪声时刻对齐 condition-frame hidden states，聚合 future-aware 表征。
 - PolicyDiT 单次前向预测，ActionExpert 解码 30-step action chunk（2 s），策略路径无需完整多步去噪，缓解 train-inference 输入不一致。
 - 将 DROID、EgoDex、AgiBot、RoboTwin 动作空间统一变换到 head-camera frame，以带 action_mask/confidence 的 48D EE pose delta 兼容异构本体；先完成 DROID 单源验证，再扩展至多源异构训练。
+- 针对 EgoDex 数据开展 Ego2Robot 转换，衔接第一视角数据与机器人动作表示。
 - 多视角视频 latent 沿 width 维拼接联合预测，注入 FPS 条件与 3D RoPE，统一不同采样率下的时间尺度与空间位置编码。
 
 </details>
