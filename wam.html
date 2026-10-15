@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WAM · 架构与实验 — 郭跃</title><meta name="description" content="WAM 教师—学生架构、梯度隔离、EE pose delta，以及双视角和三视角视频预测实验。"><link rel="icon" href="./assets/logo.png"><link rel="stylesheet" href="./style.css"></head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="site-header"><nav class="container nav" aria-label="主导航"><a class="wordmark" href="./">郭跃 <span>Yue Guo</span></a><div class="nav-links"><a href="./#research">研究工作</a><a href="./gallery.html">项目演示</a><a href="./#experience">经历</a><a href="./#notes">阅读与记录</a></div></nav></header>
+<main id="main" class="container">
+  <div class="reading">
+    <header class="page-title"><h1>WAM · 视频教师、策略表征与动作预测</h1><p>智源人工智能研究院（BAAI）· 2026.04–2026.07.28</p><p>个人工作：框架设计与实现、异构动作表征统一、Ego 数据处理及实验验证。</p><a class="text-link" href="./#wam">返回个人主页</a></header>
+    <section class="section" id="architecture"><h2>教师—学生架构与梯度隔离</h2><p>训练时，视频教师接收当前观测、语言指令和加噪的未来视频 latent，通过视频预测学习动态信息。PolicyDiT 仅接收当前可获得的观测与语言条件，预测动作相关表征，再交给 ActionExpert 解码动作。</p>
+      <figure><a href="./assets/baai/wam-architecture.png"><img src="./assets/baai/wam-architecture.png" alt="WAM 架构：视频教师由 L_video 更新，PolicyDiT 与动作模块由学生损失更新" width="1280" height="720"></a><figcaption>教师保持视频预测训练；学生损失不回传教师。点击图片查看原图。</figcaption></figure>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="训练损失及参数更新范围"><table><thead><tr><th scope="col">损失</th><th scope="col">监督对象</th><th scope="col">更新参数</th></tr></thead><tbody><tr><td><code>L_video</code></td><td>未来视频预测</td><td>视频教师</td></tr><tr><td><code>L_align</code></td><td>多层条件帧表征对齐，教师目标侧 stop-gradient</td><td>PolicyDiT</td></tr><tr><td><code>L_action</code></td><td>示范动作</td><td>PolicyDiT 与 ActionExpert</td></tr></tbody></table></div>
+      <p>部署时移除教师的视频去噪路径，使用 PolicyDiT 一次前向生成表征，再由动作模块多步采样输出动作 chunk。</p><p>动作解码的采样次数 <strong>N</strong> 与输出序列长度 <strong>H</strong> 分别表示计算步数和动作时间步数。PolicyDiT 的一次表征前向不等于端到端单步推理。</p>
+      <h3>与 DiT4DiT 公开基线的关系</h3><p>DiT4DiT 公开实现把视频隐藏特征送入动作分支前执行 <code>detach()</code>，使动作损失不会沿该特征路径更新 Video DiT。视频预测损失独立保留梯度，即使采用视频与动作联合损失，视频分支仍可更新。</p>
+      <p class="note">官方代码版本 <code>66a6f3a</code>：<a href="https://github.com/Mondo-Robotics/DiT4DiT/blob/66a6f3a12e2c8740157c1e478795952c040d31dd/DiT4DiT/model/modules/vlm/Cosmos25.py#L841-L847">特征 detach</a>、<a href="https://github.com/Mondo-Robotics/DiT4DiT/blob/66a6f3a12e2c8740157c1e478795952c040d31dd/DiT4DiT/model/modules/vlm/Cosmos25.py#L1056-L1077">调用时指定 detach=True</a>、<a href="https://github.com/Mondo-Robotics/DiT4DiT/blob/66a6f3a12e2c8740157c1e478795952c040d31dd/DiT4DiT/training/train.py#L504-L528">联合损失与反向传播</a>。上图 WAM 采用独立的教师—学生表征对齐，<code>L_align</code> 不属于该公开基线。</p>
+    </section>
+    <section class="section" id="delta-pose"><h2>统一动作表示：EE pose delta</h2><p>数据来自 DROID、AgiBot、RoboTwin 与 EgoDex。动作侧统一到头部相机坐标系，以当前状态帧 <strong>t₀</strong> 为固定参考，表示未来各步末端位置与朝向的变化。</p>
+      <figure><a href="./assets/baai/ee-pose-delta.png"><img src="./assets/baai/ee-pose-delta.png" alt="多源动作与观测处理，以及相对固定当前帧 t₀ 的 EE pose delta 原始示意" width="1280" height="720" loading="lazy"></a><figcaption>保留原 delta pose 示意：未来各步均相对同一个 t₀，图中的厘米与角度用于解释定义。</figcaption></figure>
+      <p class="formula">在同一头部相机坐标系中，平移增量为 <code>Δpₖ = pₖ − p₀</code>，旋转增量为 <code>ΔRₖ = Rₖ R₀ᵀ</code>。</p><p>观测侧采用多流 RoPE 与视角特征向量进行联合建模。Ego 数据处理包含坐标对齐、人手 mask 提取与去除，并结合动作回放、MPC 和 RL 辅助 MCTS 开展动作重定向与视频修复。</p>
+    </section>
+    <section class="section" id="two-view"><h2>双视角实验验证</h2><p>左侧为 Ground truth，右侧为 Prediction，每侧包含两路视角；下方展示 0.0 s、1.1 s 与 2.1 s 的对应片段，用于观察物体运动与跨视角事件一致性。</p><figure><a href="./assets/baai/two-view-prediction.png"><img src="./assets/baai/two-view-prediction.png" alt="双视角视频预测：Ground truth 与 Prediction，以及三个时间点的对照" width="1280" height="720" loading="lazy"></a></figure></section>
+    <section class="section" id="three-view"><h2>三视角实验验证</h2><p>上排为 AgiBot，下排为 RoboTwin，左列为 Ground truth，右列为 Prediction。每个拼接画面包含三路相机，黑色格承载 GT / Pred 标签。</p><figure><a href="./assets/baai/three-view-prediction.png"><img src="./assets/baai/three-view-prediction.png" alt="AgiBot 与 RoboTwin 三视角视频预测对照，黑色标签格不计为相机视角" width="1280" height="720" loading="lazy"></a></figure><a class="text-link" href="./gallery.html#wam" id="prediction-videos">查看 GT / Prediction 视频</a></section>
+    <section class="section"><h2>动作策略与垂域应用</h2><p>WAM 在 Franka 平台完成 <strong>100 次 rollout，成功率约 80%</strong>；另通过新本体后训练学习曲线的坡度对比进行消融。视频对照展示预测结果，动作策略的成功率来自独立任务评测。</p><p>DiT4DiT 的主要应用是酒店服务：负责数据采集、模型训练与 OpenArm 真机部署，完成证件交互。OpenArms 双臂叠衣属于复现验证。</p><a class="button" href="./gallery.html#openarms">查看叠衣复现视频</a></section>
+  </div>
+</main>
+<footer class="site-footer"><div class="container footer-inner"><p>郭跃 · Yue Guo · 更新于 2026-10-15</p><p><a href="./">返回主页</a> · <a href="mailto:1601954018@qq.com">邮件联系</a></p></div></footer>
+</body>
+</html>

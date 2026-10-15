@@ -1,272 +1,100 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>郭跃 · 具身世界模型 / World-Action Model</title>
-<meta name="description" content="郭跃的个人主页：World-Action Model、Video2World、VLA、Sim2Real/Real2Sim 数据闭环">
-<link rel="icon" type="image/png" href="./assets/logo.png">
-<style>
-  :root{
-    --accent:#2f5fb3; --ink:#1f2328; --muted:#5b6470; --line:#e5e8ec;
-    --bg:#fafbfc; --card:#ffffff; --radius:10px;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    line-height:1.65;}
-  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
-  a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
-
-  /* header */
-  header{border-bottom:1px solid var(--line);padding:44px 0 28px;
-    background:linear-gradient(90deg,rgba(255,255,255,.95) 25%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.35)),
-    url(./assets/banner.jpg) right center/cover no-repeat #fff}
-  .headflex{display:flex;gap:22px;align-items:flex-start}
-  .avatar{width:76px;height:76px;border-radius:50%;border:1px solid var(--line);
-    background:#fff;flex:none;margin-top:4px}
-  @media(max-width:640px){.avatar{width:56px;height:56px}}
-  h1{font-size:34px;margin:0 0 6px}
-  h1 .en{font-size:18px;color:var(--muted);font-weight:500;margin-left:10px}
-  .tagline{font-size:17px;font-weight:600;color:var(--accent);margin:2px 0 8px}
-  .meta{color:var(--muted);font-size:14.5px;margin:2px 0}
-  .badges{margin-top:10px}
-  .badges span{display:inline-block;background:#eef3fb;color:var(--accent);
-    border:1px solid #d5e0f2;border-radius:999px;padding:2px 12px;font-size:13px;margin:3px 6px 0 0}
-  .links{margin-top:16px}
-  .btn{display:inline-block;border:1px solid var(--line);border-radius:8px;background:#fff;
-    padding:6px 14px;margin:4px 8px 0 0;font-size:14px;color:var(--ink)}
-  .btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.primary:hover{background:#264e97}
-
-  /* sections */
-  section{padding:30px 0 6px}
-  h2{font-size:21px;margin:0 0 14px;padding-left:11px;border-left:4px solid var(--accent)}
-  h3{font-size:16.5px;margin:18px 0 4px}
-  .sub{color:var(--muted);font-size:14px;margin:0 0 10px}
-
-  /* hero gif strip */
-  .strip{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
-  .strip a{line-height:0}
-  .strip img{height:150px;width:auto;border-radius:8px;border:1px solid var(--line);display:block}
-  .caption{color:var(--muted);font-size:13.5px;margin:4px 0 0}
-
-  /* cards */
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    overflow:hidden;transition:box-shadow .15s,transform .15s}
-  .card:hover{box-shadow:0 4px 14px rgba(31,35,40,.10);transform:translateY(-2px)}
-  .card img{width:100%;height:150px;object-fit:cover;display:block;border-bottom:1px solid var(--line)}
-  .card .body{padding:10px 14px 12px}
-  .card .t{font-weight:600;font-size:15px}
-  .card .d{color:var(--muted);font-size:13.5px;margin-top:2px}
-
-  /* diagrams */
-  .diagrams{display:flex;flex-direction:column;gap:14px}
-  .diagrams a{display:block}
-  .diagrams img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
-
-  /* stats */
-  .stats{display:flex;gap:12px;flex-wrap:wrap}
-  .stat{flex:1;min-width:140px;background:#fff;border:1px solid var(--line);border-radius:10px;
-    padding:12px 14px;text-align:center}
-  .stat b{display:block;font-size:21px;color:var(--accent)}
-  .stat span{font-size:12.5px;color:var(--muted)}
-
-  /* timeline */
-  .tl{list-style:none;margin:0;padding:0}
-  .tl li{position:relative;padding:0 0 14px 22px;border-left:2px solid var(--line);margin-left:6px}
-  .tl li::before{content:"";position:absolute;left:-6px;top:7px;width:10px;height:10px;
-    border-radius:50%;background:var(--accent)}
-  .tl .when{font-size:13px;color:var(--muted)}
-  .tl .what{font-weight:600}
-  .tl .detail{font-size:14px;color:var(--muted)}
-
-  table{width:100%;border-collapse:collapse;font-size:14.5px}
-  th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top}
-  th{background:#f2f4f7;font-weight:600;white-space:nowrap}
-  .awards{columns:2;column-gap:32px;font-size:14.5px;padding-left:18px;margin:6px 0}
-  .awards li{break-inside:avoid;margin-bottom:4px}
-  @media(max-width:640px){.awards{columns:1}.strip img{height:120px}}
-
-  footer{border-top:1px solid var(--line);margin-top:34px;padding:18px 0 34px;
-    color:var(--muted);font-size:13.5px}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>郭跃 · 具身世界模型与机器人学习</title>
+  <meta name="description" content="郭跃的个人主页。具身世界模型、World-Action Model 与机器人学习；Dream4ACT、WEAVE-0.5、WAM、Colugo 研究及真机实践。">
+  <link rel="icon" type="image/png" href="./assets/logo.png">
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-
-<header>
-  <div class="wrap">
-    <div class="headflex">
-      <img class="avatar" src="./assets/logo.png" alt="郭跃 Logo">
-      <div>
-    <h1>郭跃<span class="en">Yue Guo</span></h1>
-    <div class="tagline">具身世界模型 / World-Action Model 算法方向</div>
-    <div class="meta">哈尔滨工业大学（深圳）硕士 · 机器人与先进制造学院 · CAIA 实验室（导师：Bernd Noack）</div>
-    <div class="meta">研究兴趣：多流具身世界模型预训练 · World-Action Model · VLA · 视觉—动作联合建模</div>
-    <div class="badges">
-      <span>Embodied AI</span><span>World-Action Model</span><span>VLA / Diffusion</span><span>Sim2Real</span>
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="site-header">
+  <nav class="container nav" aria-label="主导航">
+    <a class="wordmark" href="./">郭跃 <span>Yue Guo</span></a>
+    <div class="nav-links">
+      <a href="#research">研究工作</a><a href="./gallery.html">项目演示</a><a href="#experience">经历</a><a href="#notes">阅读与记录</a>
     </div>
-    <div class="links">
-      <a class="btn primary" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">完整项目演示画廊 →</a>
-      <a class="btn" href="https://github.com/guoyue0412">GitHub</a>
-      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/papers">论文阅读</a>
-      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习记录</a>
-      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招复盘</a>
-      <a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">日常思考</a>
-    </div>
-      </div>
-    </div>
-  </div>
+  </nav>
 </header>
+<main id="main" class="container">
+  <section class="hero" aria-labelledby="name">
+    <div class="hero-copy">
+      <h1 id="name">郭跃<span>Yue Guo</span></h1>
+      <p class="role">具身世界模型 · World-Action Model · 机器人学习</p>
+      <p class="affiliation">哈尔滨工业大学（深圳）硕士 · CAIA 实验室<br>北京人形机器人创新中心 · 大模型组<br>预计 2027 年 6 月毕业</p>
+      <p class="intro">我关注如何把视频预测与机器人动作连接起来：用统一的视觉动作表示连接不同本体，用多流建模整合多视角与多模态观测，再通过数据、评测和真机反馈迭代模型。</p>
+      <div class="actions"><a class="button primary" href="#research">查看研究工作</a><a class="button" href="https://github.com/guoyue0412">GitHub</a><a class="button" href="mailto:1601954018@qq.com">邮件联系</a></div>
+    </div>
+    <figure>
+      <video controls playsinline preload="none" poster="./assets/thumbs/openarms.jpg" aria-label="BAAI OpenArms 双臂叠衣复现视频">
+        <source src="./assets/evidence/baai-dit4dit/openarm_demo.mp4" type="video/mp4">
+      </video>
+      <figcaption><strong>OpenArms 双臂叠衣复现</strong> · BAAI / DiT4DiT<br>真机部署演示。<a href="./assets/evidence/baai-dit4dit/openarm_demo.mp4">直接打开视频</a></figcaption>
+    </figure>
+  </section>
 
-<main class="wrap">
+  <section id="research" class="section" aria-labelledby="research-title">
+    <div class="section-head"><h2 id="research-title">研究工作</h2><p>从跨本体动作表示、多流视频预测，到面向动作执行的未来表征学习。</p></div>
+    <article class="research-item" id="dream4act">
+      <div class="research-meta"><h3>Dream4ACT</h3><p>跨本体视觉动作接口</p><span class="status">ICLR 2027 · 已投稿</span></div>
+      <div>
+        <p class="paper-title">A Shared Visual Action Interface for Multi-Embodiment Video-Action Modeling</p>
+        <p>基于 URDF 将异构关节配置表示为四视角动作视频，复用视频骨干联合建模观测与动作。通过 <strong>training-free 多视角几何匹配</strong>恢复可执行关节轨迹，动作视图的构建与恢复无需真实相机外参对齐或本体专属动作解码头。</p>
+        <p class="result">RoboTwin2.0 全部 <strong>50 项任务</strong>，Clean / Randomized 两种设置的平均成功率为 <strong>88.98%</strong>。另一组跨本体联合训练实验以固定权重支持四种真机平台，放置与擦拭两项共同任务的平台平均成功率为 <strong>85%–90%</strong>。</p>
+        <p class="note">指标为论文报告；全 50 项任务评测与跨本体实验使用不同 checkpoint。两篇论文均为已投稿状态。</p>
+      </div>
+    </article>
+    <article class="research-item" id="weave-05">
+      <div class="research-meta"><h3>WEAVE-0.5</h3><p>多流具身世界模型</p><span class="status">ICLR 2027 · 已投稿</span></div>
+      <div>
+        <p class="paper-title">Weaving Multi-stream Observations into Embodied World Models</p>
+        <p>通过原生分辨率独立编码、共享虚拟画布与跨流注意力，统一可变视角、混合分辨率及多模态观测。单一模型支持未来预测、跨视角补全和模态互转。</p>
+        <p>参与模型训练与数据消融，搭建评测平台，开展 bad case 分析与数据回流；建设 YouTube 视频管线和 Sim–Real 成对数据生产链路。</p>
+        <p class="result">MV-261 上联合生成深度流，主视角 PSNR 从 <strong>15.74 提升至 17.87 dB（+2.13 dB）</strong>。论文报告 RBench 第一、TriWorldBench 第二。</p>
+        <p class="note">榜单名次对应论文中的评测快照。<a href="./gallery.html#sim-real">Sim–Real 演示</a>展示数据生产链路，不是 WEAVE 模型生成结果。</p>
+      </div>
+    </article>
+    <article class="research-item" id="colugo">
+      <div class="research-meta"><h3>Colugo</h3><p>多尺度潜在世界模型引导 VLA</p><p>协作研究 · 2026.04.26–06.04</p></div>
+      <div>
+        <p>以 learnable slow / fast queries 从 VLM hidden states 预测 latent futures，通过 dual cross-attention 与 MLP fusion 调制 flow-based Action DiT。</p>
+        <p>在 LIBERO-Long、CALVIN ABC→D 和 AgileX Nero + RealSense D455 上完成 no future / slow only / fast only / slow+fast 消融与真机验证，推理时移除 reconstruction decoder。</p>
+      </div>
+    </article>
+  </section>
 
-<section id="weave-05">
-  <h2>Weave 0.5 · 多流具身世界模型预训练</h2>
-  <p class="sub">北京人形机器人创新中心 · 2026.08–至今 · 参与模型预训练与数据基建，项目模型取得 <strong>RBench 榜单第一名</strong>。</p>
-  <ul>
-    <li><strong>统一多流架构：</strong>基于 Wan2.2-5B DiT，冻结 VAE/VLM，将多视角 RGB、深度、边缘、分割与动作骨架编码为独立 stream；按各自分辨率 patchify 后拼接，通过跨流全注意力联合建模。</li>
-    <li><strong>任务建模：</strong>虚拟画布 RoPE、视角/模态 embedding 和逐 token timestep/AdaLN 共同表达位置、来源及条件/预测角色，支持视频预测、腕部视角补全和跨模态生成。</li>
-    <li><strong>动作表示与解码：</strong>动作渲染为四视角骨架视频，经 VAE 编码融入训练；生成骨架通过正运动学、多视角投影与距离场残差的 GPU 求解器恢复为关节轨迹。</li>
-    <li><strong>预训练数据基建：</strong>建设 YouTube 视频管线与 Sim–Real 成对数据生产链路，统一关节语义、夹爪映射和时间轴，产出同动作、同时序、可追溯的跨域视频对。</li>
-    <li><strong>评测迭代：</strong>结合 VLM judge、人工 bad case 筛检与指标可视化，依据模型输出分布调整数据回流配置。</li>
-  </ul>
-  <p><a class="btn" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/README.md#weave-05">完整经历与数据基建进展 →</a></p>
-</section>
+  <section id="wam" class="section" aria-labelledby="wam-title">
+    <div class="wam-preview">
+      <div><h2 id="wam-title">WAM · 未来表征与动作预测</h2><p>智源 BAAI · 框架设计与实现</p><p>以 Cosmos-Predict2.5-2B 为视频教师，通过 PolicyDiT 学习未来相关表征，由 ActionExpert 解码动作序列。教师仅由 <code>L_video</code> 更新；学生的 <code>L_align</code> 与 <code>L_action</code> 均不更新教师。</p><p>统一多源动作表示为头部相机坐标系下、相对固定当前帧 t₀ 的 EE pose delta，结合多流 RoPE 与视角特征向量进行多视角建模。</p><a class="text-link" href="./wam.html">阅读架构、delta pose 与双 / 三视角实验</a></div>
+      <figure><a href="./wam.html"><img src="./assets/baai/wam-architecture.png" alt="WAM 教师—学生架构：视频教师由视频损失更新，学生损失不回传教师" width="1280" height="720" loading="lazy"></a><figcaption>PolicyDiT 一次表征前向；动作模块仍需多步采样。</figcaption></figure>
+    </div>
+  </section>
 
-<section>
-  <h2>项目演示</h2>
-  <p class="sub">核心问题：<strong>如何让生成式世界模型成为可部署、可泛化的机器人策略</strong>。以下为 4 段代表作（动图自动播放），点击任意动图进入完整画廊（21 段演示视频）。</p>
-  <div class="strip">
-    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/agibot_mobile_pred_2x2.gif" alt="BAAI WAM 多视角预测"></a>
-    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/openarm_demo.gif" alt="BAAI OpenArms 双臂叠衣"></a>
-    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/vla_realrobot.gif" alt="道通 VLA 真机"></a>
-    <a href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md"><img src="./assets/gifs/bptt_morph.gif" alt="道通 BPTT 可微仿真"></a>
-  </div>
-  <p class="caption">BAAI WAM 多视角预测 · BAAI OpenArms 双臂叠衣 · 道通 VLA 真机 · 道通 BPTT 可微仿真</p>
-</section>
+  <section id="practice" class="section" aria-labelledby="practice-title">
+    <div class="section-head"><h2 id="practice-title">真机与仿真实践</h2><p>区分模型方法、视频预测展示与机器人任务结果，用实际演示呈现工程工作。</p></div>
+    <div class="split">
+      <div><h3>酒店服务场景 · DiT4DiT</h3><p>负责酒店场景的数据采集、模型训练与 OpenArm 真机部署，实现证件交互。OpenArms 双臂叠衣为复现验证。</p><h3>工厂抓取放置 · OpenPI π₀.₅</h3><p>负责 SFT 与 ROS2 真机部署。将真机纠偏与恢复数据回流用于<strong>纠偏 SFT</strong>，使真机成功率从 <strong>40% 提升至 70%</strong>；LIBERO-10 仿真评测平均成功率为 <strong>96.6%</strong>。</p><a class="text-link" href="./gallery.html">查看全部演示</a></div>
+      <figure><video controls playsinline preload="none" poster="./assets/thumbs/vla.jpg" aria-label="道通 OpenPI π0.5 工厂抓取放置真机演示"><source src="./assets/evidence/daotong-vla/vla_realrobot_test.mp4" type="video/mp4"></video><figcaption>道通 · OpenPI π₀.₅ 真机操作。<a href="./assets/evidence/daotong-vla/vla_realrobot_test.mp4">直接打开视频</a></figcaption></figure>
+    </div>
+  </section>
 
-<section>
-  <h2>亮点数据</h2>
-  <div class="stats">
-    <div class="stat"><b>40% → 70%+</b><span>VLA 真机动态抓取成功率（道通）</span></div>
-    <div class="stat"><b>96.6%</b><span>LIBERO-10 仿真评测平均成功率</span></div>
-    <div class="stat"><b>×10 / ×1000%</b><span>残差动力学精度提升 / 训练吞吐提升</span></div>
-    <div class="stat"><b>×2.6</b><span>AutoResearch 自动调参效率提升</span></div>
-    <div class="stat"><b>¥10 万</b><span>BPTT 可微仿真项目奖金（公司首个实践验证 RL 控制器）</span></div>
-  </div>
-</section>
+  <section id="experience" class="section" aria-labelledby="experience-title">
+    <div class="section-head"><h2 id="experience-title">实习与教育</h2><p>从世界模型与数据基建，到机器人策略训练、部署和反馈迭代。</p></div>
+    <article class="experience"><time>2026.07.31 — 至今</time><div><h3>北京人形机器人创新中心 · 大模型组</h3><p>具身智能算法实习生。围绕 WEAVE-0.5、Dream4ACT 开展研究；搭建 Isaac Sim 轨迹回放、域随机化与 Sim2Real / Real2Sim 数据链路，结合评测推进数据增广与迭代。</p></div></article>
+    <article class="experience"><time>2026.04 — 2026.07.28</time><div><h3>智源人工智能研究院 · 认知大模型组</h3><p>世界模型与机器人策略算法实习生。负责 DiT4DiT 酒店场景采集、训练与部署，以及 WAM 框架设计与实现；在 Franka 完成 100 次 rollout，成功率约 80%，并开展新本体后训练学习曲线消融。</p></div></article>
+    <article class="experience"><time>2025.11 — 2026.04</time><div><h3>道通智能 · 前沿预研</h3><p>强化学习算法工程师（实习）。负责 OpenPI π₀.₅ SFT 与部署、可微仿真和 Sim-to-Real 控制 pipeline。数据回流与处理使训练吞吐达到原来的 10 倍，动力学预测误差降至原来的十分之一。</p></div></article>
+    <div class="education"><h3>教育经历</h3><div class="education-row"><div><strong>哈尔滨工业大学（深圳）</strong><p class="muted">机器人与先进制造学院 · 硕士 / 动力工程 · CAIA 实验室</p><p>GPA 3.639 / 4.0 · 前 5%</p></div><p class="muted">2024.08 — 2027.06（预计）</p></div><div class="education-row"><div><strong>吉林大学</strong><p class="muted">汽车工程学院 · 本科 / 动力工程 · 保研</p><p>GPA 3.826 / 4.0 · 前 5%</p></div><p class="muted">2020.09 — 2024.06</p></div></div>
+  </section>
 
-<section>
-  <h2>精选项目</h2>
-  <div class="grid">
-    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
-      <img src="./assets/thumbs/wam.jpg" alt="WAM 多视角视频预测">
-      <div class="body"><div class="t">WAM 多视角视频预测</div>
-      <div class="d">BAAI · 多视角联合预测，head-camera frame 动作空间统一</div></div>
-    </a>
-    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
-      <img src="./assets/thumbs/openarms.jpg" alt="OpenArms 双臂叠衣">
-      <div class="body"><div class="t">OpenArms 双臂叠衣</div>
-      <div class="d">BAAI · DiT4DiT 跨本体后训练，LIBERO 8D → OpenArms 16D</div></div>
-    </a>
-    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
-      <img src="./assets/thumbs/vla.jpg" alt="VLA 真机操作">
-      <div class="body"><div class="t">VLA 真机操作落地</div>
-      <div class="d">道通 · 动态抓取成功率 40%+ → 70%+，LIBERO-10 平均 96.6%</div></div>
-    </a>
-    <a class="card" href="https://github.com/guoyue0412/reading-journal-sites/blob/main/projects.md">
-      <img src="./assets/thumbs/bptt.jpg" alt="BPTT 可微仿真">
-      <div class="body"><div class="t">BPTT 可微仿真与 Sim-to-Real</div>
-      <div class="d">道通 · 公司首个实践验证 RL 控制器，获 10 万元项目奖金</div></div>
-    </a>
-  </div>
-</section>
+  <section class="section" aria-labelledby="skills-title">
+    <div class="section-head"><h2 id="skills-title">技术与机器人系统</h2><p>持续积累模型、数据、仿真、评测与部署的完整实践。</p></div>
+    <div class="skills"><div><h3>模型与训练</h3><p>PyTorch、JAX、DeepSpeed；DiT、Diffusion / Flow Matching、VLM / VLA，多机多卡训练。</p></div><div><h3>数据与部署</h3><p>LeRobot / OXE、DROID、EgoDex、AgiBot、RoboTwin；ROS2、TensorRT / ONNX。</p></div><div><h3>仿真与评测</h3><p>Isaac Sim、MuJoCo；LIBERO、CALVIN、RoboTwin、RoboDojo；RLT 等在线强化学习方法复现实践。</p></div><div><h3>机器人系统</h3><p>复合机器人月球探索团队负责人，负责全向底盘、5-DOF 机械臂和多传感器融合，获国家一等奖；工程实践与创新能力大赛「智能+」赛道全国总决赛金奖。</p></div></div>
+  </section>
 
-<section>
-  <h2>研究框架</h2>
-  <p class="sub">World-Action Model 训练栈整体架构（draw.io 绘制，源文件见 <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/assets/diagrams">assets/diagrams/</a>，点击图片看大图）。</p>
-  <div class="diagrams">
-    <a href="./assets/diagrams/wam_pipeline.png"><img src="./assets/diagrams/wam_pipeline.png" alt="WAM 三阶段训练栈架构图"></a>
-  </div>
-  <p class="caption">Head Camera-Frame WAM 三阶段训练栈（BAAI）：Video2World → PolicyDiT → ActionExpert</p>
-</section>
-
-<section>
-  <h2>实习经历</h2>
-  <ul class="tl">
-    <li>
-      <div class="when">2026.08 – 至今</div>
-      <div class="what">北京人形机器人创新中心 · 具身智能算法实习生</div>
-      <div class="detail">参与 Weave 0.5 多流具身世界模型预训练；建设 YouTube 与 Sim–Real 数据基建，结合评测驱动数据回流。项目模型取得 RBench 榜单第一名。</div>
-    </li>
-    <li>
-      <div class="when">2026.04 – 2026.08</div>
-      <div class="what">智源人工智能研究院（BAAI）认知大模型组 · 世界模型与机器人策略</div>
-      <div class="detail">参与 Video2World → PolicyDiT → ActionExpert 三阶段 WAM（Cosmos-Predict2.5-2B 教师），单次前向解码 30-step action chunk；针对 EgoDex 数据开展 Ego2Robot 转换；DiT4DiT 跨本体后训练完成双臂叠衣。</div>
-    </li>
-    <li>
-      <div class="when">2025.11 – 2026.04</div>
-      <div class="what">道通智能 · 强化学习算法工程师（前沿预研）</div>
-      <div class="detail">OpenPI π₀.₅ VLA 真机落地（8 卡 A800 全量微调 + ROS2 端云部署，抓取成功率 40%→70%）；JAX BPTT 可微仿真控制器（获 10 万元奖金）；残差动力学精度提升 10 倍、吞吐提升 1000%；AutoResearch 调参效率提升 2.6 倍。</div>
-    </li>
-  </ul>
-</section>
-
-<section>
-  <h2>教育经历</h2>
-  <table>
-    <tr><th>时间</th><th>学校</th><th>学位 / 专业</th><th>GPA</th></tr>
-    <tr><td>2024.08 – 2027.06（预计）</td><td>哈尔滨工业大学（深圳）· 机器人与先进制造学院</td><td>硕士 · 动力工程（保研）</td><td>3.639 / 4.0（前 5%）</td></tr>
-    <tr><td>2020.09 – 2024.06</td><td>吉林大学 · 汽车工程学院</td><td>本科 · 动力工程（已保研）</td><td>3.826 / 4.0（前 5%）</td></tr>
-  </table>
-</section>
-
-<section>
-  <h2>竞赛获奖</h2>
-  <p class="sub">中国机器人及人工智能大赛国家级一等奖（全场最快成绩）· 中国大学生工程训练大赛金奖</p>
-</section>
-
-<section>
-  <h2>核心技能</h2>
-  <table>
-    <tr><th>方向</th><th>具体内容</th></tr>
-    <tr><td>视频生成 / 策略建模</td><td>Video2World、Diffusion / Flow Matching、VLA、future latent / latent dynamics、跨本体动作空间适配</td></tr>
-    <tr><td>训练与数据工程</td><td>PyTorch、JAX、DeepSpeed、多机多卡 bf16；WebDataset、LeRobot/OXE、多源机器人数据统一与加权采样</td></tr>
-    <tr><td>评测与部署</td><td>LIBERO / CALVIN 消融评测、JAX BPTT 与 Sim-to-Real；ROS2 端云推理、TensorRT/ONNX 部署</td></tr>
-    <tr><td>语言</td><td>英语 CET-4 545 / CET-6 464</td></tr>
-  </table>
-</section>
-
-<section>
-  <h2>荣誉奖项（节选）</h2>
-  <ul class="awards">
-    <li>国家奖学金（2 / 145）</li>
-    <li>黑龙江省优秀学生</li>
-    <li>哈工大（深圳）特等学业奖学金</li>
-    <li>工程实践与创新能力大赛「智能+」赛道全国金奖（组长）</li>
-    <li>中国机器人及人工智能大赛国家一等奖（全场最快）</li>
-    <li>全国大学生数学竞赛二等奖</li>
-    <li>周培源力学竞赛全国优秀奖</li>
-    <li>黎明人才奖学金 × 3（10 / 455）</li>
-  </ul>
-</section>
-
+  <section id="notes" class="section" aria-labelledby="notes-title"><div class="section-head"><h2 id="notes-title">阅读与记录</h2><p>研究之外，记录阅读、实践和长期学习中的问题。</p></div><div class="link-list"><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/papers">论文阅读</a><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习记录</a><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">日常思考</a><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招复盘</a></div></section>
 </main>
-
-<footer>
-  <div class="wrap">
-    内容入口：<a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/papers">论文阅读</a> ·
-    <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招记录</a> ·
-    <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习日记</a> ·
-    <a href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">个人感悟</a>
-    　|　<a href="https://github.com/guoyue0412/reading-journal-sites">仓库主页</a><br>
-    最后更新：2026-08-27 · 欢迎通过邮件联系：<a href="mailto:1601954018@qq.com">1601954018@qq.com</a>
-  </div>
-</footer>
-
+<footer class="site-footer"><div class="container footer-inner"><p>郭跃 · Yue Guo · 更新于 2026-10-15</p><p><a href="mailto:1601954018@qq.com">1601954018@qq.com</a> · <a href="https://github.com/guoyue0412/reading-journal-sites">网站源码</a></p></div></footer>
 </body>
 </html>
