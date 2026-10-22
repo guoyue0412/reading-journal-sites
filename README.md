@@ -14,6 +14,18 @@
 
 ## 科研与项目经历
 
+### RoboDojo · 大小脑协同框架
+
+**在研 · VLM 任务决策与进度监控 × WAM 动作执行**
+
+面向长程机器人操作，研究由上层任务决策与下层动作预测协同的分层框架。
+
+- **大脑（VLM）：** 结合整体任务与当前、历史多视角观测，维护子目标和执行进度，对小脑提出的动作候选进行高层判断。
+- **小脑（WAM / OminiEWM）：** 以任务指令、观测历史和本体状态为条件，预测短时动作序列。
+- **协同反馈：** 将执行后的实测观测纳入历史，为后续的进度判断与动作预测提供反馈。
+
+[查看个人主页中的大小脑框架](https://guoyue0412.github.io/reading-journal-sites/#robodojo)
+
 ### Dream4ACT · 跨本体视觉动作接口
 
 *Dream4ACT: A Shared Visual Action Interface for Multi-Embodiment Video-Action Modeling*
@@ -112,4 +124,4 @@ WAM 在 Franka 平台完成 **100 次 rollout，成功率约 80%**；另以新�
 - [秋招复盘](./content/jobs/)
 - [日常思考](./content/reflections/)
 
-*最后更新：2026-10-15*
+*最后更新：2026-10-22*

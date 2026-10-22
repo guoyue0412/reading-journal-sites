@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>郭跃 · 具身世界模型与机器人学习</title>
-  <meta name="description" content="郭跃的个人主页。具身世界模型、World-Action Model 与机器人学习；Dream4ACT、WEAVE-0.5、WAM、Colugo 研究及真机实践。">
+  <meta name="description" content="郭跃的个人主页。RoboDojo 大小脑协同框架、具身世界模型与机器人学习；VLM 任务决策、WAM 动作执行及 Dream4ACT、WEAVE-0.5、Colugo 研究。">
   <link rel="icon" type="image/png" href="./assets/logo.png">
   <link rel="stylesheet" href="./style.css">
 </head>
@@ -36,7 +36,18 @@
   </section>
 
   <section id="research" class="section" aria-labelledby="research-title">
-    <div class="section-head"><h2 id="research-title">研究工作</h2><p>从跨本体动作表示、多流视频预测，到面向动作执行的未来表征学习。</p></div>
+    <div class="section-head"><h2 id="research-title">研究工作</h2><p>大小脑协同、跨本体动作表示与未来表征学习。</p></div>
+    <article class="research-item" id="robodojo">
+      <div class="research-meta"><h3>RoboDojo</h3><p>大小脑协同框架</p><span class="status">在研 · 分层机器人策略</span></div>
+      <div>
+        <p>面向长程机器人操作，研究由上层任务决策与下层动作预测协同的分层框架。</p>
+        <ul>
+          <li><strong>大脑（VLM）：</strong>结合整体任务与当前、历史多视角观测，维护子目标和执行进度，对小脑提出的动作候选进行高层判断。</li>
+          <li><strong>小脑（WAM / OminiEWM）：</strong>以任务指令、观测历史和本体状态为条件，预测短时动作序列。</li>
+          <li><strong>协同反馈：</strong>将执行后的实测观测纳入历史，为后续的进度判断与动作预测提供反馈。</li>
+        </ul>
+      </div>
+    </article>
     <article class="research-item" id="dream4act">
       <div class="research-meta"><h3>Dream4ACT</h3><p>跨本体视觉动作接口</p><span class="status">ICLR 2027 · 已投稿</span></div>
       <div>
@@ -95,6 +106,6 @@
 
   <section id="notes" class="section" aria-labelledby="notes-title"><div class="section-head"><h2 id="notes-title">阅读与记录</h2><p>研究之外，记录阅读、实践和长期学习中的问题。</p></div><div class="link-list"><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/papers">论文阅读</a><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/internship">实习记录</a><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/reflections">日常思考</a><a class="text-link" href="https://github.com/guoyue0412/reading-journal-sites/tree/main/content/jobs">秋招复盘</a></div></section>
 </main>
-<footer class="site-footer"><div class="container footer-inner"><p>郭跃 · Yue Guo · 更新于 2026-10-15</p><p><a href="mailto:1601954018@qq.com">1601954018@qq.com</a> · <a href="https://github.com/guoyue0412/reading-journal-sites">网站源码</a></p></div></footer>
+<footer class="site-footer"><div class="container footer-inner"><p>郭跃 · Yue Guo · 更新于 2026-10-22</p><p><a href="mailto:1601954018@qq.com">1601954018@qq.com</a> · <a href="https://github.com/guoyue0412/reading-journal-sites">网站源码</a></p></div></footer>
 </body>
 </html>
